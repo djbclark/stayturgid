@@ -1,0 +1,39 @@
+name: stayturgid-agent CI
+
+# Overlay-only on ci/base. Port of .forgejo/workflows/agent-build.yml to
+# free GitHub-hosted runners. Builds unsigned release APK and publishes a
+# GitHub prerelease agent-ci-<version>-<sha8>. No Forgejo token; uses
+# GITHUB_TOKEN. Hyades-only pieces (ext4 loop disk, loopback-port-shim) omitted.
+
+on:
+  push:
+    branches: ['ci/run/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/djbclark/ci-image-plektra@sha256:90a5de59e4a7efaa70b4de6af3221023151a2087cfb2689cecfe18a6a1cf602e
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test, detekt and assemble the unsigned release APK
+        timeout-minutes: 45
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/device/native-agent"
+          java -version
+          echo "BENCHSTEP gradle-start $(date +%s)"
+          ./gradlew --no-daemon :app:test :app:detekt :app:assembleRelease
+          echo "BENCHSTEP gradle-end $(date +%s)"
+          ls -l app/build/outputs/apk/release/
+      - name: Publish the GitHub prerelease
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          python3 scripts/ci/agent_release_github.py

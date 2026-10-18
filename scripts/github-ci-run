@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# github-ci-run — overlay ci/base onto REF and push ci/run/<slug> to GitHub.
+#
+#   scripts/github-ci-run [--no-wait] [REF]
+#
+# REF defaults to HEAD. Requires a local ci/base branch (or origin/ci/base) that
+# holds .github/workflows/linux-ci.yml (or agent-ci.yml) plus this script.
+# Every other .github/workflows/* file is removed in the overlay commit so
+# upstream workflows do not fire on the ci/run/** push.
+set -euo pipefail
+
+wait=1
+if [ "${1:-}" = "--no-wait" ]; then wait=0; shift; fi
+ref="${1:-HEAD}"
+
+top=$(git rev-parse --show-toplevel)
+cd "$top"
+
+remote="${GITHUB_CI_REMOTE:-origin}"
+# Resolve github.com/djbclark/<repo> when origin is an alt name (frdminc).
+if ! git remote get-url "$remote" >/dev/null 2>&1; then
+  echo "github-ci-run: remote $remote missing" >&2
+  exit 2
+fi
+
+base_ref=
+if git show-ref --verify --quiet refs/heads/ci/base; then
+  base_ref=refs/heads/ci/base
+elif git show-ref --verify --quiet refs/remotes/"$remote"/ci/base; then
+  base_ref=refs/remotes/"$remote"/ci/base
+else
+  echo "github-ci-run: ci/base not found locally or on $remote" >&2
+  exit 2
+fi
+
+target_sha=$(git rev-parse --verify "$ref^{commit}")
+short=$(git rev-parse --short=8 "$target_sha")
+slug=$(echo "$ref" | tr '/:' '--' | tr -c 'A-Za-z0-9._-' '-' | gsed 's/-\+/-/g; s/^-//; s/-$//')
+[ -n "$slug" ] || slug=head
+run_branch="ci/run/${slug}-${short}"
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+export GIT_DIR="$top/.git"
+export GIT_INDEX_FILE="$work/index"
+export GIT_WORK_TREE="$work/tree"
+mkdir -p "$GIT_WORK_TREE"
+
+# Start from the target tree.
+git read-tree "$target_sha^{tree}"
+git checkout-index -a -f
+
+# Overlay selected paths from ci/base (ignore missing).
+# Unset overlay env so git -C "$top" talks to the real repo.
+overlay_git() { env -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$top" "$@"; }
+overlay_paths=(.github/workflows/linux-ci.yml .github/workflows/agent-ci.yml scripts/github-ci-run docs/ci-github.md)
+for path in "${overlay_paths[@]}"; do
+  if overlay_git cat-file -e "$base_ref:$path" 2>/dev/null; then
+    mkdir -p "$GIT_WORK_TREE/$(dirname "$path")"
+    overlay_git show "$base_ref:$path" > "$GIT_WORK_TREE/$path"
+  fi
+done
+if overlay_git ls-tree -r --name-only "$base_ref" | ggrep -q '^scripts/ci/'; then
+  overlay_git archive "$base_ref" -- scripts/ci | tar -x -C "$GIT_WORK_TREE"
+fi
+
+# Neutralise every workflow that is not our linux/agent CI.
+mkdir -p "$GIT_WORK_TREE/.github/workflows"
+for f in "$GIT_WORK_TREE"/.github/workflows/*; do
+  [ -e "$f" ] || continue
+  base=$(basename "$f")
+  case "$base" in
+    linux-ci.yml|agent-ci.yml) ;;
+    *) rm -f "$f" ;;
+  esac
+done
+
+found=0
+for k in linux-ci.yml agent-ci.yml; do
+  [ -f "$GIT_WORK_TREE/.github/workflows/$k" ] && found=1
+done
+if [ "$found" = 0 ]; then
+  echo "github-ci-run: ci/base has no linux-ci.yml or agent-ci.yml" >&2
+  ls -la "$GIT_WORK_TREE/.github/workflows" >&2 || true
+  exit 2
+fi
+
+# Rebuild the index from the mutated work tree.
+(
+  cd "$GIT_WORK_TREE"
+  git add -A
+)
+tree=$(git write-tree)
+msg="ci: overlay ci/base onto ${short} ($(env -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$top" log -1 --format=%s "$target_sha"))"
+commit=$(git commit-tree "$tree" -p "$target_sha" -m "$msg")
+# Drop temp index/worktree env before push
+unset GIT_INDEX_FILE GIT_WORK_TREE
+
+echo "overlay $commit for $target_sha -> $remote $run_branch"
+timeout 600 git push --force "$remote" "$commit:refs/heads/$run_branch"
+
+echo "pushed https://github.com/$(git -C "$top" remote get-url "$remote" | gsed -E 's#.*github.com[:/]##; s#\\.git$##')/tree/$run_branch"
+
+if [ "$wait" = 0 ]; then
+  exit 0
+fi
+
+# Watch the newest run on that branch (up to ~40 min in 8-min chunks externally).
+repo=$(git -C "$top" remote get-url "$remote" | gsed -E 's#.*github.com[:/]##; s#\\.git$##')
+# Give Actions a moment to register the push.
+sleep 5
+run_id=$(timeout 60 gh run list -R "$repo" --branch "$run_branch" --limit 1 --json databaseId -q '.[0].databaseId')
+if [ -z "$run_id" ] || [ "$run_id" = null ]; then
+  echo "github-ci-run: no run found yet for $run_branch" >&2
+  exit 1
+fi
+echo "watching run $run_id"
+timeout 480 gh run watch "$run_id" -R "$repo" --exit-status
