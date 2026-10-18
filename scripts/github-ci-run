@@ -64,16 +64,66 @@ if overlay_git ls-tree -r --name-only "$base_ref" | ggrep -q '^scripts/ci/'; the
   overlay_git archive "$base_ref" -- scripts/ci | tar -x -C "$GIT_WORK_TREE"
 fi
 
-# Neutralise every workflow that is not our linux/agent CI.
+# Neutralise workflows that would fire on a push to ci/run/**.
+# Keep others intact (herdr maintenance tests parse .github/workflows/*.yml).
 mkdir -p "$GIT_WORK_TREE/.github/workflows"
-for f in "$GIT_WORK_TREE"/.github/workflows/*; do
-  [ -e "$f" ] || continue
-  base=$(basename "$f")
-  case "$base" in
-    linux-ci.yml|agent-ci.yml) ;;
-    *) rm -f "$f" ;;
-  esac
-done
+(
+  cd "$GIT_WORK_TREE"
+  python3 - <<'PYN'
+import pathlib, sys
+try:
+    import yaml
+except ImportError:
+    root = pathlib.Path(".github/workflows")
+    for f in root.iterdir():
+        if f.name not in ("linux-ci.yml", "agent-ci.yml") and f.suffix in (".yml", ".yaml"):
+            f.unlink()
+    raise SystemExit(0)
+
+def would_fire_on_ci_run(on):
+    if on is None:
+        return False
+    if isinstance(on, str):
+        on = {on: None}
+    if isinstance(on, list):
+        on = {k: None for k in on}
+    if not isinstance(on, dict) or "push" not in on:
+        return False
+    push = on["push"]
+    if push is None or push is True:
+        return True
+    if not isinstance(push, dict):
+        return True
+    branches = push.get("branches")
+    tags = push.get("tags")
+    if tags is not None and branches is None:
+        return False
+    if branches is None:
+        return True
+    patterns = branches if isinstance(branches, list) else [branches]
+    for pat in patterns:
+        if pat in ("*", "**", "ci/run/**") or str(pat).startswith("ci/"):
+            return True
+    return False
+
+root = pathlib.Path(".github/workflows")
+for f in sorted(root.iterdir()):
+    if f.name in ("linux-ci.yml", "agent-ci.yml"):
+        continue
+    if f.suffix not in (".yml", ".yaml"):
+        continue
+    try:
+        data = yaml.safe_load(f.read_text()) or {}
+    except Exception:
+        f.unlink()
+        print(f"neutralised (deleted, unreadable) {f.name}", file=sys.stderr)
+        continue
+    on = data.get("on", data.get(True))
+    if would_fire_on_ci_run(on):
+        f.unlink()
+        print(f"neutralised (deleted) {f.name}", file=sys.stderr)
+PYN
+)
 
 found=0
 for k in linux-ci.yml agent-ci.yml; do
