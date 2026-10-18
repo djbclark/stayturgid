@@ -54,6 +54,11 @@ options:
     description: Termux application package name.
     type: str
     default: com.termux
+  host:
+    description: Fleet host name used in the C(hermes-ping) sent when the phone is
+      locked or asleep. The module waits (up to ten minutes) for an unlocked screen
+      before it types C(sshd) into Termux. Defaults to C(device).
+    type: str
 """
 
 EXAMPLES = r"""
@@ -123,6 +128,7 @@ def main():
             install_openssh=dict(type="bool", default=True),
             start_sshd=dict(type="bool", default=True),
             termux_package=dict(type="str", default="com.termux"),
+            host=dict(type="str"),
         ),
         supports_check_mode=True,
     )
@@ -145,6 +151,7 @@ def main():
             start_sshd_service=module.params["start_sshd"],
             check_mode=module.check_mode,
             termux_pkg=module.params["termux_package"],
+            host=module.params["host"],
         )
     except (RuntimeError, ValueError) as exc:
         module.fail_json(msg=str(exc))

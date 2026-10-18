@@ -242,6 +242,19 @@
           node's adb ({{ ansible_failed_result.msg | default('unknown error') }});
           the on-device grant below still runs if Termux's adb key is authorized.
 
+# The task below is the first time a freshly installed Termux's adb connects to
+# adbd, and an unknown key raises the "Allow USB debugging?" dialog. Samsung
+# drops that dialog silently on the lock screen, so it never shows and nothing
+# raises it again for ten minutes (s24, 2026-10-17). Wait (one hermes-ping, up to
+# ten minutes) for an awake, unlocked screen first. Nothing is checked when
+# Termux's key is already authorised, so a routine deploy never waits.
+- name: Wait for an unlocked screen before Termux's first adb connect
+  stayturgid.termux.termux_screen_ready:
+    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname, errors='ignore') | default('', true) }}"
+    host: "{{ inventory_hostname }}"
+  delegate_to: localhost
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
 # Termux:API WRITE_SETTINGS, overlay ops, and POST_NOTIFICATIONS require the
 # privileged adb shell (uid 2000) on localhost:5555 — Termux cannot self-grant.
 - name: Grant Termux permissions via privileged shell

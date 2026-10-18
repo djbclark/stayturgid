@@ -18,5 +18,6 @@
         device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
         keys_dir: "{{ stayturgid_ssh_keys_dir }}"
         public_key_files: "{{ stayturgid_ssh_public_key_files | default([]) }}"
+        host: "{{ inventory_hostname }}"
       delegate_to: localhost
       when: not (_ssh_preflight_ok | default(false) | bool)

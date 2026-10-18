@@ -155,6 +155,7 @@ def bootstrap_serial(
     install_openssh: bool = True,
     forward: bool = True,
     verify_alias: str = "",
+    host: str | None = None,
 ) -> None:
     paths = pubkey_paths if pubkey_paths is not None else discover_pubkey_paths(keys_dir)
     lines = read_pubkey_lines([str(p) for p in paths])
@@ -167,6 +168,7 @@ def bootstrap_serial(
             connect=True,
             install_openssh_pkg=install_openssh,
             start_sshd_service=True,
+            host=host,
         )
 
     _do_bootstrap()
@@ -225,6 +227,7 @@ def bootstrap_alias(
     bootstrap_serial(
         serial,
         verify_alias=verify_alias if verify_alias is not None else alias,
+        host=alias,
         **kwargs,
     )
 
