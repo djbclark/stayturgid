@@ -511,6 +511,7 @@ class FakeDownloadModule:
         self.tmpdir = str(tmpdir)
         self.bins = bins
         self.run = run
+        self.params = {"download_timeout": 180}
         self.calls = []
         self.warnings = []
 
