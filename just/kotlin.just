@@ -56,7 +56,8 @@ _kt-ci-only:
       exit 3
     fi
 
-# Run the GitHub CI Android build of REF (default origin/master): overlay ci/base, push ci/run/agent-<slug>, print the run URL.
+# Run the GitHub CI Android build of REF (default origin/master): overlay ci/base, push ci/run/agent-<slug>, print the branch URL
+# (the run: gh run list -R djbclark/stayturgid --branch ci/run/agent-<slug>).
 agent-ci-run ref="origin/master":
     #!/usr/bin/env bash
     set -euo pipefail
