@@ -71,6 +71,28 @@ jobs:
           sudo install -m 0755 /tmp/typos /usr/local/bin/typos
           sudo npm install -g "@biomejs/biome@${BIOME_VERSION}" "markdownlint-cli@${MARKDOWNLINT_VERSION}" "prettier@${PRETTIER_VERSION}"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Provide what the control node has and a Linux runner lacks
+        run: |
+          set -euo pipefail
+          # 1. adb (the Termux bootstrap tests run it).
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq adb gawk
+          # 2. The Homebrew GNU tools the Mac-targeted role scripts call by their
+          #    g* names (gsort, gawk, gfind, gxargs, ...): on Linux the same tools
+          #    carry the bare names, so alias them.
+          mkdir -p "$HOME/gnu-bin"
+          for t in awk find xargs sort sed grep tr date stat cut head tail wc readlink realpath mktemp; do
+            if p=$(command -v "$t"); then ln -sf "$p" "$HOME/gnu-bin/g$t"; fi
+          done
+          echo "$HOME/gnu-bin" >> "$GITHUB_PATH"
+          # 3. A site overlay: the tests resolve one the way the control node does
+          #    (OPS_ROOT/site-*), and the operator's real site is private. Use the
+          #    generic example inventory.
+          ops="$RUNNER_TEMP/ops"
+          mkdir -p "$ops/site-ci/inventory"
+          cp ansible/ansible.cfg "$ops/site-ci/ansible.cfg"
+          cp ansible/inventory/hosts.yml.example "$ops/site-ci/inventory/hosts.yml"
+          echo "OPS_ROOT=$ops" >> "$GITHUB_ENV"
       - name: Install test environment (.venv-test, node_modules, ansible collections)
         run: |
           set -euo pipefail
@@ -82,3 +104,11 @@ jobs:
         run: |
           set -euo pipefail
           just test
+      - name: Diagnose (each remaining recipe separately)
+        if: failure()
+        run: |
+          for r in ansible-test check-ts ruff typos biome shfmt just-check markdownlint prettier html-validate stylelint validate-identity; do
+            echo "::group::$r"
+            if just "$r"; then echo "RECIPE-OK $r"; else echo "RECIPE-FAILED $r"; fi
+            echo "::endgroup::"
+          done
