@@ -6,6 +6,7 @@ stayturgid-agent-<version>-<sha8>-release-unsigned.apk (+ .sha256).
 Uses GITHUB_TOKEN (Actions automatic token). APK remains unsigned; the Mac
 signs with apksigner before the GitHub release that bootstrap_apks pins.
 """
+
 import hashlib
 import json
 import os
@@ -14,7 +15,6 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-import base64
 
 REPO = os.environ["GITHUB_REPOSITORY"]
 TOKEN = os.environ["GITHUB_TOKEN"]
