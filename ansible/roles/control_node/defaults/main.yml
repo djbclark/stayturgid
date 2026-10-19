@@ -99,7 +99,9 @@ stayturgid_mac_uv_tools:
 stayturgid_hermes_enabled: true
 stayturgid_hermes_gateway_enabled: true
 stayturgid_hermes_home: "{{ lookup('env', 'HOME') }}/.hermes"
-stayturgid_hermes_model: big-pickle
+# 2026-10-18 (djbclark): default moved to xAI grok-4.7 (live model.provider: xai-oauth); `hermes config set model`
+# writes only model.default. big-pickle got HTTP 400 from the v0.22.2 skill curator.
+stayturgid_hermes_model: grok-4.7
 stayturgid_hermes_provider: opencode-zen
 stayturgid_hermes_gateway_label: com.stayturgid.hermes-gateway
 # Binary path for the gateway. Default: git-install venv wrapper (Python
