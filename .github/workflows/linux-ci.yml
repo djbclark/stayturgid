@@ -99,6 +99,9 @@ jobs:
         run: |
           set -euo pipefail
           just test-venv
+          # The fleet dashboard tests need flask (declared in pyproject.toml, not in
+          # tests/python/requirements.txt); without it they are skipped.
+          uv pip install --python .venv-test/bin/python 'flask>=3'
           # `just test` reaches ansible-galaxy and ansible-test through PATH.
           echo "$GITHUB_WORKSPACE/.venv-test/bin" >> "$GITHUB_PATH"
           PUPPETEER_SKIP_DOWNLOAD=1 bun install --frozen-lockfile
