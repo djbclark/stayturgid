@@ -1,12 +1,21 @@
-# GitHub stayturgid-agent CI (ci/base)
+# GitHub CI for stayturgid (ci/base)
 
-Builds `device/native-agent` on free GitHub-hosted runners via `ci/base` +
-`ci/run/**`, publishing unsigned APKs as GitHub prereleases
-`agent-ci-<version>-<sha8>` (same naming as the Forgejo flow).
+CI for this repo runs on free GitHub-hosted runners through the orphan branch
+`ci/base`, which holds only the overlay (workflows, wrapper, this note). The
+wrapper builds a commit of target tree + overlay, force-pushes it to
+`ci/run/<mode>-<slug>-<sha8>` and watches the run(s).
 
-1. Workflow: `.github/workflows/agent-ci.yml` on `ci/base`
-2. Wrapper: `scripts/github-ci-run [REF]`
-3. Fetch/sign on the Mac: `just agent-ci-fetch` currently talks to Forgejo
-   (`control/tools/native-agent/ci_fetch_sign.py`). Point it at GitHub releases
-   on `djbclark/stayturgid` before deleting the Forgejo repo.
-4. APKs are unsigned in CI; the release key never leaves the Mac.
+1. `scripts/github-ci-run [--no-wait] [--tests|--agent|--all] [REF]`
+   (REF defaults to HEAD; `just agent-ci-run` calls it with `--agent`)
+2. `--tests` (default): `.github/workflows/linux-ci.yml` runs `just test`: shell
+   TAP unit tests, the pytest twins, ansible-test units, and the
+   ruff/typos/biome/shfmt/justfile/markdown/prettier/html-validate/stylelint/identity
+   checks, with tool versions pinned to the control node's.
+3. `--agent`: `.github/workflows/agent-ci.yml` builds `device/native-agent`
+   (Gradle test, detekt, unsigned release APK) and publishes the GitHub
+   prerelease `agent-ci-<version>-<sha8>`.
+4. `--all`: both.
+5. On the Mac, `just agent-ci-fetch` downloads the APK and signs it with the
+   release key, which never leaves the Mac.
+6. Not in CI, on purpose: device-tier tests (ADB, SSH, FireRPA), release
+   signing, and the Mac control_node apply (launchd, Keychain).

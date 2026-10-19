@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 # github-ci-run — overlay ci/base onto REF and push ci/run/<slug> to GitHub.
 #
-#   scripts/github-ci-run [--no-wait] [REF]
+#   scripts/github-ci-run [--no-wait] [--tests|--agent|--all] [REF]
+#
+# Modes (the mode is the first word of the pushed branch, which picks the workflow):
+#   --tests (default)  ci/run/tests-<slug>-<sha8>  linux-ci.yml: `just test`
+#   --agent            ci/run/agent-<slug>-<sha8>  agent-ci.yml: Gradle test, detekt, unsigned APK + prerelease
+#   --all              ci/run/all-<slug>-<sha8>    both
+# GITHUB_CI_WATCH_TIMEOUT (seconds, default 3000) bounds the wait per run.
 #
 # REF defaults to HEAD. Requires a local ci/base branch (or origin/ci/base) that
 # holds .github/workflows/linux-ci.yml (or agent-ci.yml) plus this script.
@@ -10,7 +16,19 @@
 set -euo pipefail
 
 wait=1
-if [ "${1:-}" = "--no-wait" ]; then wait=0; shift; fi
+mode=tests
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --no-wait) wait=0 ;;
+    --tests) mode=tests ;;
+    --agent) mode=agent ;;
+    --all) mode=all ;;
+    --) shift; break ;;
+    -*) echo "github-ci-run: unknown option $1" >&2; exit 2 ;;
+    *) break ;;
+  esac
+  shift
+done
 ref="${1:-HEAD}"
 
 top=$(git rev-parse --show-toplevel)
@@ -37,7 +55,7 @@ target_sha=$(git rev-parse --verify "$ref^{commit}")
 short=$(git rev-parse --short=8 "$target_sha")
 slug=$(echo "$ref" | tr '/:' '--' | tr -c 'A-Za-z0-9._-' '-' | gsed 's/-\+/-/g; s/^-//; s/-$//')
 [ -n "$slug" ] || slug=head
-run_branch="ci/run/${slug}-${short}"
+run_branch="ci/run/${mode}-${slug}-${short}"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -152,20 +170,30 @@ unset GIT_INDEX_FILE GIT_WORK_TREE
 echo "overlay $commit for $target_sha -> $remote $run_branch"
 timeout 600 git push --force "$remote" "$commit:refs/heads/$run_branch"
 
-echo "pushed https://github.com/$(git -C "$top" remote get-url "$remote" | gsed -E 's#.*github.com[:/]##; s#\\.git$##')/tree/$run_branch"
+repo=$(git -C "$top" remote get-url "$remote" | gsed -E 's#.*github.com[:/]##; s#\.git$##')
+echo "pushed https://github.com/$repo/tree/$run_branch"
 
 if [ "$wait" = 0 ]; then
   exit 0
 fi
 
-# Watch the newest run on that branch (up to ~40 min in 8-min chunks externally).
-repo=$(git -C "$top" remote get-url "$remote" | gsed -E 's#.*github.com[:/]##; s#\\.git$##')
-# Give Actions a moment to register the push.
-sleep 5
-run_id=$(timeout 60 gh run list -R "$repo" --branch "$run_branch" --limit 1 --json databaseId -q '.[0].databaseId')
-if [ -z "$run_id" ] || [ "$run_id" = null ]; then
+# Watch every run the push started (one per workflow the mode selects).
+# Give Actions a moment to register the push, then look for runs of this commit.
+want=1
+[ "$mode" = all ] && want=2
+run_ids=
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
+  sleep 5
+  run_ids=$(timeout 60 gh run list -R "$repo" --commit "$commit" --json databaseId -q '.[].databaseId' || true)
+  [ "$(echo "$run_ids" | grep -c .)" -ge "$want" ] && break
+done
+if [ -z "$run_ids" ]; then
   echo "github-ci-run: no run found yet for $run_branch" >&2
   exit 1
 fi
-echo "watching run $run_id"
-timeout 480 gh run watch "$run_id" -R "$repo" --exit-status
+rc=0
+for run_id in $run_ids; do
+  echo "watching https://github.com/$repo/actions/runs/$run_id"
+  timeout "${GITHUB_CI_WATCH_TIMEOUT:-3000}" gh run watch "$run_id" -R "$repo" --exit-status || rc=$?
+done
+exit "$rc"
