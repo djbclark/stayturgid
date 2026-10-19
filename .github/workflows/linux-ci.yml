@@ -32,6 +32,8 @@ defaults:
 
 env:
   STAYTURGID_CI: "1"
+  # Print why each test was skipped, so the log shows every skip.
+  PYTEST_ADDOPTS: "-rs"
   # Tool versions pinned to the control node's, so format checks (ruff format,
   # prettier, shfmt, biome) judge the same bytes the same way.
   RUFF_VERSION: "0.17.1"
@@ -104,11 +106,3 @@ jobs:
         run: |
           set -euo pipefail
           just test
-      - name: Diagnose (each remaining recipe separately)
-        if: failure()
-        run: |
-          for r in ansible-test check-ts ruff typos biome shfmt just-check markdownlint prettier html-validate stylelint validate-identity; do
-            echo "::group::$r"
-            if just "$r"; then echo "RECIPE-OK $r"; else echo "RECIPE-FAILED $r"; fi
-            echo "::endgroup::"
-          done
