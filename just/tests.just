@@ -3,6 +3,15 @@
 # Full test suite (default).
 test: unit-and-pytest
 
+# Run `just test` on GitHub CI for REF (default origin/master): overlay ci/base, push ci/run/tests-<slug>, watch the run.
+ci-run ref="origin/master":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    git -C "{{ repo }}" fetch origin ci/base master
+    tmp="$(mktemp -t github-ci-run.XXXXXX)"
+    git -C "{{ repo }}" show origin/ci/base:scripts/github-ci-run > "$tmp"
+    cd "{{ repo }}" && bash "$tmp" --tests "{{ ref }}"
+
 # Report tool availability → .config.mk.
 configure:
     ./configure

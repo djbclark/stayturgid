@@ -97,6 +97,10 @@ Day to day: `just health`, `just errors`, `just firerpa-health`, `just test`.
 its Gradle build locally; details in
 [device/native-agent/README.md](device/native-agent/README.md), Build.
 
+**`just test` also runs on GitHub CI (2026-10-18):** push `master`, then `just ci-run` (overlays `ci/base`, pushes
+`ci/run/tests-*`, watches `linux-ci.yml`). Device, signing and `control_node` apply stay on the Mac. Details: the `ci/base`
+branch's `docs/ci-github.md`.
+
 **Driving a device from an agent (2026-10-09):** use the `firerpa` MCP server first.
 It is the remote bridge on `100.113.53.87:8000`; never run the local stdio bridge,
 which is too heavy. If it is down or unreachable, fall back to the `maestro` MCP

@@ -56,14 +56,14 @@ _kt-ci-only:
       exit 3
     fi
 
-# Run the GitHub CI build of REF (default origin/master): overlay ci/base, push ci/run/<slug>, print the run URL.
+# Run the GitHub CI Android build of REF (default origin/master): overlay ci/base, push ci/run/agent-<slug>, print the run URL.
 agent-ci-run ref="origin/master":
     #!/usr/bin/env bash
     set -euo pipefail
     git -C "{{ repo }}" fetch origin ci/base master
     tmp="$(mktemp -t github-ci-run.XXXXXX)"
     git -C "{{ repo }}" show origin/ci/base:scripts/github-ci-run > "$tmp"
-    cd "{{ repo }}" && bash "$tmp" --no-wait "{{ ref }}"
+    cd "{{ repo }}" && bash "$tmp" --no-wait --agent "{{ ref }}"
 
 # Fetch the CI-built APK for HEAD (or SHA) from GitHub releases and sign it with the release key.
 agent-ci-fetch sha="":
