@@ -214,16 +214,20 @@ tuples of synonyms and try in order.
 
 ## Common failure modes
 
-| Symptom                     | Likely cause                           | Fix                                               |
-| --------------------------- | -------------------------------------- | ------------------------------------------------- |
-| Taps do nothing             | Inversion off / session not held       | Hold `ScreenControlSession`; gate input           |
-| Wrong toggle flips          | Nearest-Switch heuristic too wide      | Prefer Switch _after_ the title row               |
-| Empty hierarchy             | App animating / wrong activity         | `wait_text` / sleep / re-dump                     |
-| Handsets `BadStatusLine`    | u2 still holding UiAutomation          | Kill u2 daemon; don’t run both                    |
-| `hs use` rejects serial     | Crowded `adb devices` / `ip:5555`      | Fixed port + `--host 127.0.0.1`                   |
-| Focus jumps to Discord/etc. | Overlay / notification                 | Clear obstructions; re-launch target              |
-| Fire `termux-dialog` hangs  | Fire OS Termux API stalls              | Short SSH timeouts; quiet mode for audits         |
-| Battery-unrestrict prompt   | App wants unrestricted for auto-update | Deny; keep OS battery optimized if policy says so |
+| Symptom                                                     | Likely cause                                                                                                      | Fix                                                                                                        |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Taps do nothing                                             | Inversion off / session not held                                                                                  | Hold `ScreenControlSession`; gate input                                                                    |
+| Wrong toggle flips                                          | Nearest-Switch heuristic too wide                                                                                 | Prefer Switch _after_ the title row                                                                        |
+| Empty hierarchy                                             | App animating / wrong activity                                                                                    | `wait_text` / sleep / re-dump                                                                              |
+| Handsets `BadStatusLine`                                    | u2 still holding UiAutomation                                                                                     | Kill u2 daemon; don’t run both                                                                             |
+| `hs use` rejects serial                                     | Crowded `adb devices` / `ip:5555`                                                                                 | Fixed port + `--host 127.0.0.1`                                                                            |
+| Focus jumps to Discord/etc.                                 | Overlay / notification                                                                                            | Clear obstructions; re-launch target                                                                       |
+| Fire `termux-dialog` hangs                                  | Fire OS Termux API stalls                                                                                         | Short SSH timeouts; quiet mode for audits                                                                  |
+| Battery-unrestrict prompt                                   | App wants unrestricted for auto-update                                                                            | Deny; keep OS battery optimized if policy says so                                                          |
+| RN app ignores taps; `InputDispatcher` shows them delivered | App-side (not injection): s24 Paseo 0.11.4 ignored injected _and_ finger taps, even after `pm clear` (2026-10-18) | Check `logcat` for `Delivering touch to (<app pid>)` before blaming adb; then try a finger tap; don't loop |
+| Bottom sheet closed by `KEYCODE_BACK`                       | React Native sheet (`@gorhom/bottom-sheet`) dismissed outside JS                                                  | Never send BACK to hide the keyboard in an RN form; tap the next field instead                             |
+| `uiautomator dump` shows keyguard/another app               | Dump reads the a11y active window, not the RN app                                                                 | Use Handsets (priority 1) or `screencap` and read the image                                                |
+| RN text field drops characters                              | Fast `input text` into a controlled input                                                                         | Type numbers one character at a time with ~0.4 s gaps, then screenshot                                     |
 
 ---
 
