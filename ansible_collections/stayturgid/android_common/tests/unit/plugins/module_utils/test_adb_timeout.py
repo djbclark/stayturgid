@@ -29,6 +29,22 @@ def test_run_command_with_timeout_prefixes_command(monkeypatch):
     assert calls == [["/usr/bin/timeout", "30", "adb", "devices"]]
 
 
+def test_run_command_with_timeout_names_a_download(monkeypatch):
+    monkeypatch.setattr(at, "resolve_timeout_bin", lambda get_bin_path_fn=None: "/usr/bin/timeout")
+
+    def fake_run(cmd):
+        return 124, "", ""
+
+    _rc, _out, err = at.run_command_with_timeout(
+        fake_run,
+        ["aria2c", "https://example.invalid/a"],
+        timeout=1800,
+        what="download",
+    )
+    assert "download timed out after 1800s" in err
+    assert "ADB" not in err
+
+
 def test_run_command_with_timeout_handles_rc_124(monkeypatch):
     monkeypatch.setattr(at, "resolve_timeout_bin", lambda get_bin_path_fn=None: "/usr/bin/timeout")
 

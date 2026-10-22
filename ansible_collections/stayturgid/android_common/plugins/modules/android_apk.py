@@ -123,11 +123,15 @@ options:
     default: 180
   download_timeout:
     description: >-
-      Seconds each download attempt (aria2c, then C(gh release download)) may take.
-      Raise it for a very large APK (Paseo, 263 MB: 180 s was not enough on a loaded
-      control node, 2026-10-18).
+      Seconds the one download may take. The deploy passes its own window
+      (C(stayturgid_download_timeout_seconds), normally
+      C(STAYTURGID_DEPLOY_TIMEOUT_SECONDS)). There is no second attempt and no
+      fallback that deletes a partial and starts over. When the window expires,
+      or the transfer fails, this module fails the deploy and names the file.
+      A partial under C(~/.cache/stayturgid/apks/partials) is kept so the next
+      deploy continues it.
     type: int
-    default: 180
+    default: 1800
   detached_install:
     description:
       - Install through a detached on-device script, for an APK that carries the
@@ -422,21 +426,25 @@ except ImportError:
     )
 
 
-# GitHub's release CDN cuts single-stream downloads short ("unexpected EOF") and
-# stalls them: on 2026-10-17 gh failed on Termux and curl twice stalled on the
-# 105 MB Tailscale APK, where aria2c over 8 connections fetched it first time.
+# One aria2c transfer for the whole download window. A slow link used to be
+# abandoned: --lowest-speed-limit=20K closed connections, --quiet hid why, and
+# a failure deleted the partial and started up to three single-stream
+# `gh release download` attempts. On 2026-10-22 an 8-way fetch stalled while a
+# 4-way fetch of the same GitHub CDN assets completed, so the split stays at 4.
+# --timeout here is aria2c's connect timeout, not the deploy window.
 ARIA2C_ARGS = [
-    "--quiet",
-    "--max-connection-per-server=8",
-    "--split=8",
+    "--continue=true",
+    "--auto-file-renaming=false",
+    "--max-connection-per-server=4",
+    "--split=4",
     "--min-split-size=4M",
     "--max-tries=10",
-    "--retry-wait=3",
-    "--lowest-speed-limit=20K",
-    "--timeout=30",
+    "--retry-wait=5",
+    "--timeout=60",
     "--file-allocation=none",
+    "--console-log-level=warn",
+    "--summary-interval=0",
 ]
-GH_DOWNLOAD_ATTEMPTS = 3
 
 
 def gh_asset(module, gh, repo, tag, pattern):
@@ -459,43 +467,71 @@ def gh_asset(module, gh, repo, tag, pattern):
     return matches[0]["name"], matches[0]["url"]
 
 
+def _apk_partial_dir(module, repo, tag, pattern):
+    """Stable directory for one release asset, so a later deploy can resume it."""
+    token = hashlib.sha256(("%s\0%s\0%s" % (repo, tag or "", pattern or "")).encode()).hexdigest()[:16]
+    path = os.path.join(APK_CACHE_DIR, "partials", token)
+    if not os.path.isdir(path):
+        os.makedirs(path)
+    return path
+
+
+def _download_failure(module, name, window, dest, rc, out, err):
+    detail = (err or out or "").strip()
+    if rc == 124:
+        module.fail_json(
+            msg=(
+                "download of %s did not finish within %ds. The transfer was stopped. "
+                "The partial file was kept at %s and the next deploy continues it. %s"
+                % (name, window, dest, detail[:500])
+            )
+        )
+    module.fail_json(
+        msg=(
+            "download of %s failed. The partial file was kept at %s and the next deploy continues it. %s"
+            % (name, dest, (detail or "exit %s" % rc)[:500])
+        )
+    )
+
+
 def download_gh_release(module, repo, pattern, tag):
+    """Download one release asset. Never discards a partial to start another tool."""
     gh = module.get_bin_path("gh", required=True)
-    destdir = tempfile.mkdtemp(dir=module.tmpdir)
+    window = int(module.params["download_timeout"])
     aria2c = module.get_bin_path("aria2c")
     asset = gh_asset(module, gh, repo, tag, pattern) if aria2c and tag else None
-    if asset:
+    if aria2c and asset:
         name, url = asset
-        rc, _out, err = run_command_with_timeout(
+        destdir = _apk_partial_dir(module, repo, tag, pattern)
+        dest = os.path.join(destdir, name)
+        rc, out, err = run_command_with_timeout(
             module.run_command,
             [aria2c] + ARIA2C_ARGS + ["--dir", destdir, "--out", name, url],
-            timeout=module.params["download_timeout"],
+            timeout=window,
             get_bin_path_fn=module.get_bin_path,
+            what="download",
         )
-        if rc == 0 and os.path.isfile(os.path.join(destdir, name)):
-            return os.path.join(destdir, name)
-        module.warn("aria2c download of %s failed (%s); falling back to gh" % (url, err.strip()[:200]))
-        for leftover in os.listdir(destdir):
-            os.remove(os.path.join(destdir, leftover))
+        complete = rc == 0 and os.path.isfile(dest) and not os.path.exists(dest + ".aria2")
+        if complete:
+            return dest
+        _download_failure(module, name, window, dest, rc, out, err)
+    destdir = tempfile.mkdtemp(dir=module.tmpdir)
     cmd = [gh, "release", "download"]
     if tag:
         cmd.append(tag)
-    cmd += ["--repo", repo, "--pattern", pattern or "*.apk", "--dir", destdir, "--clobber"]
-    for attempt in range(1, GH_DOWNLOAD_ATTEMPTS + 1):
-        rc, _out, err = run_command_with_timeout(
-            module.run_command,
-            cmd,
-            timeout=module.params["download_timeout"],
-            get_bin_path_fn=module.get_bin_path,
-        )
-        if rc == 0:
-            break
-        if attempt == GH_DOWNLOAD_ATTEMPTS:
-            module.fail_json(msg="gh release download failed: %s" % err.strip())
-    apks = sorted(f for f in os.listdir(destdir) if f.lower().endswith(".apk"))
-    if not apks:
-        module.fail_json(msg="no .apk asset matched %r in %s" % (pattern, repo))
-    return os.path.join(destdir, apks[0])
+    cmd += ["--repo", repo, "--pattern", pattern or "*.apk", "--dir", destdir]
+    rc, out, err = run_command_with_timeout(
+        module.run_command,
+        cmd,
+        timeout=window,
+        get_bin_path_fn=module.get_bin_path,
+        what="download",
+    )
+    apks = sorted(f for f in os.listdir(destdir) if f.lower().endswith(".apk")) if rc == 0 else []
+    if rc == 0 and apks:
+        return os.path.join(destdir, apks[0])
+    label = pattern or repo
+    _download_failure(module, label, window, destdir, rc, out, err)
 
 
 def _wanted_sha256(expected):
@@ -642,7 +678,7 @@ def main():
             keystore_pass=dict(type="str", default="android", no_log=True),
             key_alias=dict(type="str", default="androiddebugkey"),
             install_timeout=dict(type="int", default=180),
-            download_timeout=dict(type="int", default=180),
+            download_timeout=dict(type="int", default=1800),
             detached_install=dict(type="bool", default=False),
             detached_timeout=dict(type="int", default=300),
         ),

@@ -37,9 +37,11 @@ import argparse
 import hashlib
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 from enum import Enum
 from pathlib import Path
 
@@ -67,10 +69,12 @@ SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
 MAC_SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "control_node" / "site.yml"
 REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
 
-# Wall-clock cap per ansible-playbook invocation. Historical full-fleet runs
-# take ~13-15 minutes; this gives a ~2x margin for one genuine retry without
-# letting a hung or endlessly-retrying rollout run indefinitely (see #104).
-# Override with STAYTURGID_DEPLOY_TIMEOUT_SECONDS for unusually large fleets.
+# Wall-clock window for one ansible-playbook invocation, and the window given
+# to each download. A download is one transfer: it is not abandoned for a
+# second tool, and a partial is kept. When this window expires the deploy
+# fails and the play, including a download still running, is stopped.
+# Override with STAYTURGID_DEPLOY_TIMEOUT_SECONDS. A download-only override
+# is STAYTURGID_DOWNLOAD_TIMEOUT_SECONDS.
 DEPLOY_TIMEOUT_SECONDS = int(os.environ.get("STAYTURGID_DEPLOY_TIMEOUT_SECONDS", "1800"))
 
 SHIZUKU_START_WITHHELD_MSG = (
@@ -123,12 +127,38 @@ def load_play_env(env: dict[str, str]) -> None:
             env[key] = val
 
 
+def download_timeout_seconds() -> int:
+    """Window passed to downloaders. Defaults to the deploy window."""
+    raw = os.environ.get("STAYTURGID_DOWNLOAD_TIMEOUT_SECONDS")
+    if raw:
+        return int(raw)
+    return DEPLOY_TIMEOUT_SECONDS
+
+
 def repo_env() -> dict[str, str]:
     # Canonicalizing the selected path preserves the caller's choice while
     # making relative ANSIBLE_CONFIG values reliable from any product recipe.
     env = resolved_env(REPO_ROOT)
     load_play_env(env)
+    env.setdefault("STAYTURGID_DOWNLOAD_TIMEOUT_SECONDS", str(download_timeout_seconds()))
     return env
+
+
+def stop_session(pid: int) -> None:
+    """Stop a play and every child that stayed in the session it started."""
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(pid, sig)
+        except ProcessLookupError:
+            return
+        if sig is signal.SIGTERM:
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                try:
+                    os.killpg(pid, 0)
+                except ProcessLookupError:
+                    return
+                time.sleep(0.1)
 
 
 def check_mode(cli_check: bool) -> bool:
@@ -252,6 +282,8 @@ def run_playbook(
         str(playbook),
         "-e",
         f"stayturgid_repo_root={REPO_ROOT}",
+        "-e",
+        f"stayturgid_download_timeout_seconds={download_timeout_seconds()}",
     )
     if limit:
         cmd.extend(["--limit", ",".join(limit)])
@@ -265,12 +297,19 @@ def run_playbook(
         cmd.extend(extra_vars)
     if verbose:
         cmd.append("-" + "v" * min(verbose, 4))
+    # Its own session so the window can stop ansible and a download under it.
+    # subprocess.run's timeout kills only the direct child and leaves the rest
+    # reparented, still writing a partial that the next line then deleted.
+    proc = subprocess.Popen(cmd, env=repo_env(), cwd=REPO_ROOT, start_new_session=True)
     try:
-        return subprocess.run(cmd, env=repo_env(), cwd=REPO_ROOT, timeout=DEPLOY_TIMEOUT_SECONDS).returncode
+        return proc.wait(timeout=DEPLOY_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
+        stop_session(proc.pid)
         print(
-            f"ERROR: {playbook.name} exceeded {DEPLOY_TIMEOUT_SECONDS}s wall-clock cap — aborted. "
-            f"Override with STAYTURGID_DEPLOY_TIMEOUT_SECONDS if this fleet genuinely needs longer.",
+            f"ERROR: {playbook.name} did not finish within {DEPLOY_TIMEOUT_SECONDS}s. "
+            "The deploy failed and the play was stopped, including any download still running. "
+            "A partial download is kept and the next deploy continues it. "
+            "Override the window with STAYTURGID_DEPLOY_TIMEOUT_SECONDS.",
             file=sys.stderr,
         )
         return 124

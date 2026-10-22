@@ -84,7 +84,7 @@
         clean: "{{ _apk.clean | default(false) }}"
         detached_install: "{{ _apk.detached_install | default(false) }}"
         install_timeout: "{{ _apk.install_timeout | default(omit) }}"
-        download_timeout: "{{ _apk.download_timeout | default(omit) }}"
+        download_timeout: "{{ _apk.download_timeout | default(stayturgid_download_timeout_seconds) }}"
         force: "{{ stayturgid_bootstrap_apks_force | default(false) }}"
         verify_on_current: "{{ _apk.mutable_tag_snapshot | default(false) }}"
         version_name: "{{ _apk.version_name }}"

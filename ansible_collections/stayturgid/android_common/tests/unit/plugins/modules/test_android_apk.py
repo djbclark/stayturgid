@@ -536,11 +536,16 @@ def tool(cmd, name):
     return any(str(part).endswith("/" + name) for part in cmd)
 
 
-def test_download_gh_release_uses_aria2c(tmp_path):
+def test_download_gh_release_uses_aria2c(tmp_path, monkeypatch):
+    monkeypatch.setattr(mod, "APK_CACHE_DIR", str(tmp_path))
+
     def run(cmd):
         if tool(cmd, "gh") and "view" in cmd:
             return (0, ASSETS, "")
         if tool(cmd, "aria2c"):
+            assert "--continue=true" in cmd
+            assert "--quiet" not in cmd
+            assert not any(part.startswith("--lowest-speed-limit") for part in cmd)
             out = cmd[cmd.index("--dir") + 1]
             with open(os.path.join(out, cmd[cmd.index("--out") + 1]), "wb") as f:
                 f.write(b"PK")
@@ -553,27 +558,44 @@ def test_download_gh_release_uses_aria2c(tmp_path):
     assert not [c for c in module.calls if tool(c, "gh") and "download" in c]
 
 
-def test_download_gh_release_falls_back_to_gh_and_retries(tmp_path):
-    attempts = []
+def test_download_gh_release_does_not_abandon_a_failed_transfer(tmp_path, monkeypatch):
+    monkeypatch.setattr(mod, "APK_CACHE_DIR", str(tmp_path))
 
     def run(cmd):
         if tool(cmd, "gh") and "view" in cmd:
             return (0, ASSETS, "")
         if tool(cmd, "aria2c"):
+            dest = os.path.join(cmd[cmd.index("--dir") + 1], cmd[cmd.index("--out") + 1])
+            with open(dest, "wb") as partial:
+                partial.write(b"partial")
             return (1, "", "connection reset")
-        if tool(cmd, "gh") and "download" in cmd:
-            attempts.append(cmd)
-            if len(attempts) < 2:
-                return (1, "", "unexpected EOF")
-            with open(os.path.join(cmd[cmd.index("--dir") + 1], "app-1.apk"), "wb") as f:
-                f.write(b"PK")
-            return (0, "", "")
         raise AssertionError("unexpected %r" % cmd)
 
     module = FakeDownloadModule(tmp_path, run)
-    assert mod.download_gh_release(module, "o/r", "app-*.apk", "v1").endswith("app-1.apk")
-    assert len(attempts) == 2
-    assert module.warnings and "falling back to gh" in module.warnings[0]
+    with pytest.raises(AssertionError, match="download of app-1.apk failed") as raised:
+        mod.download_gh_release(module, "o/r", "app-*.apk", "v1")
+    assert "partial file was kept" in str(raised.value)
+    assert "ADB" not in str(raised.value)
+    assert not [c for c in module.calls if tool(c, "gh") and "download" in c]
+    kept = list(tmp_path.rglob("app-1.apk"))
+    assert kept and kept[0].read_bytes() == b"partial"
+
+
+def test_download_gh_release_timeout_names_the_window(tmp_path, monkeypatch):
+    monkeypatch.setattr(mod, "APK_CACHE_DIR", str(tmp_path))
+
+    def run(cmd):
+        if tool(cmd, "gh") and "view" in cmd:
+            return (0, ASSETS, "")
+        if tool(cmd, "aria2c"):
+            return (124, "", "download timed out after 180s")
+        raise AssertionError("unexpected %r" % cmd)
+
+    module = FakeDownloadModule(tmp_path, run)
+    with pytest.raises(AssertionError, match="did not finish within 180s") as raised:
+        mod.download_gh_release(module, "o/r", "app-*.apk", "v1")
+    assert "The transfer was stopped" in str(raised.value)
+    assert "ADB" not in str(raised.value)
 
 
 # --- detached_install: an APK that carries the adb transport (Tailscale) ---

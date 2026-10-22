@@ -25,18 +25,28 @@ def test_parse_inventory_hosts():
     assert df.parse_inventory_hosts(INVENTORY_JSON) == ["oneui-device", "fireos-device", "stock-android-device"]
 
 
+class _Play:
+    def __init__(self, cmd):
+        self.cmd = cmd
+        self.pid = 4242
+        self.returncode = 0
+
+    def wait(self, timeout=None):
+        return self.returncode
+
+
+def _patch_popen(monkeypatch, seen, proc=None):
+    def fake_popen(cmd, **kwargs):
+        seen.append(cmd)
+        seen.append(kwargs)
+        return proc if proc is not None else _Play(cmd)
+
+    monkeypatch.setattr(df.subprocess, "Popen", fake_popen)
+
+
 def test_run_playbook_argv_full(monkeypatch):
     seen = []
-
-    def fake_run(cmd, **kwargs):
-        seen.append(cmd)
-
-        class R:
-            returncode = 0
-
-        return R()
-
-    monkeypatch.setattr(df.subprocess, "run", fake_run)
+    _patch_popen(monkeypatch, seen)
     df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device", "fireos-device"], check=False, tags=None)
     assert seen[0] == [
         secretspec_exec.BOUNDARY_BIN,
@@ -48,6 +58,8 @@ def test_run_playbook_argv_full(monkeypatch):
         str(df.SITE_PLAYBOOK),
         "-e",
         f"stayturgid_repo_root={df.REPO_ROOT}",
+        "-e",
+        f"stayturgid_download_timeout_seconds={df.download_timeout_seconds()}",
         "--limit",
         "oneui-device,fireos-device",
     ]
@@ -55,32 +67,14 @@ def test_run_playbook_argv_full(monkeypatch):
 
 def test_run_playbook_argv_skip_tags(monkeypatch):
     seen = []
-
-    def fake_run(cmd, **kwargs):
-        seen.append(cmd)
-
-        class R:
-            returncode = 0
-
-        return R()
-
-    monkeypatch.setattr(df.subprocess, "run", fake_run)
+    _patch_popen(monkeypatch, seen)
     df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device"], check=False, tags=None, skip_tags="bootstrap")
     assert seen[0][-2:] == ["--skip-tags", "bootstrap"]
 
 
 def test_run_playbook_argv_check_and_tags(monkeypatch):
     seen = []
-
-    def fake_run(cmd, **kwargs):
-        seen.append(cmd)
-
-        class R:
-            returncode = 0
-
-        return R()
-
-    monkeypatch.setattr(df.subprocess, "run", fake_run)
+    _patch_popen(monkeypatch, seen)
     df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device"], check=True, tags="app-stores")
     assert seen[0] == [
         secretspec_exec.BOUNDARY_BIN,
@@ -92,6 +86,8 @@ def test_run_playbook_argv_check_and_tags(monkeypatch):
         str(df.SITE_PLAYBOOK),
         "-e",
         f"stayturgid_repo_root={df.REPO_ROOT}",
+        "-e",
+        f"stayturgid_download_timeout_seconds={df.download_timeout_seconds()}",
         "--limit",
         "oneui-device",
         "--check",
@@ -421,31 +417,38 @@ def test_main_reports_site_preflight_error_without_footer(monkeypatch, capsys):
     assert "Fleet deploy" not in out.out + out.err
 
 
-def test_run_playbook_timeout_returns_124(monkeypatch):
+def test_run_playbook_timeout_stops_the_session_and_says_so(monkeypatch, capsys):
     import subprocess as sp
 
-    def fake_run(cmd, **kwargs):
-        raise sp.TimeoutExpired(cmd, kwargs.get("timeout"))
+    class Expired(_Play):
+        def wait(self, timeout=None):
+            raise sp.TimeoutExpired("ansible-playbook", timeout)
 
-    monkeypatch.setattr(df.subprocess, "run", fake_run)
+    seen = []
+    _patch_popen(monkeypatch, seen, proc=Expired([]))
+    stopped = []
+    monkeypatch.setattr(df, "stop_session", lambda pid: stopped.append(pid))
     rc = df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device"], check=False, tags=None)
     assert rc == 124
+    assert stopped == [4242]
+    err = capsys.readouterr().err
+    assert f"did not finish within {df.DEPLOY_TIMEOUT_SECONDS}s" in err
+    assert "partial download is kept" in err
+    assert "The deploy failed" in err
 
 
 def test_run_playbook_passes_configured_timeout(monkeypatch):
-    seen_kwargs = {}
+    seen = []
 
-    def fake_run(cmd, **kwargs):
-        seen_kwargs.update(kwargs)
+    class Recording(_Play):
+        def wait(self, timeout=None):
+            seen.append(timeout)
+            return 0
 
-        class R:
-            returncode = 0
-
-        return R()
-
-    monkeypatch.setattr(df.subprocess, "run", fake_run)
+    _patch_popen(monkeypatch, seen, proc=Recording([]))
     df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device"], check=False, tags=None)
-    assert seen_kwargs["timeout"] == df.DEPLOY_TIMEOUT_SECONDS
+    assert seen[1]["start_new_session"] is True
+    assert seen[2] == df.DEPLOY_TIMEOUT_SECONDS
 
 
 def test_deploy_blocks_concurrent_run(monkeypatch):

@@ -67,6 +67,38 @@ def test_checksum_mismatch_fails_closed(tmp_path: Path) -> None:
         cache_otelcol.verify_checksum(artifact, "0" * 64)
 
 
+def test_http_download_timeout_keeps_the_partial(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    partial = tmp_path / "otelcol-contrib_0.163.2_linux_arm64.tar.gz.partial"
+    partial.write_bytes(b"already")
+
+    def expire(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout"))
+
+    monkeypatch.setattr(cache_otelcol.shutil, "which", lambda name: "/usr/bin/aria2c")
+    monkeypatch.setattr(cache_otelcol.subprocess, "run", expire)
+    with pytest.raises(cache_otelcol.ArtifactError, match="did not finish within 30s"):
+        cache_otelcol.download_to("https://example.invalid/otel.tar.gz", partial, 30)
+    assert partial.read_bytes() == b"already"
+
+
+def test_http_download_failure_keeps_the_partial_and_names_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    partial = tmp_path / "otel.partial"
+    partial.write_bytes(b"some")
+
+    class Done:
+        returncode = 1
+        stderr = "connection reset"
+        stdout = ""
+
+    monkeypatch.setattr(cache_otelcol.shutil, "which", lambda name: "/usr/bin/aria2c")
+    monkeypatch.setattr(cache_otelcol.subprocess, "run", lambda *args, **kwargs: Done())
+    with pytest.raises(cache_otelcol.ArtifactError, match="download of otel.partial failed") as raised:
+        cache_otelcol.download_to("https://example.invalid/otel.tar.gz", partial, 30)
+    assert "partial file was kept" in str(raised.value)
+    assert "connection reset" in str(raised.value)
+    assert partial.read_bytes() == b"some"
+
+
 def test_corrupt_cached_archive_is_not_silently_replaced(tmp_path: Path) -> None:
     archive, digest = _artifact(tmp_path)
     cache_dir = tmp_path / "cache"

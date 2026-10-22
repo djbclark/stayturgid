@@ -49,11 +49,14 @@ def resolve_timeout_bin(get_bin_path_fn=None):
     return bin_path
 
 
-def run_command_with_timeout(run_command_fn, cmd, timeout=DEFAULT_FAST_TIMEOUT, get_bin_path_fn=None):
+def run_command_with_timeout(
+    run_command_fn, cmd, timeout=DEFAULT_FAST_TIMEOUT, get_bin_path_fn=None, what="ADB command"
+):
     """Execute cmd via run_command_fn, prefixing with `timeout <seconds>` if available.
 
     Handles returncode 124 (coreutils timeout command timeout) by returning
-    rc=124 and appending an explicit error message to stderr.
+    rc=124 and appending an explicit error message to stderr. ``what`` is the
+    noun in that sentence so a download is not reported as an ADB failure.
     """
     timeout_bin = resolve_timeout_bin(get_bin_path_fn=get_bin_path_fn)
 
@@ -63,6 +66,6 @@ def run_command_with_timeout(run_command_fn, cmd, timeout=DEFAULT_FAST_TIMEOUT, 
 
     rc, out, err = run_command_fn(exec_cmd)
     if rc == 124:
-        timeout_msg = "ADB command timed out after %ds: %s" % (timeout, " ".join(cmd))
+        timeout_msg = "%s timed out after %ds: %s" % (what, timeout, " ".join(cmd))
         err = (err + "\n" if err else "") + timeout_msg
     return rc, out, err

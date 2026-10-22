@@ -44,6 +44,8 @@
       - "{{ stayturgid_otelcol_cache_dir }}"
       - --architecture
       - "{{ stayturgid_otelcol_archive_arch }}"
+      - --timeout
+      - "{{ stayturgid_download_timeout_seconds | string }}"
   register: _otelcol_cache
   delegate_to: localhost
   run_once: true

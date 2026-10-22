@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import struct
+import subprocess
 import tarfile
 import tempfile
 import urllib.parse
@@ -53,18 +54,78 @@ def validate_linux_arm64_elf(path: Path) -> None:
         raise ArtifactError(f"{path.name} ELF architecture is {machine}, expected AArch64 (183)")
 
 
-def _download(url: str, destination: Path) -> None:
+def _kept(destination: Path) -> str:
+    return (
+        f"The partial file was kept at {destination} and the next deploy continues it."
+        if destination.exists()
+        else "No partial file was left behind."
+    )
+
+
+def _download_urllib(url: str, destination: Path, timeout_seconds: int) -> None:
+    # file:// fixtures and the rare host without aria2c. urlopen's timeout is an
+    # idle timeout; the deploy's process-group window is what stops a stuck socket.
     request = urllib.request.Request(url, headers={"User-Agent": "stayturgid-otelcol-cache/1"})
     try:
         # bandit B310 (urlopen scheme audit) is a false positive: the URL is the pinned artifact
         # URL and the download is sha256-verified before use.
         with (
-            urllib.request.urlopen(request, timeout=120) as response,  # nosemgrep  # nosec B310
+            urllib.request.urlopen(request, timeout=timeout_seconds) as response,  # nosemgrep  # nosec B310
             destination.open("wb") as out,
         ):
             shutil.copyfileobj(response, out)
     except (OSError, urllib.error.URLError) as exc:
-        raise ArtifactError(f"download failed for {url}: {exc}") from exc
+        raise ArtifactError(f"download of {destination.name} failed. {_kept(destination)} {exc}") from exc
+
+
+def _download_aria2(url: str, destination: Path, timeout_seconds: int) -> None:
+    aria2c = shutil.which("aria2c")
+    if aria2c is None:
+        if destination.exists():
+            raise ArtifactError(
+                f"download of {destination.name} needs aria2c to continue the partial file at {destination}."
+            )
+        _download_urllib(url, destination, timeout_seconds)
+        return
+    cmd = [
+        aria2c,
+        "--continue=true",
+        "--auto-file-renaming=false",
+        "--max-connection-per-server=4",
+        "--split=4",
+        "--min-split-size=4M",
+        "--max-tries=10",
+        "--retry-wait=5",
+        "--timeout=60",
+        "--file-allocation=none",
+        "--console-log-level=warn",
+        "--summary-interval=0",
+        "--dir",
+        str(destination.parent),
+        "--out",
+        destination.name,
+        url,
+    ]
+    try:
+        completed = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired as exc:
+        raise ArtifactError(
+            f"download of {destination.name} did not finish within {timeout_seconds}s. "
+            f"The transfer was stopped. {_kept(destination)}"
+        ) from exc
+    sidecar = Path(str(destination) + ".aria2")
+    if completed.returncode != 0 or not destination.is_file() or sidecar.exists():
+        detail = (completed.stderr or completed.stdout or f"aria2c exit {completed.returncode}").strip()
+        raise ArtifactError(f"download of {destination.name} failed. {_kept(destination)} {detail[:500]}")
+
+
+def download_to(url: str, destination: Path, timeout_seconds: int) -> None:
+    """One transfer. A failure leaves destination in place so the next call resumes it."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if url.startswith("file:"):
+        _download_urllib(url, destination, timeout_seconds)
+        return
+    _download_aria2(url, destination, timeout_seconds)
 
 
 def _extract_binary(archive: Path, destination: Path) -> None:
@@ -100,7 +161,27 @@ def _archive_binary_sha256(archive: Path) -> str:
     return digest.hexdigest()
 
 
-def ensure_cached(*, url: str, expected_sha256: str, cache_dir: Path, architecture: str) -> bool:
+def _download_window(timeout_seconds: int | None) -> int:
+    if timeout_seconds is not None:
+        return timeout_seconds
+    raw = os.environ.get("STAYTURGID_DOWNLOAD_TIMEOUT_SECONDS", "1800")
+    try:
+        window = int(raw)
+    except ValueError as exc:
+        raise ArtifactError(f"STAYTURGID_DOWNLOAD_TIMEOUT_SECONDS is not an integer: {raw}") from exc
+    if window <= 0:
+        raise ArtifactError(f"download time window must be positive, got {window}")
+    return window
+
+
+def ensure_cached(
+    *,
+    url: str,
+    expected_sha256: str,
+    cache_dir: Path,
+    architecture: str,
+    timeout_seconds: int | None = None,
+) -> bool:
     if architecture != "linux_arm64":
         raise ArtifactError(f"unsupported archive architecture: {architecture!r}")
 
@@ -110,19 +191,21 @@ def ensure_cached(*, url: str, expected_sha256: str, cache_dir: Path, architectu
         raise ArtifactError("artifact URL has no archive filename")
     archive = cache_dir / archive_name
     binary = cache_dir / "otelcol-contrib"
+    window = _download_window(timeout_seconds)
 
     if archive.exists():
         verify_checksum(archive, expected_sha256)
     else:
-        fd, temporary_name = tempfile.mkstemp(prefix=f".{archive_name}.", dir=cache_dir)
-        os.close(fd)
-        temporary = Path(temporary_name)
+        partial = cache_dir / f"{archive_name}.partial"
+        download_to(url, partial, window)
         try:
-            _download(url, temporary)
-            verify_checksum(temporary, expected_sha256)
-            os.replace(temporary, archive)
-        finally:
-            temporary.unlink(missing_ok=True)
+            verify_checksum(partial, expected_sha256)
+        except ArtifactError:
+            # A finished file with the wrong bytes is not a transfer to resume.
+            partial.unlink(missing_ok=True)
+            Path(str(partial) + ".aria2").unlink(missing_ok=True)
+            raise
+        os.replace(partial, archive)
 
     if binary.exists():
         validate_linux_arm64_elf(binary)
@@ -148,6 +231,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sha256", required=True)
     parser.add_argument("--cache-dir", type=Path, required=True)
     parser.add_argument("--architecture", required=True)
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=None,
+        help="Seconds the one download may take. Defaults to STAYTURGID_DOWNLOAD_TIMEOUT_SECONDS or 1800.",
+    )
     args = parser.parse_args(argv)
     try:
         changed = ensure_cached(
@@ -155,6 +244,7 @@ def main(argv: list[str] | None = None) -> int:
             expected_sha256=args.sha256,
             cache_dir=args.cache_dir.expanduser(),
             architecture=args.architecture,
+            timeout_seconds=args.timeout,
         )
     except ArtifactError as exc:
         parser.error(str(exc))

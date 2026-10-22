@@ -92,6 +92,10 @@ stayturgid_otelcol_storage_fsync: "false"
 # logs-only pipeline.
 stayturgid_otelcol_gomaxprocs: 2
 
+# Same window deploy_fleet.py passes for APK downloads. One collector transfer
+# uses it; a partial archive is kept when the window expires.
+stayturgid_download_timeout_seconds: 1800
+
 stayturgid_boot_scripts:
   # Name order is run order under Termux:Boot — 00-start-services.sh must
   # start runsvdir before start-adb.sh's startup_sshd() checks for sshd.

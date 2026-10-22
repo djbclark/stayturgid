@@ -29,13 +29,19 @@
 #                 for an APK that carries the adb transport itself (Tailscale)
 #   install_timeout — seconds before `adb install` is killed (module default 180);
 #                 raise it for a very large APK
-#   download_timeout — seconds per download attempt (module default 180); raise it
-#                 likewise. Verified APKs are cached once in ~/.cache/stayturgid/apks
+#   download_timeout — seconds for the one download (default
+#                 stayturgid_download_timeout_seconds, the deploy window).
+#                 A partial is kept and continued. Verified APKs are cached
+#                 once in ~/.cache/stayturgid/apks
 #
 # Override via inventory group_vars only to replace the complete lock:
 #   stayturgid_bootstrap_apks
 
 stayturgid_bootstrap_apks_force: false
+
+# Deploy's download window. deploy_fleet.py passes this as an extra var from
+# STAYTURGID_DOWNLOAD_TIMEOUT_SECONDS, else STAYTURGID_DEPLOY_TIMEOUT_SECONDS.
+stayturgid_download_timeout_seconds: 1800
 
 # Package ids a host keeps at whatever it has installed, skipping the lock: a
 # device running a newer test build than the fleet pin (the install would fail
