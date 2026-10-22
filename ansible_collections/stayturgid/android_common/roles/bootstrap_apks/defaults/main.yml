@@ -58,10 +58,10 @@ stayturgid_debug_key_alias: "androiddebugkey"
 stayturgid_bootstrap_apks:
   - id: org.stayturgid.agent
     gh_repo: djbclark/stayturgid
-    gh_tag: agent-v0.9.18
+    gh_tag: agent-v0.9.19
     gh_pattern: app-release.apk
-    version_name: 0.9.18-quiet-mode
-    checksum: "sha256:52fce95d2378db63bebb41587793286502ed567d25ec50c9bed43cf7ad6586c0"
+    version_name: 0.9.19
+    checksum: "sha256:a7a4f56f710e0c8a8fde0f4cc488eb147e69258ac00db5521d76168d704034a6"
     resign: false
     start_broadcast_action: org.stayturgid.agent.action.PEER_START_NOW
     start_broadcast_component: org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver
@@ -106,8 +106,12 @@ stayturgid_bootstrap_apks:
   # public GPL redistribution), then change gh_tag, version_name and checksum.
   - id: com.termux.x11
     gh_repo: djbclark/site-private
-    gh_tag: mirror-termux-x11-1.03.01-8d536db
+    gh_tag: mirror-termux-x11-1.03.01-05b0cb7
     gh_pattern: termux-x11-universal-debug.apk
+    # Re-pinned 2026-10-22 from 1.03.01-8d536db-06.10.26 / sha256:a3b96a5b...
+    # Upstream nightly 2026-10-22 11:07Z (05b0cb7). Same signing cert as the
+    # fleet copy (SHA-256 b6da0148... CN=APK Signer). Compare:
+    # https://github.com/termux/termux-x11/compare/8d536db...05b0cb7
     # Re-pinned 2026-10-06 from 1.03.01-e85aa49-05.10.26 / sha256:dde066f1...
     # Upstream republished nightly 2026-10-06 06:47Z (8d536db); operator approved
     # after the signing cert was checked (same b6da0148... CN=APK Signer). Changes
@@ -124,8 +128,8 @@ stayturgid_bootstrap_apks:
     # separate Android windows; AndroidManifest.xml changes), 88073aa (GPU fence
     # waits bounded to 100 ms instead of forever) and e85aa49 (libxfont 2.0.9,
     # xorgproto 2026.1). Earlier: 2026-10-02 re-pin from 29f57c0 (CI-only change).
-    version_name: 1.03.01-8d536db-06.10.26
-    checksum: "sha256:a3b96a5bc1ed15153e43eb2c6542803a82554eaa988f2efe1f2a17d2c7f5147f"
+    version_name: 1.03.01-05b0cb7-22.10.26
+    checksum: "sha256:25d2c958c0fa99f31f351ab2173fafd2092487ffcbd0614a9b9274c8194ebd5f"
   # ShizukuTendCF Drop-In flavor: package id stays moe.shizuku.privileged.api
   # (a true drop-in for stock Shizuku), manager namespace is af.shizuku.manager.
   # resign is FALSE here, unlike every other fork entry: the release is signed
@@ -136,10 +140,10 @@ stayturgid_bootstrap_apks:
   # every grant. Asset name + checksum from the release's SHA256SUMS.
   - id: moe.shizuku.privileged.api
     gh_repo: frdminc/ShizukuTendCF
-    gh_tag: "13.7.0.r2851"
-    gh_pattern: "ShizukuTendCF-Drop-In-13.7.0.r2851.apk"
-    version_name: "ShizukuTendCF 13.7.0.r2851"
-    checksum: "sha256:173a46a5b43c946a6d806a4f4dc8bf50808d0395918a37fe90a79e53a303e711"
+    gh_tag: "13.7.0.r2895"
+    gh_pattern: "ShizukuTendCF-Drop-In-13.7.0.r2895.apk"
+    version_name: "ShizukuTendCF 13.7.0.r2895"
+    checksum: "sha256:b945ac3fbe0421a4f873b3a329fe7495a8350978fe1dd522a8176c006b499824"
     resign: false
     monkey: true
     battery_unrestricted: true
@@ -150,13 +154,12 @@ stayturgid_bootstrap_apks:
 
   - id: com.tailscale.ipn
     gh_repo: tailscale/tailscale-android
-    gh_tag: "1.104.1-t7f4efe814-g6d75bd403"
-    gh_pattern: tailscale-android-universal-1.104.1.apk
-    # version_name is what aapt/dumpsys report; for 1.102.4 its trailing
-    # g-commit differed from the release tag (build vs tag commit), for 1.104.1
-    # they match. Same signer and versionCode as the Play Store build.
-    version_name: "1.104.1-t7f4efe814-g6d75bd403"
-    checksum: "sha256:b3a1a81b52d1437769e5570c89a95f5824518a6b376d10c39eb64af213a625b6"
+    gh_tag: "1.104.2-tc3430f0d2-gb01fa89d5"
+    gh_pattern: tailscale-android-universal-1.104.2.apk
+    # version_name is what aapt/dumpsys report. 1.104.2 matches the release tag.
+    # Signer is the Google Play cert (SHA-256 5cdb2955...), same lineage as 1.104.1.
+    version_name: "1.104.2-tc3430f0d2-gb01fa89d5"
+    checksum: "sha256:270b3e6e54c99103ed98fa967de7bbf6053e1066250ea35d2b9f450947fd0a78"
     # The adb target is a Tailscale address, so replacing this app cuts the adb
     # connection mid-install (t2e, 2026-10-17: a plain `adb install -r` died with
     # "failed to install" and left the phone off the tailnet). Push the APK and
