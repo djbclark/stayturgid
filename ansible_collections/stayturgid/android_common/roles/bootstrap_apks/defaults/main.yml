@@ -170,17 +170,19 @@ stayturgid_bootstrap_apks:
   # connects the phones to the Paseo daemons over Tailscale. Not on F-Droid,
   # IzzyOnDroid or Obtainium-only; the upstream release asset is the install
   # source. Signed with the project's own key (v2 only), not a debug key, so
-  # resign is false. Signer cert SHA-256, checked 2026-10-18:
+  # resign is false. Signer cert SHA-256, rechecked 2026-10-22 against the
+  # installed 0.11.4 apk (same cert as 2026-10-18):
   # 421698bdca5bb9168c970e24539781509b5aa23fab8ab406a15b3f9c5f04c647
   # (CN=, C=US, RSA 2048; the mechanism pins only the asset digest). minSdk 29,
-  # targetSdk 36, versionCode 11004, ABIs arm64-v8a/armeabi-v7a/x86/x86_64.
-  # The asset is 263 MB, so the 180 s default adb install timeout is too short.
+  # targetSdk 36, versionCode 12000, ABIs arm64-v8a/armeabi-v7a/x86/x86_64.
+  # The asset is 360 MB, so the 180 s default adb install timeout is too short.
+  # v0.13.0-beta.1 is a pre-release and stays unpinned.
   - id: sh.paseo
     gh_repo: getpaseo/paseo
-    gh_tag: v0.11.4
-    gh_pattern: paseo-v0.11.4-android.apk
-    version_name: 0.11.4
-    checksum: "sha256:ec393de7aebfb144b3fe519453fdf168988fefda6ac08b714ffc2bcd82daba08"
+    gh_tag: v0.12.0
+    gh_pattern: paseo-v0.12.0-android.apk
+    version_name: 0.12.0
+    checksum: "sha256:6e8efaee3c465aa69564b9b8968a66390120d479d9479661c11259e0d25e49ac"
     resign: false
     install_timeout: 900
     download_timeout: 900
