@@ -1421,13 +1421,11 @@ def maybe_notify_error_rate(tapi_module=None):
                 except ImportError:
                     tapi = None
             if tapi is not None:
-                tapi.notify(
-                    [
-                        "termux-notification-remove",
-                        "--id",
-                        "stayturgid-error-rate",
-                    ]
-                )
+                # The id is a positional argument. `--id` is termux-notification's
+                # flag; termux-notification-remove rejects it and removes nothing.
+                removed = tapi.notify(["termux-notification-remove", "stayturgid-error-rate"])
+                if removed is None or removed.returncode != 0:
+                    return "ok"
                 try:
                     os.remove(ERROR_RATE_NOTIFY_STAMP)
                 except OSError:

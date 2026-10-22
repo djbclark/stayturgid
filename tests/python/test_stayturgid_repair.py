@@ -269,11 +269,13 @@ def test_count_recent_watchdog_errors_missing_file_is_zero(tmp_path):
 
 
 class _FakeTapi:
-    def __init__(self):
+    def __init__(self, returncode=0):
         self.calls = []
+        self.returncode = returncode
 
     def notify(self, args, **kwargs):
         self.calls.append(args)
+        return subprocess.CompletedProcess(args, self.returncode, "", "")
 
 
 def test_maybe_notify_error_rate_below_threshold_is_noop(tmp_path, monkeypatch):
@@ -299,10 +301,24 @@ def test_maybe_notify_error_rate_clears_notification_once_recovered(tmp_path, mo
     _write_watchdog_log(tmp_path / "watchdog.log", [])
     tapi = _FakeTapi()
     assert repair.maybe_notify_error_rate(tapi_module=tapi) == "cleared"
-    assert tapi.calls == [["termux-notification-remove", "--id", "stayturgid-error-rate"]]
+    assert tapi.calls == [["termux-notification-remove", "stayturgid-error-rate"]]
     assert not stamp.exists()
     assert repair.maybe_notify_error_rate(tapi_module=tapi) == "ok"
     assert len(tapi.calls) == 1
+
+
+def test_maybe_notify_error_rate_keeps_stamp_when_remove_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(repair, "SDLOG", str(tmp_path / "watchdog.log"))
+    stamp = tmp_path / "state" / "notify-stamp"
+    monkeypatch.setattr(repair, "ERROR_RATE_NOTIFY_STAMP", str(stamp))
+    monkeypatch.setattr(repair, "log", lambda *_a, **_k: None)
+    stamp.parent.mkdir()
+    stamp.write_text("1")
+    _write_watchdog_log(tmp_path / "watchdog.log", [])
+    tapi = _FakeTapi(returncode=1)
+    assert repair.maybe_notify_error_rate(tapi_module=tapi) == "ok"
+    assert tapi.calls == [["termux-notification-remove", "stayturgid-error-rate"]]
+    assert stamp.exists()
 
 
 def test_maybe_notify_error_rate_notifies_via_termux_api_wrapper_only(tmp_path, monkeypatch):
