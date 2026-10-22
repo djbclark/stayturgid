@@ -289,6 +289,22 @@ def test_maybe_notify_error_rate_below_threshold_is_noop(tmp_path, monkeypatch):
     assert tapi.calls == []
 
 
+def test_maybe_notify_error_rate_clears_notification_once_recovered(tmp_path, monkeypatch):
+    monkeypatch.setattr(repair, "SDLOG", str(tmp_path / "watchdog.log"))
+    stamp = tmp_path / "state" / "notify-stamp"
+    monkeypatch.setattr(repair, "ERROR_RATE_NOTIFY_STAMP", str(stamp))
+    monkeypatch.setattr(repair, "log", lambda *_a, **_k: None)
+    stamp.parent.mkdir()
+    stamp.write_text("1")
+    _write_watchdog_log(tmp_path / "watchdog.log", [])
+    tapi = _FakeTapi()
+    assert repair.maybe_notify_error_rate(tapi_module=tapi) == "cleared"
+    assert tapi.calls == [["termux-notification-remove", "--id", "stayturgid-error-rate"]]
+    assert not stamp.exists()
+    assert repair.maybe_notify_error_rate(tapi_module=tapi) == "ok"
+    assert len(tapi.calls) == 1
+
+
 def test_maybe_notify_error_rate_notifies_via_termux_api_wrapper_only(tmp_path, monkeypatch):
     """Must go through the safe termux_api wrapper (notify()), never a bare
     subprocess call to termux-notification — a bare timeout+kill on a

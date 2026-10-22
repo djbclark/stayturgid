@@ -1,14 +1,15 @@
 package org.stayturgid.agent
 
 /**
- * From ShizukuTendCF r2842 the app restores its own ADB TCP port through wireless debugging, with
- * at most one "Allow wireless debugging on this network?" prompt per boot. Wireless-debugging trust
- * is per BSSID, so our own `adb_wifi_enabled=1` writes re-raise that prompt outside the limit. Pure
- * helpers for the gate; mirrors `app_owns_wireless_restore` in
- * `device/termux/py/stayturgid_repair.py` (and `fire_help_monitor.py`).
+ * Revision parser for a ShizukuTendCF versionName. Writers do not use [appOwnsWirelessRestore] to
+ * skip `adb_wifi_enabled`: a running server answers HEADLESS_START with "Already running" and
+ * leaves the toggle off. The prompt limit is a short burst, not one prompt for the whole boot.
  */
 object ShizukuWirelessOwner {
-    /** Keep equal to `SHIZUKU_OWNS_WIFI_RESTORE_REVISION` in the Python repair. */
+    /**
+     * Historical r2842 threshold. The Termux repair and the agent no longer skip `adb_wifi_enabled`
+     * from this revision; [appOwnsWirelessRestore] remains for the parser tests.
+     */
     const val OWNS_WIFI_RESTORE_REVISION = 2842
 
     // versionName is "ShizukuTendCF <upstream>.r<commit count>". Upstream Shizuku also has an

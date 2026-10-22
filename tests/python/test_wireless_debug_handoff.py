@@ -1,7 +1,8 @@
-"""ShizukuTendCF r2842+ owns wireless debugging: repair hands off instead of writing adb_wifi_enabled.
+"""Wireless debugging stays a uid-2000 settings write.
 
-Covers the Termux repair pass (device/termux/py/stayturgid_repair.py) and the
-Mac Fire helper (control/bin/fire_help_monitor.py). Fakes only, no device.
+A running ShizukuTendCF answers HEADLESS_START with "Already running" and does
+not touch adb_wifi_enabled, so both the Termux repair pass and the Mac Fire
+helper write the toggle themselves. Fakes only, no device.
 """
 
 from __future__ import annotations
@@ -43,14 +44,6 @@ def test_revision_parse_both_sides_agree(text, want):
     assert fhm.shizuku_tendcf_revision(text) == want
 
 
-def test_gate_threshold():
-    assert repair.SHIZUKU_OWNS_WIFI_RESTORE_REVISION == fhm.SHIZUKU_OWNS_WIFI_RESTORE_REVISION == 2842
-    assert repair.app_owns_wireless_restore(2842)
-    assert repair.app_owns_wireless_restore(2900)
-    assert not repair.app_owns_wireless_restore(2841)
-    assert not repair.app_owns_wireless_restore(None)
-
-
 # --- Termux repair: ensure_wireless_debugging ---
 
 
@@ -82,8 +75,8 @@ class _Shell:
 
 @pytest.fixture
 def termux(monkeypatch, tmp_path):
+    del tmp_path
     logs = []
-    monkeypatch.setattr(repair, "WIFI_HANDOFF_STAMP", str(tmp_path / "state" / "wireless-debug-handoff"))
     monkeypatch.setattr(repair, "log", lambda msg, level=repair.INFO: logs.append((msg, level)))
     monkeypatch.setattr(repair.time, "sleep", lambda *_: None)
     _gated(monkeypatch, "device")
@@ -91,33 +84,14 @@ def termux(monkeypatch, tmp_path):
     return logs
 
 
-def test_app_owned_build_hands_off_and_never_writes(monkeypatch, termux):
-    shell = _Shell("    versionName=ShizukuTendCF 13.7.0.r2842\n")
+def test_current_build_writes_the_toggle(monkeypatch, termux):
+    shell = _Shell("    versionName=ShizukuTendCF 13.7.0.r2892\n")
     monkeypatch.setattr(repair, "sh_adb", shell)
 
-    assert repair.ensure_wireless_debugging() == "app"
-    assert PUT not in shell.cmds
-    assert len(shell.starts()) == 1
-    start = shell.starts()[0]
-    assert "moe.shizuku.privileged.api.HEADLESS_START" in start
-    assert "force" not in start
-    assert any("handed to ShizukuTendCF r2842" in msg for msg, _level in termux)
-
-
-def test_app_owned_hand_off_is_rate_limited(monkeypatch, termux):
-    shell = _Shell("    versionName=ShizukuTendCF 13.7.0.r2850\n")
-    monkeypatch.setattr(repair, "sh_adb", shell)
-    clock = [1_000_000.0]
-    monkeypatch.setattr(repair.time, "time", lambda: clock[0])
-
-    assert repair.ensure_wireless_debugging() == "app"
-    clock[0] += 300
-    assert repair.ensure_wireless_debugging() == "app"
-    assert len(shell.starts()) == 1
-    clock[0] += 301
-    assert repair.ensure_wireless_debugging() == "app"
-    assert len(shell.starts()) == 2
-    assert PUT not in shell.cmds
+    assert repair.ensure_wireless_debugging() == "repaired"
+    assert PUT in shell.cmds
+    assert shell.starts() == []
+    assert any("re-enabled adb_wifi_enabled" in msg for msg, _level in termux)
 
 
 @pytest.mark.parametrize(
@@ -176,19 +150,19 @@ class _OpenShellPhone:
 
 
 @pytest.mark.parametrize(
-    ("version_out", "writes"),
+    "version_out",
     [
-        ("    versionName=ShizukuTendCF 13.7.0.r2842\n", False),
-        ("    versionName=ShizukuTendCF 13.7.0.r2800\n", True),
-        ("    versionName=13.5.4.r1049.0e53409\n", True),
+        "    versionName=ShizukuTendCF 13.7.0.r2842\n",
+        "    versionName=ShizukuTendCF 13.7.0.r2800\n",
+        "    versionName=13.5.4.r1049.0e53409\n",
     ],
 )
-def test_main_start_sent_write_is_gated(monkeypatch, tmp_path, version_out, writes):
+def test_main_start_sent_also_writes_the_toggle(monkeypatch, tmp_path, version_out):
     phone = _OpenShellPhone(version_out)
     _rc, _ran, _logs, statuses = _main_with_closed_shell(monkeypatch, tmp_path, None, phone=phone)
 
     assert phone.shell.starts(), "repair should have sent HEADLESS_START for a down server"
-    assert (PUT in phone.shell.cmds) is writes
+    assert PUT in phone.shell.cmds
     assert "shizuku_profile=applied" in statuses[-1]
 
 
@@ -220,30 +194,22 @@ class _FireShell:
 
 @pytest.fixture
 def fire(monkeypatch, tmp_path):
+    del tmp_path
     logs = []
-    monkeypatch.setattr(fhm, "WIFI_HANDOFF_DIR", tmp_path / "handoff")
     monkeypatch.setattr(fhm, "log", logs.append)
     monkeypatch.setattr(fhm.time, "sleep", lambda *_: None)
     monkeypatch.setattr(fhm.fph, "_ensure_connected", lambda *_a, **_k: None)
     return logs
 
 
-def test_fire_app_owned_build_hands_off_rate_limited(monkeypatch, fire):
-    shell = _FireShell("    versionName=ShizukuTendCF 13.7.0.r2842\n")
+def test_fire_current_build_writes_the_toggle(monkeypatch, fire):
+    del fire
+    shell = _FireShell("    versionName=ShizukuTendCF 13.7.0.r2892\n")
     monkeypatch.setattr(fhm.fph, "_shell", shell)
-    clock = [5_000_000.0]
-    monkeypatch.setattr(fhm.time, "time", lambda: clock[0])
 
-    assert fhm.ensure_wireless_debugging("192.0.2.13:5555", "fireos-device") == "app"
-    clock[0] += 599
-    assert fhm.ensure_wireless_debugging("192.0.2.13:5555", "fireos-device") == "app"
-    assert len(shell.starts()) == 1
-    clock[0] += 2
-    assert fhm.ensure_wireless_debugging("192.0.2.13:5555", "fireos-device") == "app"
-    assert len(shell.starts()) == 2
-    assert PUT not in shell.cmds
-    assert all("force" not in c for c in shell.starts())
-    assert any("handed to ShizukuTendCF r2842" in line for line in fire)
+    assert fhm.ensure_wireless_debugging("192.0.2.13:5555", "fireos-device") == "repaired"
+    assert PUT in shell.cmds
+    assert shell.starts() == []
 
 
 @pytest.mark.parametrize(

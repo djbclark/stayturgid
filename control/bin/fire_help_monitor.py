@@ -124,16 +124,9 @@ def adb_targets(name: str, ts_ip: str, lan_ip: str) -> list[str]:
     return out
 
 
-# From r2842 ShizukuTendCF restores its own ADB TCP port through wireless
-# debugging, at most one network prompt per boot; writing adb_wifi_enabled=1
-# here on an untrusted BSSID re-raised that prompt every pass. For those builds
-# the app is asked to start instead (operator decision "defer to the app",
-# 2026-10-06). Mirrors device/termux/py/stayturgid_repair.py.
-SHIZUKU_OWNS_WIFI_RESTORE_REVISION = 2842
+# versionName is "ShizukuTendCF <upstream>.r<commit count>". Upstream Shizuku
+# also has an ".rNNNN", so the ShizukuTendCF prefix is required.
 _SHIZUKU_TENDCF_VERSION_RE = re.compile(r"ShizukuTendCF\s+\d+(?:\.\d+)*\.r(\d+)\b")
-SHIZUKU_RECEIVER = fph.SHIZUKU_PKG + "/af.shizuku.manager.receiver.HeadlessStartStopReceiver"
-WIFI_HANDOFF_COOLDOWN_SEC = 600
-WIFI_HANDOFF_DIR = ROOT / "state" / "fire-help-wifi-handoff"
 
 
 def shizuku_tendcf_revision(text: str | None) -> int | None:
@@ -142,41 +135,14 @@ def shizuku_tendcf_revision(text: str | None) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def installed_shizuku_revision(target: str) -> int | None:
-    r = fph._shell(target, "dumpsys package %s 2>/dev/null | grep versionName=" % fph.SHIZUKU_PKG, timeout=15)
-    return shizuku_tendcf_revision(r.stdout) if r.returncode == 0 else None
-
-
-def hand_wireless_restore_to_app(name: str, target: str, revision: int) -> str:
-    """Plain HEADLESS_START (never force) at most every 10 min per host; never writes the setting."""
-    stamp = WIFI_HANDOFF_DIR / name
-    now = time.time()
-    try:
-        last = float(stamp.read_text().strip() or 0)
-    except (OSError, ValueError):
-        last = 0.0
-    if 0 <= now - last < WIFI_HANDOFF_COOLDOWN_SEC:
-        return "cooldown"
-    try:
-        WIFI_HANDOFF_DIR.mkdir(parents=True, exist_ok=True)
-        stamp.write_text(str(int(now)))
-    except OSError:
-        pass
-    r = fph._shell(target, "am broadcast -a %s.HEADLESS_START -n %s" % (fph.SHIZUKU_PKG, SHIZUKU_RECEIVER), timeout=15)
-    out = r.stdout or ""
-    result = "withheld" if "AUTH_UNANSWERED" in out or re.search(r"\bresult=4\b", out) else "sent"
-    log(
-        "%s wireless-debug off: restore handed to ShizukuTendCF r%d via %s (HEADLESS_START %s); "
-        "adb_wifi_enabled not written" % (name, revision, target, result)
-    )
-    return result
-
-
 def ensure_wireless_debugging(target: str, name: str | None = None) -> str:
     """Keep Developer-options wireless debugging on (Mac shell only; Fire self-heal skip).
 
-    With ShizukuTendCF r2842+ installed the toggle is left to the app ("app").
+    A running Shizuku answers HEADLESS_START with "Already running" and does not
+    touch the toggle, so this writes adb_wifi_enabled itself. One call per
+    Fire-help pass is the rate limit.
     """
+    del name  # kept so existing callers can still pass the host label
     try:
         fph._ensure_connected(target)
     except SystemExit as e:
@@ -185,10 +151,6 @@ def ensure_wireless_debugging(target: str, name: str | None = None) -> str:
     val = (cur.stdout or "").strip().replace("\r", "")
     if val in ("1", "true"):
         return "up"
-    revision = installed_shizuku_revision(target)
-    if revision is not None and revision >= SHIZUKU_OWNS_WIFI_RESTORE_REVISION:
-        hand_wireless_restore_to_app(name or target, target, revision)
-        return "app"
     fph._shell(target, "settings put global adb_wifi_enabled 1", timeout=10)
     time.sleep(1)
     again = fph._shell(target, "settings get global adb_wifi_enabled", timeout=10)

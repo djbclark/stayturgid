@@ -896,22 +896,10 @@ def ensure_tailscale(have_sh=False):
     return "FAILED"
 
 
-# From r2842 ShizukuTendCF restores its own ADB TCP port through wireless
-# debugging and allows at most one "Allow wireless debugging on this network?"
-# prompt per boot. Wireless-debugging trust is per Wi-Fi BSSID, so every
-# adb_wifi_enabled=1 written here on an untrusted BSSID raised that prompt
-# again (or, on a locked Samsung, was refused silently), outside the app's
-# limit. For those builds repair asks the app to start instead of writing the
-# setting (operator decision "defer to the app", 2026-10-06). Older builds,
-# other Shizuku builds and an unreadable version keep the write: they have no
-# restore of their own.
-SHIZUKU_OWNS_WIFI_RESTORE_REVISION = 2842
 # versionName is "ShizukuTendCF <upstream>.r<commit count>"; HEADLESS_STATUS
 # carries it as "vShizukuTendCF 13.7.0.r2842". Upstream Shizuku also has an
 # ".rNNNN" in its versionName, so the ShizukuTendCF prefix is required.
 _SHIZUKU_TENDCF_VERSION_RE = re.compile(r"ShizukuTendCF\s+\d+(?:\.\d+)*\.r(\d+)\b")
-WIFI_HANDOFF_COOLDOWN_SEC = 600
-WIFI_HANDOFF_STAMP = os.path.join(STG, "state", "wireless-debug-handoff")
 
 
 def shizuku_tendcf_revision(text):
@@ -920,52 +908,18 @@ def shizuku_tendcf_revision(text):
     return int(match.group(1)) if match else None
 
 
-def installed_shizuku_revision():
-    """ShizukuTendCF revision of the installed Shizuku app, or None (unknown, not ShizukuTendCF)."""
-    rc, out = sh_adb("dumpsys package %s 2>/dev/null | grep versionName=" % SHIZUKU_PKG)
-    return shizuku_tendcf_revision(out) if rc == 0 else None
-
-
-def app_owns_wireless_restore(revision):
-    return revision is not None and revision >= SHIZUKU_OWNS_WIFI_RESTORE_REVISION
-
-
-def hand_wireless_restore_to_app(revision):
-    """Ask ShizukuTendCF to start (it restores the TCP port itself), at most every 10 min.
-
-    Never writes adb_wifi_enabled. Returns "sent", "withheld" or "cooldown".
-    """
-    now = time.time()
-    try:
-        with open(WIFI_HANDOFF_STAMP) as f:
-            last = float(f.read().strip() or 0)
-    except (OSError, ValueError):
-        last = 0.0
-    if 0 <= now - last < WIFI_HANDOFF_COOLDOWN_SEC:
-        return "cooldown"
-    # Stamped before acting, so a start that hangs still waits out the cooldown.
-    try:
-        with open(ensure_parent(WIFI_HANDOFF_STAMP), "w") as f:
-            f.write(str(int(now)))
-    except OSError:
-        pass
-    result = _send_headless_start()
-    log(
-        "wireless debugging off: restore handed to ShizukuTendCF r%d (HEADLESS_START %s); "
-        "adb_wifi_enabled not written" % (revision, result),
-        NOTICE,
-    )
-    return result
-
-
 def ensure_wireless_debugging():
     """Assess the localhost shell bridge and repair the toggle when possible.
 
     A responsive UID-2000 shell is functionally healthy even when Android 16
     reports the cosmetic ``adb_wifi_enabled=0`` value; Samsung and Pixel both
-    exhibit that state. With ShizukuTendCF r2842 or newer installed the toggle
-    is left to the app (see SHIZUKU_OWNS_WIFI_RESTORE_REVISION).
-    Returns: 'up', 'repaired', 'app', 'FAILED', or 'NO_SHELL'.
+    exhibit that state. Android turns the toggle off on a Wi-Fi roam. A
+    uid-2000 write turns it back on (t2e, Android 16, 2026-09-29). Handing
+    that write to a running ShizukuTendCF does not: HEADLESS_START answers
+    "Already running" and leaves the toggle off. One write per repair cycle
+    is the rate limit. A pile of writes in the same moment is what stacks
+    the network prompt; the 15-minute cycle is not that pile.
+    Returns: 'up', 'repaired', 'FAILED', or 'NO_SHELL'.
     """
     # Try the settings check; if ADB is unreachable, attempt reconnect first.
     _rc, raw = sh_adb("settings get global adb_wifi_enabled")
@@ -983,10 +937,6 @@ def ensure_wireless_debugging():
     if wifi in ("null", ""):
         log("wireless debugging: cannot reach shell (adb_wifi_enabled=%s)" % wifi, ERR)
         return "NO_SHELL"
-    revision = installed_shizuku_revision()
-    if app_owns_wireless_restore(revision):
-        hand_wireless_restore_to_app(revision)
-        return "app"
     # Shell works, so adb is functionally up whatever the toggle says. Still
     # re-assert it: Android itself turns Wireless debugging off on every Wi-Fi
     # disconnect and BSSID roam ("Detected wifi network change. Disabling
@@ -1455,11 +1405,35 @@ def maybe_notify_error_rate(tapi_module=None):
     start_adb.py) — termux_api.notify()/run_ff() orphan instead of killing so
     the socket can still complete.
 
-    Returns "ok" (below threshold), "cooldown" (already notified recently),
-    or "notified".
+    Returns "ok" (below threshold), "cleared" (recovered, notification removed),
+    "cooldown" (already notified recently), or "notified".
     """
     count = count_recent_watchdog_errors()
     if count < ERROR_RATE_THRESHOLD:
+        if os.path.exists(ERROR_RATE_NOTIFY_STAMP):
+            tapi = tapi_module
+            if tapi is None:
+                try:
+                    import stayturgid_shell as _sh
+
+                    _sh.ensure_lib_path()
+                    import termux_api as tapi
+                except ImportError:
+                    tapi = None
+            if tapi is not None:
+                tapi.notify(
+                    [
+                        "termux-notification-remove",
+                        "--id",
+                        "stayturgid-error-rate",
+                    ]
+                )
+                try:
+                    os.remove(ERROR_RATE_NOTIFY_STAMP)
+                except OSError:
+                    pass
+                log("watchdog error-rate fallback: recovered — cleared the repeated-errors notification")
+                return "cleared"
         return "ok"
     last = 0.0
     try:
@@ -1732,11 +1706,8 @@ def main():
         if "ok" in sf_out:
             shizuku_profile = "present"
             if shizuku_start_sent:
-                # The HEADLESS_START just sent is the hand-off for r2842+;
-                # wireless debugging is the app's from there.
-                if not app_owns_wireless_restore(installed_shizuku_revision()):
-                    sh_adb("settings put global adb_wifi_enabled 1")
-                    time.sleep(0.5)
+                sh_adb("settings put global adb_wifi_enabled 1")
+                time.sleep(0.5)
                 shizuku_profile = "applied"
                 sh_adb("dumpsys deviceidle whitelist +moe.shizuku.privileged.api")
         else:

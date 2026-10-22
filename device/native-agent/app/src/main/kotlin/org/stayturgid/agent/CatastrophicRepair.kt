@@ -148,17 +148,9 @@ object CatastrophicRepair {
         }
         ensureSetting("global", "development_settings_enabled", "1")
         ensureSetting("global", "adb_enabled", "1")
-        // ShizukuTendCF r2842+ owns wireless debugging (one network prompt per boot); a write from
-        // here would re-raise "Allow wireless debugging on this network?". Unknown and older
-        // builds keep the write.
-        val versionCmd = ShizukuWirelessOwner.versionNameCommand("moe.shizuku.privileged.api")
-        val revision =
-            ShizukuWirelessOwner.parseRevision(shellOut(arrayOf("sh", "-c", versionCmd), 4))
-        if (ShizukuWirelessOwner.appOwnsWirelessRestore(revision)) {
-            Log.i(TAG, "tryShellWirelessRepair: adb_wifi_enabled left to ShizukuTendCF r$revision")
-        } else {
-            ensureSetting("global", "adb_wifi_enabled", "1")
-        }
+        // Android turns this off on a Wi-Fi roam. A shell write turns it back on. Skipping it
+        // while Shizuku is already running left the toggle off: HEADLESS_START does not touch it.
+        ensureSetting("global", "adb_wifi_enabled", "1")
         val cur = shellOut(arrayOf("getprop", "service.adb.tcp.port"), 3)?.trim()
         if (cur != "5555") {
             shellOut(arrayOf("setprop", "service.adb.tcp.port", "5555"), 3)
