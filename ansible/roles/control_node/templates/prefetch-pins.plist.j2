@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.stayturgid.prefetch-pins</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>python3</string>
+        <string>{{ stayturgid_repo_root | realpath }}/control/bin/prefetch_pins.py</string>
+        <string>--repo-root</string>
+        <string>{{ stayturgid_repo_root | realpath }}</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>STAYTURGID_FETCH_SSH_HOST</key>
+        <string>vps-primary</string>
+        <key>STAYTURGID_DOWNLOAD_TIMEOUT_SECONDS</key>
+        <string>1800</string>
+    </dict>
+    <!-- Catch-up for the GitHub Action. If the Mac is asleep when the hour
+         comes due, launchd runs this once on wake. The Action is the immediate
+         poke; both run prefetch_pins.py under the deploy's cache locks. -->
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{{ conf_dir }}/logs/prefetch_pins.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ conf_dir }}/logs/prefetch_pins.err</string>
+</dict>
+</plist>

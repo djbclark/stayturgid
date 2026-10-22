@@ -48,6 +48,8 @@
         plist: "{{ agents_dir }}/com.stayturgid.fire-help.plist"
       - name: com.stayturgid.update-monitor
         plist: "{{ agents_dir }}/com.stayturgid.update-monitor.plist"
+      - name: com.stayturgid.prefetch-pins
+        plist: "{{ agents_dir }}/com.stayturgid.prefetch-pins.plist"
     _hermes_gateway_agents: >-
       {{
         [{

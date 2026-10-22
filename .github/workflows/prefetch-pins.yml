@@ -1,0 +1,74 @@
+---
+name: Prefetch pinned fleet assets
+
+# Poke the control-node Mac when a pin changes so the next deploy is a cache
+# hit. This does not run on a self-hosted runner. When the Tailscale or SSH
+# secrets are unset the job exits green and the launchd agent is the catch-up.
+on:
+  push:
+    branches: [master]
+    paths:
+      - ansible_collections/stayturgid/android_common/roles/bootstrap_apks/defaults/main.yml
+      - ansible_collections/stayturgid/termux/roles/termux_userland/defaults/main.yml
+      - control/bin/prefetch_pins.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prefetch-pins
+  cancel-in-progress: false
+
+jobs:
+  wake-mac:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Decide whether this Mac can be woken
+        id: gate
+        env:
+          SSH_KEY: ${{ secrets.STAYTURGID_PREFETCH_SSH_KEY }}
+          SSH_USER: ${{ secrets.STAYTURGID_PREFETCH_SSH_USER }}
+          SSH_HOST: ${{ secrets.STAYTURGID_PREFETCH_HOST }}
+          TS_CLIENT: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          TS_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -n "$SSH_KEY" ] && [ -n "$SSH_USER" ] && [ -n "$SSH_HOST" ] && [ -n "$TS_CLIENT" ] && [ -n "$TS_SECRET" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Wake secrets are unset. The launchd agent on the Mac still fills the cache."
+          fi
+
+      - name: Tailscale
+        if: steps.gate.outputs.ready == 'true'
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ secrets.STAYTURGID_PREFETCH_HOST }}
+
+      - name: Prefetch on the Mac
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          SSH_KEY: ${{ secrets.STAYTURGID_PREFETCH_SSH_KEY }}
+          SSH_USER: ${{ secrets.STAYTURGID_PREFETCH_SSH_USER }}
+          SSH_HOST: ${{ secrets.STAYTURGID_PREFETCH_HOST }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key="$(mktemp)"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$SSH_KEY" > "$key"
+          prefetch='$HOME/ops/stayturgid/control/bin/prefetch_pins.py'
+          root='$HOME/ops/stayturgid'
+          remote="export PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH; exec python3 $prefetch --repo-root $root"
+          ssh -i "$key" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=20 \
+            "${SSH_USER}@${SSH_HOST}" \
+            "$remote"
