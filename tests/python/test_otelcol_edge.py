@@ -99,6 +99,59 @@ def test_http_download_failure_keeps_the_partial_and_names_it(tmp_path: Path, mo
     assert partial.read_bytes() == b"some"
 
 
+def test_download_to_skips_aria2_when_the_host_finishes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import asset_fetch
+
+    partial = tmp_path / "otel.tar.gz.partial"
+    monkeypatch.setenv("STAYTURGID_FETCH_SSH_HOST", "vps-primary")
+    monkeypatch.setattr(asset_fetch, "try_vps", lambda *_args, **_kwargs: True)
+
+    def boom(*_args, **_kwargs):
+        raise AssertionError("aria2 should not run")
+
+    monkeypatch.setattr(cache_otelcol.subprocess, "run", boom)
+    cache_otelcol.download_to("https://example.invalid/otel.tar.gz", partial, 30)
+
+
+def test_download_to_does_not_aria2_when_the_host_transfer_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import asset_fetch
+
+    partial = tmp_path / "otel.tar.gz.partial"
+    monkeypatch.setenv("STAYTURGID_FETCH_SSH_HOST", "vps-primary")
+
+    def fail(*_args, **_kwargs):
+        raise asset_fetch.FetchError(
+            "download of otel.tar.gz.partial did not finish within 30s. The transfer was stopped."
+        )
+
+    monkeypatch.setattr(asset_fetch, "try_vps", fail)
+    monkeypatch.setattr(cache_otelcol.subprocess, "run", lambda *_a, **_k: pytest.fail("aria2 started"))
+    with pytest.raises(cache_otelcol.ArtifactError, match="did not finish within 30s"):
+        cache_otelcol.download_to("https://example.invalid/otel.tar.gz", partial, 30)
+
+
+def test_download_to_keeps_a_partial_on_aria2_when_a_host_is_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import asset_fetch
+
+    partial = tmp_path / "otel.partial"
+    partial.write_bytes(b"already")
+    monkeypatch.setenv("STAYTURGID_FETCH_SSH_HOST", "vps-primary")
+    monkeypatch.setattr(asset_fetch, "try_vps", lambda *_a, **_k: pytest.fail("probed a partial"))
+
+    def expire(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout"))
+
+    monkeypatch.setattr(cache_otelcol.shutil, "which", lambda name: "/usr/bin/aria2c")
+    monkeypatch.setattr(cache_otelcol.subprocess, "run", expire)
+    with pytest.raises(cache_otelcol.ArtifactError, match="did not finish within 30s"):
+        cache_otelcol.download_to("https://example.invalid/otel.tar.gz", partial, 30)
+    assert partial.read_bytes() == b"already"
+
+
 def test_corrupt_cached_archive_is_not_silently_replaced(tmp_path: Path) -> None:
     archive, digest = _artifact(tmp_path)
     cache_dir = tmp_path / "cache"
@@ -275,6 +328,17 @@ def test_otelcol_verify_self_heals_once_before_hard_failing() -> None:
     and the retry itself must be skippable when the first verify already
     passed (never fires on the happy path)."""
     tasks = (ROLE / "tasks/otelcol.yml").read_text()
+    assert tasks.index("Apply pending otelcol-contrib restart") < tasks.index(
+        "Probe the running otelcol-contrib version"
+    )
+    assert tasks.index("Probe the running otelcol-contrib version") < tasks.index(
+        "Restart otelcol-contrib when the running version is older than the deployed one"
+    )
+    assert tasks.index("Restart otelcol-contrib when the running version is older than the deployed one") < tasks.index(
+        "Verify otelcol-contrib is running"
+    )
+    assert "is version(stayturgid_otelcol_version | string, '<')" in tasks
+    assert "/proc/${pid}/exe" in tasks
     assert tasks.index("Verify otelcol-contrib is running") < tasks.index(
         "Restart otelcol-contrib when not found running"
     )

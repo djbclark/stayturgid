@@ -494,6 +494,18 @@ def _download_failure(module, name, window, dest, rc, out, err):
     )
 
 
+def _fetch_helper(module):
+    """Path of the shared fetcher when a deploy asked for it, else None."""
+    root = os.environ.get("STAYTURGID_REPO_ROOT", "").strip()
+    host = os.environ.get("STAYTURGID_FETCH_SSH_HOST", "").strip()
+    if not root or not host:
+        return None
+    helper = os.path.join(root, "control", "bin", "fetch_asset.py")
+    if not os.path.isfile(helper):
+        return None
+    return helper
+
+
 def download_gh_release(module, repo, pattern, tag):
     """Download one release asset. Never discards a partial to start another tool."""
     gh = module.get_bin_path("gh", required=True)
@@ -504,6 +516,21 @@ def download_gh_release(module, repo, pattern, tag):
         name, url = asset
         destdir = _apk_partial_dir(module, repo, tag, pattern)
         dest = os.path.join(destdir, name)
+        helper = _fetch_helper(module)
+        if helper:
+            # The helper owns the one transfer (fast host, else aria2). Its failure
+            # is the deploy failure: do not start gh or a second aria2 on the same file.
+            python = module.get_bin_path("python3") or "python3"
+            rc, out, err = run_command_with_timeout(
+                module.run_command,
+                [python, helper, "--url", url, "--dest", dest, "--timeout", str(window)],
+                timeout=window,
+                get_bin_path_fn=module.get_bin_path,
+                what="download",
+            )
+            if rc == 0 and os.path.isfile(dest) and not os.path.exists(dest + ".aria2"):
+                return dest
+            _download_failure(module, name, window, dest, rc, out, err)
         rc, out, err = run_command_with_timeout(
             module.run_command,
             [aria2c] + ARIA2C_ARGS + ["--dir", destdir, "--out", name, url],

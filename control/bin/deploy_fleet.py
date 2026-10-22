@@ -141,6 +141,9 @@ def repo_env() -> dict[str, str]:
     env = resolved_env(REPO_ROOT)
     load_play_env(env)
     env.setdefault("STAYTURGID_DOWNLOAD_TIMEOUT_SECONDS", str(download_timeout_seconds()))
+    # Empty on purpose disables the host. A fast probe may use it; a slow one stays on aria2.
+    env.setdefault("STAYTURGID_FETCH_SSH_HOST", "vps-primary")
+    env.setdefault("STAYTURGID_REPO_ROOT", str(REPO_ROOT))
     return env
 
 

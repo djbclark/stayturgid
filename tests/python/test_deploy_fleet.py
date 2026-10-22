@@ -535,9 +535,15 @@ def test_repo_env_includes_ansible_config(monkeypatch, tmp_path):
     (site / "ansible.cfg").write_text("[defaults]\ninventory = inventory/hosts.yml\n", encoding="utf-8")
     (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
     monkeypatch.setenv("ANSIBLE_CONFIG", str(site / "ansible.cfg"))
+    monkeypatch.delenv("STAYTURGID_FETCH_SSH_HOST", raising=False)
+    monkeypatch.delenv("STAYTURGID_REPO_ROOT", raising=False)
     env = df.repo_env()
     assert env["ANSIBLE_CONFIG"] == str(site / "ansible.cfg")
     assert env["STAYTURGID_ROOT"] == str(df.REPO_ROOT)
+    assert env["STAYTURGID_FETCH_SSH_HOST"] == "vps-primary"
+    assert env["STAYTURGID_REPO_ROOT"] == str(df.REPO_ROOT)
+    monkeypatch.setenv("STAYTURGID_FETCH_SSH_HOST", "")
+    assert df.repo_env()["STAYTURGID_FETCH_SSH_HOST"] == ""
 
 
 def test_repo_env_fails_without_any_site_selection(monkeypatch, tmp_path):

@@ -4,14 +4,17 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
 import shutil
 import struct
 import subprocess
+import sys
 import tarfile
 import tempfile
+import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -119,13 +122,44 @@ def _download_aria2(url: str, destination: Path, timeout_seconds: int) -> None:
         raise ArtifactError(f"download of {destination.name} failed. {_kept(destination)} {detail[:500]}")
 
 
+def _partial_started(destination: Path) -> bool:
+    sidecar = Path(str(destination) + ".aria2")
+    try:
+        size = destination.stat().st_size
+    except OSError:
+        size = 0
+    return size > 0 or sidecar.exists()
+
+
 def download_to(url: str, destination: Path, timeout_seconds: int) -> None:
     """One transfer. A failure leaves destination in place so the next call resumes it."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     if url.startswith("file:"):
         _download_urllib(url, destination, timeout_seconds)
         return
-    _download_aria2(url, destination, timeout_seconds)
+    host = os.environ.get("STAYTURGID_FETCH_SSH_HOST", "").strip()
+    window = timeout_seconds
+    # A partial stays with aria2. The host path is only for a transfer that has
+    # not started, and only when that host proves it is faster than 2 MiB/s.
+    if host and not _partial_started(destination):
+        started = time.monotonic()
+        lib = str(Path(__file__).resolve().parents[1] / "lib")
+        if lib not in sys.path:
+            sys.path.insert(0, lib)
+        from asset_fetch import FetchError, try_vps
+
+        try:
+            if try_vps(host, url, destination, timeout_seconds):
+                return
+        except FetchError as exc:
+            raise ArtifactError(str(exc)) from exc
+        window = int(timeout_seconds - (time.monotonic() - started))
+        if window <= 0:
+            raise ArtifactError(
+                f"download of {destination.name} did not finish within {timeout_seconds}s. "
+                f"The transfer was stopped. {_kept(destination)}"
+            )
+    _download_aria2(url, destination, window)
 
 
 def _extract_binary(archive: Path, destination: Path) -> None:
@@ -193,36 +227,40 @@ def ensure_cached(
     binary = cache_dir / "otelcol-contrib"
     window = _download_window(timeout_seconds)
 
-    if archive.exists():
-        verify_checksum(archive, expected_sha256)
-    else:
-        partial = cache_dir / f"{archive_name}.partial"
-        download_to(url, partial, window)
+    # One writer. A deploy and anything else caching this pin wait, then reuse the file.
+    lock_path = cache_dir / ".fetch.lock"
+    with lock_path.open("a+") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if archive.exists():
+            verify_checksum(archive, expected_sha256)
+        else:
+            partial = cache_dir / f"{archive_name}.partial"
+            download_to(url, partial, window)
+            try:
+                verify_checksum(partial, expected_sha256)
+            except ArtifactError:
+                # A finished file with the wrong bytes is not a transfer to resume.
+                partial.unlink(missing_ok=True)
+                Path(str(partial) + ".aria2").unlink(missing_ok=True)
+                raise
+            os.replace(partial, archive)
+
+        if binary.exists():
+            validate_linux_arm64_elf(binary)
+            if sha256_file(binary) != _archive_binary_sha256(archive):
+                raise ArtifactError("cached otelcol-contrib binary does not match the verified archive")
+            return False
+
+        fd, temporary_name = tempfile.mkstemp(prefix=".otelcol-contrib.", dir=cache_dir)
+        os.close(fd)
+        temporary = Path(temporary_name)
         try:
-            verify_checksum(partial, expected_sha256)
-        except ArtifactError:
-            # A finished file with the wrong bytes is not a transfer to resume.
-            partial.unlink(missing_ok=True)
-            Path(str(partial) + ".aria2").unlink(missing_ok=True)
-            raise
-        os.replace(partial, archive)
-
-    if binary.exists():
-        validate_linux_arm64_elf(binary)
-        if sha256_file(binary) != _archive_binary_sha256(archive):
-            raise ArtifactError("cached otelcol-contrib binary does not match the verified archive")
-        return False
-
-    fd, temporary_name = tempfile.mkstemp(prefix=".otelcol-contrib.", dir=cache_dir)
-    os.close(fd)
-    temporary = Path(temporary_name)
-    try:
-        _extract_binary(archive, temporary)
-        validate_linux_arm64_elf(temporary)
-        os.replace(temporary, binary)
-    finally:
-        temporary.unlink(missing_ok=True)
-    return True
+            _extract_binary(archive, temporary)
+            validate_linux_arm64_elf(temporary)
+            os.replace(temporary, binary)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return True
 
 
 def main(argv: list[str] | None = None) -> int:

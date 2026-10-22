@@ -256,6 +256,58 @@
 - name: Apply pending otelcol-contrib restart
   ansible.builtin.meta: flush_handlers
 
+# The file at stayturgid_otelcol_binary can already be the pin while the
+# process still holds the previous inode. Its cmdline names the path, so the
+# verify below would pass. /proc/$pid/exe is that inode. Restart only when
+# its version is older than the pin; a newer process is left alone.
+- name: Probe the running otelcol-contrib version
+  ansible.builtin.shell: |
+    pid="$(cat {{ stayturgid_otelcol_pid_file | default('/dev/null') | quote }} 2>/dev/null || true)"
+    exe="/proc/${pid}/exe"
+    if [ -n "$pid" ] && [ -e "$exe" ]; then
+      "$exe" --version 2>/dev/null || true
+    fi
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  register: _otelcol_running_probe
+  changed_when: false
+  failed_when: false
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+    - stayturgid_otelcol_pid_file | default('') | length > 0
+
+- name: Remember whether the running otelcol-contrib is older than the deployed version
+  ansible.builtin.set_fact:
+    _otelcol_running_is_older: >-
+      {{
+        _otelcol_running_version is match('^[0-9]+[.][0-9]+')
+        and (
+          _otelcol_running_version is version(stayturgid_otelcol_version | string, '<')
+        )
+      }}
+  vars:
+    _otelcol_running_version: >-
+      {{
+        ((_otelcol_running_probe | default({})).stdout | default('') | trim).split() | last | default('')
+      }}
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+
+- name: Restart otelcol-contrib when the running version is older than the deployed one
+  ansible.builtin.shell: |
+    {{ stayturgid_otelcol_boot_script | default('') | quote }} stop >/dev/null 2>&1 || true
+    {{ stayturgid_otelcol_boot_script | default('') | quote }}
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  changed_when: true
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+    - _otelcol_running_is_older | default(false) | bool
+    - stayturgid_otelcol_boot_script | default('') | length > 0
+
 - name: Verify otelcol-contrib is running
   ansible.builtin.shell: |
     pid="$(cat {{ stayturgid_otelcol_pid_file | quote }} 2>/dev/null || true)"
