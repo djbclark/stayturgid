@@ -26,8 +26,6 @@ import sys
 from pathlib import Path
 from typing import NamedTuple
 
-import yaml
-
 _LIB = str(Path(__file__).resolve().parents[1] / "lib")
 if _LIB not in sys.path:
     sys.path.insert(0, _LIB)
@@ -114,32 +112,79 @@ def apk_partial_dest(cache_dir: Path, pin: ApkPin, asset_name: str) -> Path:
     return cache_dir / "partials" / token / asset_name
 
 
+def _unquote(value: str) -> str:
+    text = value.strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+        return text[1:-1]
+    return text
+
+
+def _top_scalars(text: str) -> dict[str, str]:
+    found: dict[str, str] = {}
+    for line in text.splitlines():
+        if not line or line[0] in " \t#-" or ":" not in line:
+            continue
+        key, val = line.split(":", 1)
+        val = val.strip()
+        if not val or val in {">", ">-", "|", "|-"}:
+            continue
+        found[key] = _unquote(val)
+    return found
+
+
+def _finish_apk(item: dict[str, str], pins: list[ApkPin], skipped: list[str]) -> None:
+    ident = item.get("id") or "?"
+    repo = item.get("gh_repo") or ""
+    tag = item.get("gh_tag") or ""
+    pattern = item.get("gh_pattern") or ""
+    checksum = item.get("checksum") or ""
+    if not (repo and tag and pattern and checksum):
+        skipped.append(ident)
+        return
+    pins.append(ApkPin(ident, repo, tag, pattern, wanted_sha256(checksum)))
+
+
 def load_apk_pins(text: str) -> tuple[list[ApkPin], list[str]]:
-    data = yaml.safe_load(text) or {}
+    """Read the bootstrap pin list without PyYAML.
+
+    Launchd's Homebrew python does not have PyYAML. The keys this needs are
+    plain scalars, including inside the comment block on the X11 pin.
+    """
     pins: list[ApkPin] = []
     skipped: list[str] = []
-    for item in data.get("stayturgid_bootstrap_apks") or []:
-        if not isinstance(item, dict):
+    current: dict[str, str] | None = None
+    in_list = False
+    for line in text.splitlines():
+        if line.startswith("stayturgid_bootstrap_apks:"):
+            in_list = True
             continue
-        ident = str(item.get("id") or "?")
-        repo = str(item.get("gh_repo") or "")
-        tag = str(item.get("gh_tag") or "")
-        pattern = str(item.get("gh_pattern") or "")
-        checksum = str(item.get("checksum") or "")
-        if not (repo and tag and pattern and checksum):
-            skipped.append(ident)
+        if not in_list:
             continue
-        pins.append(ApkPin(ident, repo, tag, pattern, wanted_sha256(checksum)))
+        if line and line[0] not in " \t#":
+            break
+        if line.startswith("  - id:"):
+            if current is not None:
+                _finish_apk(current, pins, skipped)
+            current = {"id": _unquote(line.split(":", 1)[1])}
+            continue
+        if current is None or not line.startswith("    ") or line.startswith("    #") or ":" not in line:
+            continue
+        key, val = line.strip().split(":", 1)
+        val = val.strip()
+        if key in {"gh_repo", "gh_tag", "gh_pattern", "checksum"} and val and val not in {">", ">-", "|", "|-"}:
+            current[key] = _unquote(val)
+    if current is not None:
+        _finish_apk(current, pins, skipped)
     return pins, skipped
 
 
 def load_otel_pin(text: str) -> OtelPin:
     if _OTEL_NAME_TMPL not in text or _OTEL_URL_TMPL not in text:
         raise PrefetchError("otelcol URL template changed; prefetch_pins.py must be updated with it")
-    data = yaml.safe_load(text) or {}
-    version = str(data.get("stayturgid_otelcol_version") or "").strip()
-    arch = str(data.get("stayturgid_otelcol_archive_arch") or "").strip()
-    digest = str(data.get("stayturgid_otelcol_archive_sha256") or "").strip()
+    data = _top_scalars(text)
+    version = data.get("stayturgid_otelcol_version", "")
+    arch = data.get("stayturgid_otelcol_archive_arch", "")
+    digest = data.get("stayturgid_otelcol_archive_sha256", "")
     if not version or not arch or not digest:
         raise PrefetchError("otelcol pin is missing version, arch, or sha256")
     pin = OtelPin(version, arch, wanted_sha256(digest), "")
@@ -312,6 +357,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="Report hit or miss. Do not download.")
     parser.add_argument("--no-update", action="store_true", help="Do not fetch or fast-forward the checkout.")
     args = parser.parse_args(argv)
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(line_buffering=True)
     repo = args.repo_root.expanduser().resolve()
     # Empty on purpose disables the host, same as deploy_fleet.repo_env.
     os.environ.setdefault("STAYTURGID_FETCH_SSH_HOST", "vps-primary")
@@ -327,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         pins, skipped = load_apk_pins(apk_file.read_text())
         otel = load_otel_pin(otel_file.read_text())
-    except (OSError, PrefetchError, yaml.YAMLError) as exc:
+    except (OSError, PrefetchError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
     for ident in skipped:
