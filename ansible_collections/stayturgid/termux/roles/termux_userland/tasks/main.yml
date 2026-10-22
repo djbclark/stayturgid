@@ -156,7 +156,11 @@
   notify: restart cf-serverd
   when: "'cfengine' in stayturgid_termux_packages"
 
+# `always`: a `--tags scripts` run still has to register this. The pidfile task
+# further down is tagged scripts and its `when` reads the register; a skipped
+# stat makes that conditional fail instead of being false (2026-10-22).
 - name: Detect Termux account owning termux_home
+  tags: [always]
   ansible.builtin.stat:
     path: "{{ termux_home }}"
   register: _termux_home_stat
