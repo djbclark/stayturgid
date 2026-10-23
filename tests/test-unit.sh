@@ -121,6 +121,20 @@ battery_suite() {
   tap_like "$(cat "$STUB_LOG")" "termux-notification-remove stayturgid-batt" \
     "battery[$T]: charging removes the notification"
 
+  # plug-in alone (charge-limited NOT_CHARGING) also clears — same as CHARGING
+  reset_sandbox
+  echo '{"percentage": 12, "status": "DISCHARGING", "plugged": "UNPLUGGED"}' >"$SANDBOX/batt.json"
+  run_sandboxed "$BATT"
+  echo '{"percentage": 12, "status": "NOT_CHARGING", "plugged": "PLUGGED_AC"}' >"$SANDBOX/batt.json"
+  run_sandboxed "$BATT"
+  if [ ! -f "$SANDBOX/home/.stayturgid/state/batt_alerted" ]; then
+    tap_ok "battery[$T]: plugged (NOT_CHARGING) clears alert state"
+  else
+    tap_fail "battery[$T]: plugged (NOT_CHARGING) clears alert state"
+  fi
+  tap_like "$(cat "$STUB_LOG")" "termux-notification-remove stayturgid-batt" \
+    "battery[$T]: plugged removes the notification"
+
   # M3 regression: battery JSON without percentage => clean exit 0 (guard, not set -e)
   reset_sandbox
   echo '{"status": "DISCHARGING"}' >"$SANDBOX/batt.json"

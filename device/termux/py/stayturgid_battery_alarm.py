@@ -241,6 +241,29 @@ def clear_alert_state():
     run(["termux-notification-remove", "stayturgid-batt"])
 
 
+def on_power(batt, status=None):
+    """True when a charger is attached, even if status is still NOT_CHARGING.
+
+    Matches control/lib/battery_watch.on_charger: charge-limited phones (and some
+    OEMs right after plug-in) report PLUGGED_AC/USB/WIRELESS with status
+    NOT_CHARGING or briefly DISCHARGING. Alarms must clear on the plug itself.
+    """
+    st = status if status is not None else batt.get("status", "")
+    plugged = batt.get("plugged", "UNPLUGGED") or "UNPLUGGED"
+    return st in ("CHARGING", "FULL") or plugged not in ("UNPLUGGED", "")
+
+
+def read_battery():
+    """termux-battery-status as a dict, or {} on timeout/failure (Fire OS hangs)."""
+    raw = out_of(["timeout", str(CMD_TIMEOUT_SEC), "termux-battery-status"])
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return {}
+
+
 def _read(path):
     try:
         with open(path) as f:
@@ -341,14 +364,14 @@ def write_status(batt, pct, status, rate):
         prev = {}
     now = int(time.time())
     plugged = batt.get("plugged", "UNPLUGGED")
-    on_charger = status in ("CHARGING", "FULL") or plugged not in ("UNPLUGGED", "")
+    powered = on_power(batt, status)
     st = {
         "ts": now,
         "pct": pct,
         "status": status,
         "plugged": plugged,
-        "eta_min": int(pct / rate * 60) if rate and not on_charger else None,
-        "last_charged": now if on_charger else prev.get("last_charged"),
+        "eta_min": int(pct / rate * 60) if rate and not powered else None,
+        "last_charged": now if powered else prev.get("last_charged"),
         "quiet_until": int(q.timestamp()) if (q := quiet_until()) else None,
     }
     # Fuel-gauge fields termux-battery-status already fetched. The use sampler
@@ -476,6 +499,11 @@ def sound_loop(secs, delay=0, why="ring"):
             time.sleep(min(5.0, max(0.1, wake - time.time())))
         if os.path.exists(SOUND_STOP):
             return
+        # Battery alarms (not an explicit ring) stop as soon as power is connected,
+        # without waiting for the next ~15 min boot-loop pass.
+        if why != "ring" and on_power(read_battery()):
+            _log("power connected; sound aborted (%s)" % why)
+            return
         run(
             [
                 "termux-notification", "--id", "stayturgid-batt-sound", "--priority", "max",
@@ -493,6 +521,9 @@ def sound_loop(secs, delay=0, why="ring"):
             if secs <= 0 and quiet_hours():
                 break
             if why != "ring" and quiet_until():
+                break
+            if why != "ring" and on_power(read_battery()):
+                _log("power connected; sound stopped (%s)" % why)
                 break
             if agent:
                 agent_sound(AGENT_LEASE_SEC, force=why == "ring")
@@ -682,14 +713,9 @@ def main(argv=()):
     signal.signal(signal.SIGTERM, on_signal)
 
     # Prefer short timeout; on Fire, termux-battery-status has been observed to hang.
-    raw = out_of(["timeout", str(CMD_TIMEOUT_SEC), "termux-battery-status"])
-    if not raw:
-        _log("termux-battery-status returned empty (timeout/failure) — skipping cycle")
-        return 0
-    try:
-        batt = json.loads(raw)
-    except ValueError:
-        _log("termux-battery-status returned invalid JSON: %s..." % raw[:80])
+    batt = read_battery()
+    if not batt:
+        _log("termux-battery-status returned empty/invalid — skipping cycle")
         return 0
     pct = batt.get("percentage")
     status = batt.get("status", "")
@@ -700,16 +726,16 @@ def main(argv=()):
 
     _log("pct=%s%% status=%s plugged=%s" % (pct, status, batt.get("plugged", "?")))
 
-    charging = status in ("CHARGING", "FULL")
-    rate = None if charging else drain_per_hour()
+    powered = on_power(batt, status)
+    rate = None if powered else drain_per_hour()
     write_status(batt, pct, status, rate)
-    if charging:
+    if powered:
         stop_sound(dismiss=False)
         _rm(CONT_DISMISSED)
     else:
         evening_check(pct, rate)
 
-    if charging or pct > 30:
+    if powered or pct > 30:
         clear_alert_state()
         return 0
 

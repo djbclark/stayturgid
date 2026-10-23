@@ -82,6 +82,24 @@ def test_malformed_battery_json_exits_zero(monkeypatch):
     assert alarm.main() == 0
 
 
+@pytest.mark.parametrize(
+    "batt,status,powered",
+    [
+        ({"plugged": "UNPLUGGED"}, "DISCHARGING", False),
+        ({"plugged": "UNPLUGGED"}, "CHARGING", True),
+        ({"plugged": "UNPLUGGED"}, "FULL", True),
+        ({"plugged": "PLUGGED_AC"}, "NOT_CHARGING", True),
+        ({"plugged": "PLUGGED_USB"}, "DISCHARGING", True),
+        ({"plugged": "PLUGGED_WIRELESS"}, "NOT_CHARGING", True),
+        ({"plugged": ""}, "DISCHARGING", False),
+        ({}, "DISCHARGING", False),
+    ],
+)
+def test_on_power_treats_any_plug_as_connected(batt, status, powered):
+    assert alarm.on_power(batt, status) is powered
+    assert alarm.on_power({**batt, "status": status}) is powered
+
+
 # --- locate sound / evening warnings / Mac-hub status (2026-10-05) ----------------------
 
 D = alarm.datetime.datetime
@@ -233,6 +251,57 @@ def test_charging_cycle_leaves_the_torch_alone(state, monkeypatch):
     monkeypatch.setattr(alarm, "_sound_pid_mode", lambda: (None, None))
     alarm.stop_sound(dismiss=False)  # what main() does every cycle on the charger
     assert ["termux-torch", "off"] not in runs
+
+
+def test_main_clears_alarms_when_plugged_but_not_charging(state, monkeypatch):
+    """Charge-limited / just-plugged phones often sit at NOT_CHARGING while on AC."""
+    _, _, runs = state
+    stopped = []
+    monkeypatch.setattr(
+        alarm,
+        "read_battery",
+        lambda: {"percentage": 12, "status": "NOT_CHARGING", "plugged": "PLUGGED_AC"},
+    )
+    monkeypatch.setattr(alarm, "stop_sound", lambda dismiss=True: stopped.append(dismiss) or True)
+    monkeypatch.setattr(alarm, "clear_alert_state", lambda: runs.append(["clear_alert_state"]))
+    monkeypatch.setattr(alarm, "evening_check", lambda *a, **k: runs.append(["evening"]))
+    assert alarm.main() == 0
+    assert stopped == [False]
+    assert ["clear_alert_state"] in runs
+    assert ["evening"] not in runs
+
+
+def test_sound_loop_stops_when_power_connects(state, monkeypatch):
+    _, _, runs = state
+    monkeypatch.setattr(alarm, "agent_plays_sound", lambda: False)
+    monkeypatch.setattr(alarm, "_force_audible", lambda music=True: lambda: None)
+    monkeypatch.setattr(alarm.time, "sleep", lambda s: None)
+    clock = iter(range(0, 1000, 5))
+    monkeypatch.setattr(alarm.time, "time", lambda: next(clock))
+    reads = iter(
+        [
+            {"plugged": "UNPLUGGED", "status": "DISCHARGING"},  # pre-play check
+            {"plugged": "UNPLUGGED", "status": "DISCHARGING"},  # first clip
+            {"plugged": "PLUGGED_AC", "status": "NOT_CHARGING"},  # plug mid-play
+        ]
+    )
+    monkeypatch.setattr(alarm, "read_battery", lambda: next(reads))
+    alarm.sound_loop(60, why="battery 10%")
+    assert ["termux-media-player", "play", alarm.SOUND_FILE] in runs
+    # Stopped after the plug: only one clip, not a full 60 s of renewals.
+    assert runs.count(["termux-media-player", "play", alarm.SOUND_FILE]) == 1
+
+
+def test_sound_loop_ring_ignores_power(state, monkeypatch):
+    _, _, runs = state
+    monkeypatch.setattr(alarm, "agent_plays_sound", lambda: False)
+    monkeypatch.setattr(alarm, "_force_audible", lambda music=True: lambda: None)
+    monkeypatch.setattr(alarm.time, "sleep", lambda s: None)
+    clock = iter(range(0, 1000, 5))
+    monkeypatch.setattr(alarm.time, "time", lambda: next(clock))
+    monkeypatch.setattr(alarm, "read_battery", lambda: {"plugged": "PLUGGED_AC", "status": "CHARGING"})
+    alarm.sound_loop(10, why="ring")
+    assert ["termux-media-player", "play", alarm.SOUND_FILE] in runs
 
 
 def test_outside_slots_nothing(state):
