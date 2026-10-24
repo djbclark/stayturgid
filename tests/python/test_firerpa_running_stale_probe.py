@@ -1,6 +1,6 @@
 """Behavioural tests for the FIRERPA probe's running-stale half.
 
-The probe answers two different questions: is the pinned build on disk
+The probe answers two different questions: is the resolved build on disk
 (`disk_ok`), and is anything still *executing* the build we replaced
 (`running_stale`). The second exists because a disk-only gate reports false
 success -- Unix keeps a replaced file alive for whoever holds it open, so the
@@ -40,8 +40,8 @@ def _run(tmp_path: Path, *, stamp: str, deleted_under_install: bool, pids=(101,)
     d = tmp_path / "firerpa"
     (d / "server/bin").mkdir(parents=True)
     (d / "overrides").mkdir(parents=True)
-    (d / "server/bin/python3.12").write_text("#!/bin/sh\n")
-    (d / "server/bin/python3.12").chmod(0o755)
+    (d / "server/bin/python3").write_text("#!/bin/sh\n")
+    (d / "server/bin/python3").chmod(0o755)
     (d / "overrides/aab.zip.signed").write_text("signed")
     (d / "overrides/aab.zip.patched").write_text("patched")
     if stamp is not None:

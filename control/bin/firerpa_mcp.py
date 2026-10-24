@@ -10,7 +10,7 @@ if str(REPO_ROOT) not in sys.path:
 import hmac
 
 import uvicorn
-from mcp.server.fastmcp import Context, FastMCP
+from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -86,7 +86,7 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-mcp = FastMCP("FIRERPA")
+mcp = MCPServer("FIRERPA")
 
 
 @mcp.tool()
@@ -280,12 +280,13 @@ def main():
         # answered `421 Invalid Host header` to every request and never served
         # a single successful session. Bind-address and port must be allowed
         # explicitly.
-        mcp.settings.transport_security = TransportSecuritySettings(
-            allowed_hosts=[host, f"{host}:{args.port}"],
-            allowed_origins=[f"http://{host}:{args.port}"],
+        app = mcp.streamable_http_app(
+            host=host,
+            transport_security=TransportSecuritySettings(
+                allowed_hosts=[host, f"{host}:{args.port}"],
+                allowed_origins=[f"http://{host}:{args.port}"],
+            ),
         )
-
-        app = mcp.streamable_http_app()
         app.add_middleware(TokenAuthMiddleware, token=token)
         uvicorn.run(app, host=host, port=args.port)
 

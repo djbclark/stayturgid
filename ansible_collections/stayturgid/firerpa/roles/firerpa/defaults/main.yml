@@ -1,11 +1,14 @@
 ---
 # FIRERPA/lamda server role — optional on-device failsafe daemon.
-# v10.9 is the first obtainable build supporting Android 17 / API 37 and a
-# 16KB page size (firerpa/lamda#147); it also moved the embedded runtime to
-# Python 3.12 and replaced the driver JAR of earlier releases with lamda/aab.zip.
+# Tracks upstream's latest release: tasks/resolve_release.yml looks it up once per
+# converge, and control_node installs the same version of the Mac client. v10.9
+# was the first build supporting Android 17 / API 37 and a 16KB page size
+# (firerpa/lamda#147), and it replaced the driver JAR with lamda/aab.zip. A new
+# release deploys only once firerpa_service_patch.py has an entry for it, and
+# until then the deploy fails on that host before touching the device.
 # Deployed via Ansible; no APK required.  Default: disabled.
 firerpa_enabled: false
-firerpa_version: "10.9"
+firerpa_version: "{{ hostvars['localhost']['firerpa_release_version'] }}"
 firerpa_port: 65000
 firerpa_install_dir: /data/local/tmp/firerpa
 # arm64 is the ONLY ABI this role fetches, and that is correct for the whole
@@ -24,23 +27,26 @@ firerpa_install_dir: /data/local/tmp/firerpa
 # Corroborated on-device: hd8 has run this role's arm64 server at v10.0, and takes
 # the fleet-wide arm64-v8a Termux APK and linux_arm64 otelcol with no override.
 #
-# Adding a second ABI would need a second archive, checksum and patched-driver hash
-# pair, since the DEX patch pins the exact bytes it edits.
+# Adding a second ABI would need a second archive and patched-driver hash pair,
+# since the DEX patch pins the exact bytes it edits.
 firerpa_server_archive_arm64: "lamda-server-arm64-v8a.tar.gz"
-firerpa_server_archive_sha256_arm64: "88957c04f6cae2e2cc56aaece92cec4074ad72092bc05f1e26e4095de7dedeca"
 firerpa_server_archive_url_arm64: >-
-  https://github.com/djbclark/lamda/releases/download/v{{ firerpa_version }}-binaries/{{ firerpa_server_archive_arm64 }}
+  https://github.com/firerpa/lamda/releases/download/v{{ firerpa_version }}/{{ firerpa_server_archive_arm64 }}
+# Upstream publishes <archive>.sha256sum beside every asset. install.yml reads it
+# once into _firerpa_server_archive_sha256, and get_url verifies the download
+# against it.
+firerpa_server_archive_sha256sum_url_arm64: "{{ firerpa_server_archive_url_arm64 }}.sha256sum"
+# Identifies the exact build installed on a device. install.yml writes this to
+# {{ firerpa_install_dir }}/.stayturgid-firerpa-version after a successful install
+# and compares it on the next run, so an already-converged device skips a ~204 MiB
+# download, push and extract. It holds the version plus the published archive
+# checksum, because a re-published release changes the bytes but not the version.
+firerpa_version_stamp: "{{ firerpa_version }} {{ _firerpa_server_archive_sha256 }}"
+
 # expanduser is load-bearing: the tracked secretspec default for
 # FIRERPA_CERTIFICATE is a literal "~/..." path. ansible.builtin.stat expands a
 # tilde, but `adb push` does not, so the certificate has to be absolute before it
 # reaches a command task or the push fails with "cannot stat '~/...'".
-# Identifies the exact build installed on a device. install.yml writes this to
-# {{ firerpa_install_dir }}/.stayturgid-firerpa-version after a successful install
-# and compares it on the next run, so an already-converged device skips a ~204 MiB
-# download, push and extract. Version alone is not enough: the archive checksum is
-# what actually pins the bytes.
-firerpa_version_stamp: "{{ firerpa_version }} {{ firerpa_server_archive_sha256_arm64 }}"
-
 firerpa_certificate_path: >-
   {{
     (

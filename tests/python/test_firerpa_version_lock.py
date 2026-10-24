@@ -1,6 +1,6 @@
-"""Regression guards for the FIRERPA v10.9 pin.
+"""Regression guards for how the FIRERPA role installs the latest release.
 
-Two jobs:
+Three jobs:
 
 1. No stale v10.0 interpreter/artifact literal survives anywhere FIRERPA is
    actually driven from.  v10.9 moved the embedded runtime from Python 3.9 to
@@ -8,8 +8,9 @@ Two jobs:
    spread across the Ansible role, an on-device boot probe that runs *outside*
    Ansible, the shell-test doubles and the standalone example.  Nothing else in
    the suite would notice a missed one.
-2. The pinned version and archive checksum cannot drift apart, in the spirit of
-   ``test_bootstrap_apk_lock.py``.
+2. The version is resolved, not pinned, and the download is verified against
+   the checksum upstream publishes for that release.
+3. A converged device stays a no-op (#311) and the install steps stay gated.
 """
 
 from __future__ import annotations
@@ -26,10 +27,6 @@ DEFAULTS = ROLE / "defaults/main.yml"
 INSTALL = ROLE / "tasks/install.yml"
 LIFECYCLE_PATH = ROLE / "files/firerpa_lifecycle.py"
 PATCHER_PATH = ROLE / "files/firerpa_service_patch.py"
-
-FIRERPA_VERSION = "10.9"
-SERVER_ARCHIVE_SHA256 = "88957c04f6cae2e2cc56aaece92cec4074ad72092bc05f1e26e4095de7dedeca"
-ACTIVE_DRIVER_PATH = "lib/python3.12/site-packages/lamda/aab.zip"
 
 # Literals that were correct for v10.0 and are wrong for v10.9.  A file that
 # still contains one is either dead or about to break on a live device.
@@ -117,55 +114,70 @@ def test_no_stale_v10_0_literals_where_firerpa_is_driven():
     assert not offenders, "stale v10.0 FIRERPA literals survive:\n" + "\n".join(offenders)
 
 
-def test_the_v10_9_driver_path_is_the_one_actually_used():
-    """The patcher, the role and the lifecycle must agree on one path."""
+def test_the_driver_path_follows_the_embedded_python_minor_everywhere():
+    """The patcher, the role and the lifecycle must agree on one path, and none
+    may hard-code a single release's lib/python3.N."""
     patcher = _module("firerpa_service_patch", PATCHER_PATH)
     lifecycle = _module("firerpa_lifecycle", LIFECYCLE_PATH)
+    driver_glob = "server/lib/python3.*/site-packages/lamda/aab.zip"
 
-    assert patcher.DRIVER_ARCHIVE_SUFFIX.endswith(ACTIVE_DRIVER_PATH.removeprefix("lib"))
-    assert ACTIVE_DRIVER_PATH in INSTALL.read_text(encoding="utf-8")
-    assert ACTIVE_DRIVER_PATH in LIFECYCLE_PATH.read_text(encoding="utf-8")
+    for minor in ("3.12", "3.13"):
+        assert patcher.DRIVER_ARCHIVE_PATTERN.search(f"server/lib/python{minor}/site-packages/lamda/aab.zip")
+    assert driver_glob in INSTALL.read_text(encoding="utf-8")
+    assert driver_glob.removeprefix("server/") in LIFECYCLE_PATH.read_text(encoding="utf-8")
     assert lifecycle.DRIVER_ARCHIVE_FRAGMENT == "/site-packages/lamda/aab.zip"
-    assert "server/bin/python3.12" in INSTALL.read_text(encoding="utf-8")
+    for path in (INSTALL, PATCHER_PATH, LIFECYCLE_PATH):
+        assert not re.search(r"python3\.[0-9]+/", path.read_text(encoding="utf-8")), path
 
 
 def _defaults() -> dict:
     return yaml.safe_load(DEFAULTS.read_text(encoding="utf-8"))
 
 
-def test_version_and_checksum_are_locked_together():
+def test_the_version_is_resolved_per_converge_not_pinned():
     defaults = _defaults()
-    assert defaults["firerpa_version"] == FIRERPA_VERSION
-    assert defaults["firerpa_server_archive_sha256_arm64"] == SERVER_ARCHIVE_SHA256
-    assert re.fullmatch(r"[0-9a-f]{64}", defaults["firerpa_server_archive_sha256_arm64"])
+    assert defaults["firerpa_version"] == "{{ hostvars['localhost']['firerpa_release_version'] }}"
+    url = defaults["firerpa_server_archive_url_arm64"].strip()
+    assert url.startswith("https://github.com/firerpa/lamda/releases/download/v{{ firerpa_version }}/")
+    assert "firerpa_server_archive_sha256_arm64" not in defaults, "no checksum pin"
 
 
-def test_archive_url_is_the_pinned_fork_mirror_for_this_version():
-    """Upstream deletes releases (v10.0 and v10.2 are gone), so we fetch the mirror."""
-    url = _defaults()["firerpa_server_archive_url_arm64"].strip()
-    assert url.startswith("https://github.com/djbclark/lamda/releases/download/")
-    assert "v{{ firerpa_version }}-binaries" in url
-    assert "{{ firerpa_server_archive_arm64 }}" in url
-    assert _defaults()["firerpa_server_archive_arm64"] == "lamda-server-arm64-v8a.tar.gz"
+def test_the_download_is_verified_against_the_published_checksum():
+    tasks = yaml.safe_load(INSTALL.read_text(encoding="utf-8"))
+    by_name = {task["name"]: task for task in tasks}
+    read = by_name["Read the published FIRERPA server archive checksum"]
+    assert (
+        "firerpa_server_archive_sha256sum_url_arm64"
+        in read["ansible.builtin.set_fact"]["_firerpa_server_archive_sha256"]
+    )
+    assert by_name["Download FIRERPA server archive on Mac"]["ansible.builtin.get_url"]["checksum"] == (
+        "sha256:{{ _firerpa_server_archive_sha256 }}"
+    )
+    assert (
+        _defaults()["firerpa_server_archive_sha256sum_url_arm64"] == "{{ firerpa_server_archive_url_arm64 }}.sha256sum"
+    )
 
 
-def test_the_role_verifies_the_archive_checksum_on_download():
-    install = INSTALL.read_text(encoding="utf-8")
-    assert 'checksum: "sha256:{{ firerpa_server_archive_sha256_arm64 }}"' in install
+def test_the_patcher_is_told_which_release_it_is_patching():
+    """Without --version the patcher could not refuse a release it has no entry for."""
+    tasks = yaml.safe_load(INSTALL.read_text(encoding="utf-8"))
+    patch = next(t for t in tasks if t["name"] == "Patch FIRERPA driver for accessibility service coexistence")
+    argv = patch["ansible.builtin.command"]["argv"]
+    assert argv[argv.index("--version") + 1] == "{{ firerpa_version }}"
+    names = [t["name"] for t in tasks]
+    assert names.index("Patch FIRERPA driver for accessibility service coexistence") < names.index(
+        "Push server archive to device via adb"
+    ), "the patch must refuse an unvetted release before the device is touched"
 
 
-def test_driver_hashes_are_distinct_and_well_formed():
+def test_the_lifecycle_and_patcher_vet_the_same_driver_pairs():
+    """The lifecycle is pushed alone and cannot import the patcher, so it keeps a copy."""
     lifecycle = _module("firerpa_lifecycle", LIFECYCLE_PATH)
     patcher = _module("firerpa_service_patch", PATCHER_PATH)
-    digests = [
-        lifecycle.SIGNED_DRIVER_SHA256,
-        lifecycle.PATCHED_DRIVER_SHA256,
-        patcher.ORIGINAL_DEX_SHA256,
-        patcher.PATCHED_DEX_SHA256,
-    ]
-    for digest in digests:
-        assert re.fullmatch(r"[0-9a-f]{64}", digest), digest
-    assert len(set(digests)) == len(digests), "a driver/DEX hash pin was copy-pasted"
+    assert lifecycle.SUPPORTED_DRIVERS == {
+        version: (spec.signed_archive_sha256, spec.patched_archive_sha256)
+        for version, spec in patcher.SUPPORTED_DRIVERS.items()
+    }
 
 
 def test_certificate_path_is_absolute_before_it_reaches_adb():
@@ -201,9 +213,9 @@ def test_install_is_gated_on_a_version_and_checksum_stamp():
     download + push ran on every opted-in host on every deploy."""
     defaults = _defaults()
     stamp = defaults["firerpa_version_stamp"]
-    # Version alone would let a re-pinned checksum install silently.
+    # Version alone would miss a re-published release with new bytes.
     assert "{{ firerpa_version }}" in stamp
-    assert "{{ firerpa_server_archive_sha256_arm64 }}" in stamp
+    assert "{{ _firerpa_server_archive_sha256 }}" in stamp
 
 
 def test_the_expensive_install_steps_are_all_gated():

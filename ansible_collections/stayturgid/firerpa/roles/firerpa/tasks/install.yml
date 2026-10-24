@@ -15,6 +15,25 @@
     - device_usb_serial is defined
     - _firerpa_adb_check.rc | default(0) != 0
 
+# The published checksum, read once: the install stamp includes it (so a
+# re-published release with the same version still reinstalls), and get_url
+# verifies the download against it. A lookup runs on the controller.
+- name: Read the published FIRERPA server archive checksum
+  ansible.builtin.set_fact:
+    _firerpa_server_archive_sha256: >-
+      {{ (lookup('ansible.builtin.url', firerpa_server_archive_sha256sum_url_arm64, split_lines=false)
+          | trim).split() | first | default('') | lower }}
+  run_once: true
+
+- name: Reject a FIRERPA checksum asset that is not a SHA-256
+  ansible.builtin.assert:
+    that:
+      - _firerpa_server_archive_sha256 is match('^[0-9a-f]{64}$')
+    fail_msg: >-
+      {{ firerpa_server_archive_sha256sum_url_arm64 }} did not start with a SHA-256
+      (got {{ _firerpa_server_archive_sha256 | default('') }}).
+    quiet: true
+
 # A plain `just deploy` now reaches this role on every opted-in host (#311), and
 # the install below unconditionally re-downloaded and re-pushed ~204 MiB each
 # time. Probe first so a converged device is a genuine no-op. The probe is
@@ -23,21 +42,21 @@
 # STALE and does the full install, so this can never silently under-converge.
 #
 # Two halves, answering different questions (2026-10-03):
-#   disk_ok       -- is the pinned build on disk and intact? (stamp + checksum)
+#   disk_ok       -- is the resolved build on disk and intact? (stamp + checksum)
 #   running_stale -- is anything still EXECUTING the build we replaced?
 # The second half exists because a disk-only gate reports false success: the
 # verify reads the new file while the service holds the old one open. See
 # site-private memory/reference_disk_only_version_gate_reports_false_success.md.
-- name: Detect whether the device already has the pinned FIRERPA build
+- name: Detect whether the device already has the resolved FIRERPA build
   ansible.builtin.shell: |
     adb -s {{ _firerpa_adb_target }} shell '
       D={{ firerpa_install_dir }}
       stamp=$(cat $D/.stayturgid-firerpa-version 2>/dev/null)
 
-      # The disk half: is the pinned build laid down and intact?
+      # The disk half: is the resolved build laid down and intact?
       disk_ok=0
       if [ "$stamp" = "{{ firerpa_version_stamp }}" ] \
-        && [ -x $D/server/bin/python3.12 ] \
+        && [ -x $D/server/bin/python3 ] \
         && [ -f $D/overrides/aab.zip.signed ] \
         && [ -f $D/overrides/aab.zip.patched ]; then
         disk_ok=1
@@ -74,7 +93,7 @@
   check_mode: false
   register: _firerpa_installed_probe
 
-- name: Record whether the pinned FIRERPA build needs installing
+- name: Record whether the resolved FIRERPA build needs installing
   ansible.builtin.set_fact:
     _firerpa_install_required: "{{ 'CONVERGED' not in (_firerpa_installed_probe.stdout | default('')) }}"
 
@@ -98,11 +117,14 @@
     url: "{{ firerpa_server_archive_url_arm64 }}"
     dest: "{{ _firerpa_tmp.path }}/{{ firerpa_server_archive_arm64 }}"
     mode: "0644"
-    checksum: "sha256:{{ firerpa_server_archive_sha256_arm64 }}"
+    checksum: "sha256:{{ _firerpa_server_archive_sha256 }}"
   delegate_to: localhost
   register: _firerpa_dl
   when: _firerpa_install_required | bool
 
+# Fails closed, and fails this host before anything below touches the device,
+# when the resolved release has no vetted entry in the patcher's SUPPORTED_DRIVERS
+# or its driver bytes differ from that entry. The error says how to add one.
 - name: Patch FIRERPA driver for accessibility service coexistence
   ansible.builtin.command:
     argv:
@@ -110,6 +132,8 @@
       - "{{ role_path }}/files/firerpa_service_patch.py"
       - --archive
       - "{{ _firerpa_tmp.path }}/{{ firerpa_server_archive_arm64 }}"
+      - --version
+      - "{{ firerpa_version }}"
       - --output
       - "{{ _firerpa_tmp.path }}/firerpa-driver-patched.zip"
   delegate_to: localhost
@@ -174,12 +198,20 @@
   changed_when: true
   when: _firerpa_install_required | bool
 
+# The embedded runtime's lib/python3.N is upstream's choice, so glob it and
+# require exactly one match rather than naming one release's minor.
 - name: Preserve signed FIRERPA driver for integrity validation
-  ansible.builtin.command:
-    cmd: >-
-      adb -s {{ _firerpa_adb_target }} shell cp
-      {{ firerpa_install_dir }}/server/lib/python3.12/site-packages/lamda/aab.zip
-      {{ firerpa_install_dir }}/overrides/aab.zip.signed
+  ansible.builtin.shell: |
+    adb -s {{ _firerpa_adb_target }} shell '
+      set -- {{ firerpa_install_dir }}/server/lib/python3.*/site-packages/lamda/aab.zip
+      if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+        echo "expected exactly one server/lib/python3.N/site-packages/lamda/aab.zip, found: $*" >&2
+        exit 1
+      fi
+      cp "$1" {{ firerpa_install_dir }}/overrides/aab.zip.signed
+    '
+  args:
+    executable: /bin/bash
   delegate_to: localhost
   changed_when: true
   when: _firerpa_install_required | bool
@@ -215,7 +247,7 @@
   ansible.builtin.command:
     cmd: >-
       adb -s {{ _firerpa_adb_target }}
-      shell test -x {{ firerpa_install_dir }}/server/bin/python3.12 && echo OK || echo MISSING
+      shell test -x {{ firerpa_install_dir }}/server/bin/python3 && echo OK || echo MISSING
   delegate_to: localhost
   changed_when: false
   register: _firerpa_verify
@@ -231,7 +263,7 @@
 #     and its verify are both skipped, for the same reason.
 - name: Fail if FIRERPA binary missing after extract
   ansible.builtin.fail:
-    msg: "FIRERPA server binary not found at {{ firerpa_install_dir }}/server/bin/python3.12 on {{ inventory_hostname }}"
+    msg: "FIRERPA server binary not found at {{ firerpa_install_dir }}/server/bin/python3 on {{ inventory_hostname }}"
   when:
     - not ansible_check_mode
     - _firerpa_install_required | bool

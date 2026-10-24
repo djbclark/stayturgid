@@ -30,11 +30,14 @@ stayturgid_ops_memory_target: "{{ lookup('env', 'HOME') }}/ops/site-private/memo
 
 stayturgid_firerpa_venv_managed: true
 stayturgid_firerpa_venv: "{{ lookup('env', 'HOME') }}/.venv-stayturgid-firerpa"
-stayturgid_firerpa_venv_python_version: "3.12"
+# The newest Homebrew minor where the client installs from wheels and imports.
+# It's 3.14, not 3.15, because of two blockers (2026-10-24): lamda 10.9 declares
+# Requires-Python <3.15, and lamda caps grpcio/grpcio-tools at <=1.82.0, whose
+# newest builds (1.81.1) publish no cp315 wheels, so 3.15 would compile grpc from
+# source. Move up once both clear. firerpa_venv.yml rebuilds the venv when this changes.
+stayturgid_firerpa_venv_python_version: "3.14"
 stayturgid_firerpa_venv_requirements: >-
   {{ stayturgid_repo_root | realpath }}/control/requirements-firerpa-venv.txt
-# Must track the firerpa role's firerpa_version, so the client and server match.
-stayturgid_firerpa_client_version: "10.9"
 
 stayturgid_firerpa_certificate_path: >-
   {{

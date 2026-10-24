@@ -2,37 +2,66 @@
 # Converge ~/.venv-stayturgid-firerpa from control/requirements-firerpa-venv.txt.
 #
 # Why this exists: the venv was created by hand and nothing in the repo converged
-# it, while com.stayturgid.firerpa-mcp (whose plist points straight at its
-# interpreter) and control/bin/firerpa_health_monitor.py both depend on it. A
-# `just deploy` could not rebuild it, repair it, or correct a drifted lamda
-# version. It also has no `pip`, so versions are read with importlib.metadata.
-- name: Stat the FIRERPA control-node venv interpreter
-  ansible.builtin.stat:
-    path: "{{ stayturgid_firerpa_venv }}/bin/python"
-  register: _firerpa_venv_python
+# it, while com.stayturgid.firerpa-mcp and com.stayturgid.firerpa-health (whose
+# plists point straight at its interpreter) both depend on it. A `just deploy`
+# could not rebuild it, repair it, or correct a drifted lamda version. It has no
+# `pip`, so versions are read with importlib.metadata.
+#
+# The lamda client tracks the latest FIRERPA release in lockstep with the server:
+# the release is resolved once per converge (the firerpa role's
+# resolve_release.yml, shared with the device deploy) and installed as
+# lamda==<that release> from PyPI.
+- name: Resolve the FIRERPA release this converge deploys
+  ansible.builtin.include_role:
+    name: stayturgid.firerpa.firerpa
+    tasks_from: resolve_release
   when: stayturgid_firerpa_venv_managed | default(true) | bool
 
-- name: Create the FIRERPA control-node venv when absent
+- name: Read the FIRERPA control-node venv's Python minor
   ansible.builtin.command:
     cmd: >-
-      {{ stayturgid_homebrew_prefix }}/bin/uv venv
-      --python {{ stayturgid_firerpa_venv_python_version }}
+      {{ stayturgid_firerpa_venv }}/bin/python -c
+      "import sys; print('%d.%d' % sys.version_info[:2])"
+  register: _firerpa_venv_minor
+  when: stayturgid_firerpa_venv_managed | default(true) | bool
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# Rebuilt, not just created: a venv left on an older minor (it was 3.12 until
+# 2026-10-24) would otherwise keep running the services on it forever.
+- name: Create the FIRERPA control-node venv when absent or on another Python minor
+  ansible.builtin.command:
+    cmd: >-
+      {{ stayturgid_homebrew_prefix }}/bin/uv venv --clear
+      --python {{ stayturgid_homebrew_prefix }}/bin/python{{ stayturgid_firerpa_venv_python_version }}
       {{ stayturgid_firerpa_venv }}
   when:
     - stayturgid_firerpa_venv_managed | default(true) | bool
-    - not (_firerpa_venv_python.stat.exists | default(false))
+    - (_firerpa_venv_minor.stdout | default('') | trim) != stayturgid_firerpa_venv_python_version
+  register: _firerpa_venv_create
   changed_when: true
 
 # uv is idempotent here: it reports "Audited N packages" when the environment
-# already satisfies the file and installs only on drift, so this is safe on every
-# deploy. --no-deps is NOT used: the pins below are exact, so uv resolves the
-# whole set against them and a fresh venv gets its transitive dependencies.
-- name: Converge the FIRERPA control-node venv against its pinned requirements
+# already satisfies the requirements and installs only on drift, so this is safe
+# on every deploy. --upgrade lets the unpinned dependencies move to their latest
+# releases, as site policy wants. --only-binary keeps a dependency that lacks a
+# wheel for this Python from compiling natively on the Mac (grpcio is a long C++
+# build). The install fails instead, which means the venv minor needs to come down.
+- name: Converge the FIRERPA control-node venv against its requirements
   ansible.builtin.command:
-    cmd: >-
-      {{ stayturgid_homebrew_prefix }}/bin/uv pip install
-      --python {{ stayturgid_firerpa_venv }}/bin/python
-      --requirement {{ stayturgid_firerpa_venv_requirements }}
+    argv:
+      - "{{ stayturgid_homebrew_prefix }}/bin/uv"
+      - pip
+      - install
+      - --upgrade
+      - --only-binary
+      - grpcio,grpcio-tools
+      - --python
+      - "{{ stayturgid_firerpa_venv }}/bin/python"
+      - --requirement
+      - "{{ stayturgid_firerpa_venv_requirements }}"
+      - "lamda=={{ hostvars['localhost']['firerpa_release_version'] }}"
   register: _firerpa_venv_sync
   when: stayturgid_firerpa_venv_managed | default(true) | bool
   changed_when: >-
@@ -40,23 +69,24 @@
     or 'Installed' in (_firerpa_venv_sync.stderr | default(''))
 
 # Assert rather than trust the installer: a silent no-op here would leave the live
-# MCP service on a stale client, which is exactly the drift this file prevents.
+# MCP service on a client that no longer matches the server.
 - name: Read back the converged FIRERPA client version
   ansible.builtin.command:
     cmd: >-
       {{ stayturgid_firerpa_venv }}/bin/python -c
-      "import importlib.metadata as m; print(m.version('lamda'))"
+      "import importlib.metadata as m, lamda.client; print(m.version('lamda'))"
   register: _firerpa_venv_lamda
   when: stayturgid_firerpa_venv_managed | default(true) | bool
   changed_when: false
 
-- name: Assert the FIRERPA client matches the pinned server version
+- name: Assert the FIRERPA client matches the release the devices run
   ansible.builtin.assert:
     that:
-      - (_firerpa_venv_lamda.stdout | default('') | trim) == stayturgid_firerpa_client_version
+      - (_firerpa_venv_lamda.stdout | default('') | trim) == hostvars['localhost']['firerpa_release_version']
     fail_msg: >-
       ~/.venv-stayturgid-firerpa has lamda
       {{ _firerpa_venv_lamda.stdout | default('<unknown>') | trim }}, expected
-      {{ stayturgid_firerpa_client_version }}. Check
-      {{ stayturgid_firerpa_venv_requirements }}.
+      {{ hostvars['localhost']['firerpa_release_version'] }} (latest FIRERPA release).
+      Check {{ stayturgid_firerpa_venv_requirements }} and whether PyPI has lamda
+      {{ hostvars['localhost']['firerpa_release_version'] }} yet.
   when: stayturgid_firerpa_venv_managed | default(true) | bool

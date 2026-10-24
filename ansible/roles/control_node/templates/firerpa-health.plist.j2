@@ -6,8 +6,10 @@
     <string>com.stayturgid.firerpa-health</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/env</string>
-        <string>python3.12</string>
+        <!-- The FIRERPA venv's Python, which has the lamda client. A bare
+             python3.N has no lamda, and the monitor then only logs "lamda-client
+             not installed". The venv's minor is stayturgid_firerpa_venv_python_version. -->
+        <string>{{ stayturgid_firerpa_venv }}/bin/python</string>
         <string>{{ stayturgid_repo_root | realpath }}/control/bin/firerpa_health_monitor.py</string>
     </array>
     <key>EnvironmentVariables</key>

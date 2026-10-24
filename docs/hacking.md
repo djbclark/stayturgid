@@ -872,52 +872,31 @@ with evidence whenever an item is completed or blocked.
 
 **FIRERPA/lamda failsafe daemon:** Optional gRPC backup control channel on port 65000.
 
-```bash
-# Ensure lamda-client is installed (Python 3.12 venv)
-# Not /tmp: this venv is meant to persist across sessions, and a fixed
-# world-writable /tmp path sourced by a script is a local privilege-escalation
-# vector on any shared host (see tmpfile security audit, 2026-07-21).
-uv venv --python 3.12 ~/.venv-stayturgid-firerpa
-source ~/.venv-stayturgid-firerpa/bin/activate
-# --no-deps is deliberate: lamda 10.9 needs the same dependency set as 10.0 and
-# only widens its grpcio ceiling, so a plain install would be free to pull
-# grpcio up to the yanked 1.82.0 for no benefit. See the ceilings below.
-uv pip install --no-deps \
-  https://github.com/djbclark/lamda/releases/download/v10.9-binaries/lamda-10.9.tar.gz
-```
+The Mac-side client venv, `~/.venv-stayturgid-firerpa`, is converged by
+`ansible/roles/control_node/tasks/firerpa_venv.yml` on every deploy. Don't build
+it by hand. It tracks the latest FIRERPA release in lockstep with the devices:
+each converge resolves `firerpa/lamda`'s `releases/latest` once (the firerpa
+role's `tasks/resolve_release.yml`), deploys that release's server, and installs
+`lamda==<release>` from PyPI on top of the unpinned
+`control/requirements-firerpa-venv.txt`. The venv runs on Python 3.14, not 3.15:
+lamda 10.9 declares `Requires-Python <3.15`, and the grpcio ≤1.82.0 it allows
+has no cp315 wheels (see `stayturgid_firerpa_venv_python_version`).
 
-The client is installed from the fork mirror rather than upstream because
-upstream's sdist is published as `lamda-client-py-10.9.tar.gz` while its metadata
-name is `lamda`; uv rejects that mismatch outright ("Package metadata name
-`lamda` does not match given name `lamda-client-py`"). The fork re-publishes the
-identical bytes under the correct `lamda-10.9.tar.gz` name — sha256
-3a1fa9bceace4638173e15446cb49697b38f6419a14343a8c5aa057039354406.
+A new upstream release deploys only after the DEX coexistence patch is vetted for
+it. Until `SUPPORTED_DRIVERS` in
+`ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_service_patch.py`
+has an entry for that version, the deploy fails on each FIRERPA host before
+touching the device. The error spells out the entry to add, and the
+matching pair in `firerpa_lifecycle.py`.
 
 Verify versions with `importlib.metadata`, not `pip` — this venv has no `pip`:
 
 ```bash
 ~/.venv-stayturgid-firerpa/bin/python -c \
-  "import importlib.metadata as m; print(m.version('lamda'), m.version('grpcio'))"
+  "import importlib.metadata as m; print(m.version('lamda'), m.version('grpcio'), m.version('mcp'))"
 ```
 
-Two ceilings in this venv are load-bearing — both verified 2026-10-02, and
-neither is enforced by a tracked requirements file, because the venv is created
-by hand:
-
-- **`mcp>=1.28,<2`.** `control/bin/firerpa_mcp.py` does
-  `from mcp.server.fastmcp import Context, FastMCP`. In mcp 2.x that module
-  exists only to raise `ModuleNotFoundError` (`FastMCP` was renamed
-  `MCPServer`), so bumping it breaks the live `com.stayturgid.firerpa-mcp`
-  launchd service. Do not take mcp 2.x without porting that import first.
-- **`grpcio<=1.82.0`**, from lamda's own `setup.py`. A newer grpcio makes
-  `lamda` unresolvable, and 1.82.0 itself is yanked from PyPI
-  (grpc/grpc#42906), so the practical ceiling is whatever is already
-  installed. protobuf 7 is likewise unreachable: `grpcio-tools 1.74.0`
-  requires `protobuf<7.0.0`, and lamda imports fine on 6.33.6, so the bump
-  buys nothing.
-
 ```bash
-
 # Start FIRERPA on oneui-device (one-time via adb):
 adb -s 100.0.0.11:5555 shell \
   'cd /data/local/tmp/firerpa/server && nohup sh bin/launch.sh --port=65000 &'

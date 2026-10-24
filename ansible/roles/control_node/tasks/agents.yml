@@ -313,6 +313,13 @@
   when: opencode_web_removed.changed
   failed_when: false
 
+# Before the plists that point at this venv's interpreter (firerpa-health and
+# firerpa-mcp), so a fresh machine cannot end up with a launchd service aimed at
+# a Python that does not exist.
+- name: Converge the FIRERPA control-node venv
+  ansible.builtin.include_tasks: firerpa_venv.yml
+  tags: [mac, agents, firerpa]
+
 - name: Render FIRERPA health launchd agent
   ansible.builtin.template:
     src: firerpa-health.plist.j2
@@ -320,12 +327,6 @@
     mode: "0644"
   when: stayturgid_firerpa_health_enabled | default(true) | bool
   register: firerpa_health_plist
-
-# Before the plist that points at this venv's interpreter, so a fresh machine
-# cannot end up with a launchd service aimed at a Python that does not exist.
-- name: Converge the FIRERPA control-node venv
-  ansible.builtin.include_tasks: firerpa_venv.yml
-  tags: [mac, agents, firerpa]
 
 - name: Render FIRERPA MCP bridge launchd agent
   ansible.builtin.template:
@@ -434,8 +435,11 @@
           ['com.stayturgid.firerpa-mcp']
           if (
             stayturgid_firerpa_mcp_enabled | default(true) | bool
-            and firerpa_mcp_plist is defined
-            and firerpa_mcp_plist.changed
+            and (
+              (firerpa_mcp_plist is defined and firerpa_mcp_plist.changed)
+              or (_firerpa_venv_create is defined and _firerpa_venv_create.changed)
+              or (_firerpa_venv_sync is defined and _firerpa_venv_sync.changed)
+            )
           ) else []
         )
         + (

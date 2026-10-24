@@ -1,0 +1,35 @@
+---
+# Resolve the latest FIRERPA release (GitHub releases/latest) once per converge,
+# and record it on localhost as firerpa_release_version.
+#
+# Both consumers read the same fact: this role deploys that release's server,
+# and control_node's firerpa_venv.yml installs that release's lamda client on the
+# Mac. Resolving once is what keeps the two in lockstep. Resolving twice could
+# put them on different versions if a release landed between the two plays.
+# The site playbook runs fleet/firerpa.yml before control_node/site.yml, and
+# facts persist across plays, so the first consumer looks the release up and
+# the second reuses its answer. A playbook run on its own resolves for itself.
+#
+# Everything is delegated to localhost and run once. The calling play may target
+# phones, and the GitHub lookup has to run on the Mac.
+- name: Resolve the latest FIRERPA release once per converge
+  when: hostvars['localhost']['firerpa_release_version'] is not defined
+  block:
+    - name: Query the latest FIRERPA release
+      ansible.builtin.include_role:
+        name: github_latest_release
+        apply:
+          delegate_to: localhost
+          run_once: true
+      vars:
+        # Literal, not a role default: role defaults are private to this role and
+        # would not be visible inside the nested github_latest_release tasks.
+        github_latest_release_repo: firerpa/lamda
+      run_once: true
+
+    - name: Record the FIRERPA release for this converge on localhost
+      ansible.builtin.set_fact:
+        firerpa_release_version: "{{ github_latest_release_version }}"
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true

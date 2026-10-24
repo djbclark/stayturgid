@@ -1,4 +1,8 @@
 ---
+- name: Resolve the latest FIRERPA release
+  ansible.builtin.include_tasks: resolve_release.yml
+  when: firerpa_enabled | bool
+
 - name: Install FIRERPA server binary
   ansible.builtin.include_tasks: install.yml
   when: firerpa_enabled | bool

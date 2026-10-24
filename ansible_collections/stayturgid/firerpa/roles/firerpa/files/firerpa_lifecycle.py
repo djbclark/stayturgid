@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Start FIRERPA while preserving ordinary Android accessibility services.
 
-The signed FIRERPA v10.9 distribution validates ``lamda/aab.zip`` at process
+The signed FIRERPA distribution (v10.9 onward) validates ``lamda/aab.zip`` at process
 startup.  Its bundled UIAutomation driver then registers with Android flags 0,
 which suppresses AutoJs6 and all other accessibility services.  A patched archive
 requests flag 1, but cannot be present during FIRERPA's integrity check.
@@ -12,9 +12,10 @@ activates the patched archive, then restarts only those helpers.  It runs under 
 or Termux Python; FIRERPA's embedded Python cannot parent another FIRERPA process
 because its runtime applies a restrictive security policy.
 
-v10.9 moved the embedded runtime to Python 3.12 and replaced the driver JAR of
-earlier releases with ``aab.zip``; the hashes below are of that archive, as
-produced by ``firerpa_service_patch.py``.
+v10.9 replaced the driver JAR of earlier releases with ``aab.zip``; the hashes
+below are of that archive, as shipped and as produced by
+``firerpa_service_patch.py``.  The embedded runtime's Python minor is upstream's
+choice, so the active driver is located under whichever ``lib/python3.N`` exists.
 """
 
 from __future__ import annotations
@@ -28,8 +29,16 @@ from pathlib import Path
 from typing import Callable
 
 DEFAULT_ROOT = Path("/data/local/tmp/firerpa")
-SIGNED_DRIVER_SHA256 = "74d2f1493025acdb92905d8cf5b5fa75a3978508b440049f81a1dd0eab2c7465"
-PATCHED_DRIVER_SHA256 = "3be26ac64d6532d1c8635737d4c186c976ea5c1c02e71c17b7207ab0cfbcb510"
+# {FIRERPA version: (signed aab.zip SHA-256, patched aab.zip SHA-256)}.  Must equal
+# the archive hashes in firerpa_service_patch.py's SUPPORTED_DRIVERS (a test checks),
+# which is where a new version is vetted first: this file is pushed on its own and
+# cannot import that one.
+SUPPORTED_DRIVERS: dict[str, tuple[str, str]] = {
+    "10.9": (
+        "74d2f1493025acdb92905d8cf5b5fa75a3978508b440049f81a1dd0eab2c7465",
+        "3be26ac64d6532d1c8635737d4c186c976ea5c1c02e71c17b7207ab0cfbcb510",
+    ),
+}
 DRIVER_ARCHIVE_FRAGMENT = "/site-packages/lamda/aab.zip"
 
 
@@ -85,7 +94,8 @@ class FirerpaLifecycle:
         self.port = port
         self.certificate = certificate
         self.timeout = timeout
-        self.active_driver = self.server / "lib/python3.12/site-packages/lamda/aab.zip"
+        self.active_driver_glob = f"{shlex.quote(str(self.server))}/lib/python3.*/site-packages/lamda/aab.zip"
+        self._active_driver: Path | None = None
         self.signed_driver = root / "overrides/aab.zip.signed"
         self.patched_driver = root / "overrides/aab.zip.patched"
         self.launcher = self.server / "bin/launch.sh"
@@ -97,6 +107,21 @@ class FirerpaLifecycle:
             detail = output.strip() or f"exit {rc}"
             raise LifecycleError(f"Android shell command failed: {detail}")
         return output
+
+    @property
+    def active_driver(self) -> Path:
+        """The one ``lib/python3.N/.../aab.zip`` the extracted server loads."""
+        if self._active_driver is None:
+            output = self._run(
+                f'for path in {self.active_driver_glob}; do test -f "$path" && echo "$path"; done; exit 0'
+            )
+            found = [line.strip() for line in output.splitlines() if line.strip().endswith(DRIVER_ARCHIVE_FRAGMENT)]
+            if len(found) != 1:
+                raise LifecycleError(
+                    f"expected exactly one server/lib/python3.N{DRIVER_ARCHIVE_FRAGMENT}, found {found}"
+                )
+            self._active_driver = Path(found[0])
+        return self._active_driver
 
     def _remote_sha256(self, path: Path) -> str:
         output = self._run(f"sha256sum {shlex.quote(str(path))}")
@@ -144,11 +169,11 @@ class FirerpaLifecycle:
         )
         self._run(f'for path in {required}; do test -f "$path" || exit 1; done')
         signed_digest = self._remote_sha256(self.signed_driver)
-        if signed_digest != SIGNED_DRIVER_SHA256:
-            raise LifecycleError(f"signed aab.zip hash {signed_digest} is unsupported")
         patched_digest = self._remote_sha256(self.patched_driver)
-        if patched_digest != PATCHED_DRIVER_SHA256:
-            raise LifecycleError(f"patched aab.zip hash {patched_digest} is unsupported")
+        if (signed_digest, patched_digest) not in SUPPORTED_DRIVERS.values():
+            raise LifecycleError(
+                f"signed/patched aab.zip hashes {signed_digest}/{patched_digest} are not a pair in SUPPORTED_DRIVERS"
+            )
 
     def _launch_signed_server(self) -> None:
         self._copy_atomic(self.signed_driver, self.active_driver)
@@ -198,7 +223,7 @@ class FirerpaLifecycle:
     def start(self) -> None:
         self.validate()
         active_digest = self._remote_sha256(self.active_driver)
-        if self._port_open() and active_digest == PATCHED_DRIVER_SHA256:
+        if self._port_open() and active_digest in {patched for _signed, patched in SUPPORTED_DRIVERS.values()}:
             if self.driver_pids():
                 print("INFO: FIRERPA coexistence driver already active")
                 return

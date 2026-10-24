@@ -36,30 +36,48 @@ def test_the_venv_has_tracked_requirements_at_all():
     assert REQUIREMENTS.is_file()
 
 
-def test_requirements_pin_every_load_bearing_ceiling_exactly():
-    text = REQUIREMENTS.read_text(encoding="utf-8")
-    # Exact pins, not ranges: a resolver free to move inside a range is how a venv
-    # behind a running service drifts.
-    assert "mcp==1.28.1" in text, "mcp 2.x removes mcp.server.fastmcp and breaks firerpa_mcp.py"
-    assert "grpcio==1.74.0" in text, "lamda caps grpcio at <=1.82.0 and 1.82.0 is yanked"
-    assert "grpcio-tools==1.74.0" in text
-    assert "protobuf==6.33.6" in text, "grpcio-tools 1.74.0 requires protobuf<7"
+def test_the_client_comes_from_upstream_and_nothing_is_pinned():
+    lines = [
+        line.strip()
+        for line in REQUIREMENTS.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    assert lines == ["lamda", "mcp"], "site policy: no pins; lamda's version comes from the release lookup"
 
 
-def test_the_client_is_fetched_from_the_fork_mirror_not_upstream():
-    """uv rejects upstream's sdist: filename says lamda-client-py, metadata says lamda."""
-    text = REQUIREMENTS.read_text(encoding="utf-8")
-    assert "github.com/djbclark/lamda/releases/download/" in text
-    assert "lamda-10.9.tar.gz" in text
-    assert "lamda-client-py" not in text.split("# ")[-1], "do not point at upstream's rejected name"
-
-
-def test_the_client_version_cannot_drift_from_the_pinned_server_version():
-    """The whole point of the pin: client and server move together."""
+def test_the_client_installs_the_release_the_devices_get():
+    """Lockstep: the venv and the firerpa role read the one per-converge fact."""
+    tasks = yaml.safe_load(VENV_TASKS.read_text(encoding="utf-8"))
+    resolve = next(t for t in tasks if "ansible.builtin.include_role" in t)
+    assert resolve["ansible.builtin.include_role"] == {
+        "name": "stayturgid.firerpa.firerpa",
+        "tasks_from": "resolve_release",
+    }
+    names = [t["name"] for t in tasks]
+    assert names.index(resolve["name"]) < names.index("Converge the FIRERPA control-node venv against its requirements")
+    converge = next(t for t in tasks if t["name"] == "Converge the FIRERPA control-node venv against its requirements")
+    assert (
+        "lamda=={{ hostvars['localhost']['firerpa_release_version'] }}" in converge["ansible.builtin.command"]["argv"]
+    )
     server = yaml.safe_load(FIRERPA_DEFAULTS.read_text(encoding="utf-8"))["firerpa_version"]
-    client = _defaults()["stayturgid_firerpa_client_version"]
-    assert client == server, f"client pin {client} != server pin {server}"
-    assert f"lamda-{server}.tar.gz" in REQUIREMENTS.read_text(encoding="utf-8")
+    assert server == "{{ hostvars['localhost']['firerpa_release_version'] }}"
+
+
+def test_a_venv_on_another_python_minor_is_rebuilt():
+    """Only creating a missing venv would leave the old 3.12 one in service forever."""
+    tasks = yaml.safe_load(VENV_TASKS.read_text(encoding="utf-8"))
+    create = next(t for t in tasks if t["name"].startswith("Create the FIRERPA control-node venv"))
+    assert "--clear" in create["ansible.builtin.command"]["cmd"]
+    assert "stayturgid_firerpa_venv_python_version" in " ".join(create["when"])
+    read = next(t for t in tasks if t["name"] == "Read the FIRERPA control-node venv's Python minor")
+    assert read.get("check_mode") is False
+
+
+def test_both_firerpa_services_run_on_the_venv_python():
+    for template in ("firerpa-health.plist.j2", "firerpa-mcp.plist.j2"):
+        text = (ROLE / "templates" / template).read_text(encoding="utf-8")
+        assert ".venv-stayturgid-firerpa/bin/python" in text or "{{ stayturgid_firerpa_venv }}/bin/python" in text
+        assert "python3.1" not in text, f"{template} must not name a Python minor of its own"
 
 
 def test_the_venv_is_converged_from_that_file_and_verified_afterwards():
@@ -74,8 +92,9 @@ def test_the_venv_is_converged_from_that_file_and_verified_afterwards():
     assert "importlib.metadata" in body, "this venv has no pip"
 
 
-def test_the_venv_is_converged_before_the_plist_that_points_at_it():
+def test_the_venv_is_converged_before_the_plists_that_point_at_it():
     body = AGENTS.read_text(encoding="utf-8")
+    assert body.index("firerpa_venv.yml") < body.index("firerpa-health.plist.j2")
     assert body.index("firerpa_venv.yml") < body.index("firerpa-mcp.plist.j2")
 
 

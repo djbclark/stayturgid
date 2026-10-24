@@ -27,14 +27,20 @@ class FakeTransport:
         return 0, ""
 
 
-def _lifecycle(tmp_path: Path, transport=None):
-    return lifecycle_module.FirerpaLifecycle(
+SIGNED, PATCHED = lifecycle_module.SUPPORTED_DRIVERS["10.9"]
+
+
+def _lifecycle(tmp_path: Path, transport=None, *, active_driver: Path | None = None):
+    lifecycle = lifecycle_module.FirerpaLifecycle(
         transport=transport or FakeTransport(),
         root=tmp_path,
         port=65000,
         certificate=tmp_path / "lamda.pem",
         timeout=0.1,
     )
+    if active_driver is not None:
+        lifecycle._active_driver = active_driver
+    return lifecycle
 
 
 def test_driver_pids_parses_remote_process_list(tmp_path):
@@ -47,7 +53,7 @@ def test_driver_pids_parses_remote_process_list(tmp_path):
 
 
 def test_remote_sha256_ignores_rish_banner(tmp_path):
-    digest = lifecycle_module.SIGNED_DRIVER_SHA256
+    digest = SIGNED
     transport = FakeTransport([(0, f"Entering shell...\n{digest}  /remote/aab.zip\n")])
     lifecycle = _lifecycle(tmp_path, transport)
 
@@ -62,12 +68,12 @@ def test_remote_sha256_fails_closed_without_digest(tmp_path):
 
 
 def test_start_is_idempotent_when_patched_driver_is_active(tmp_path, monkeypatch, capsys):
-    lifecycle = _lifecycle(tmp_path)
+    lifecycle = _lifecycle(tmp_path, active_driver=tmp_path / "active.zip")
     monkeypatch.setattr(lifecycle, "validate", lambda: None)
     monkeypatch.setattr(
         lifecycle,
         "_remote_sha256",
-        lambda _path: lifecycle_module.PATCHED_DRIVER_SHA256,
+        lambda _path: PATCHED,
     )
     monkeypatch.setattr(lifecycle, "_port_open", lambda: True)
     monkeypatch.setattr(lifecycle, "driver_pids", lambda: {101})
@@ -78,13 +84,13 @@ def test_start_is_idempotent_when_patched_driver_is_active(tmp_path, monkeypatch
 
 
 def test_start_launches_signed_server_then_activates_patch(tmp_path, monkeypatch):
-    lifecycle = _lifecycle(tmp_path)
+    lifecycle = _lifecycle(tmp_path, active_driver=tmp_path / "active.zip")
     calls = []
     monkeypatch.setattr(lifecycle, "validate", lambda: None)
     monkeypatch.setattr(
         lifecycle,
         "_remote_sha256",
-        lambda _path: lifecycle_module.SIGNED_DRIVER_SHA256,
+        lambda _path: SIGNED,
     )
     monkeypatch.setattr(lifecycle, "_port_open", lambda: False)
     monkeypatch.setattr(lifecycle, "_launch_signed_server", lambda: calls.append("launch"))
@@ -100,7 +106,7 @@ def test_start_launches_signed_server_then_activates_patch(tmp_path, monkeypatch
 
 
 def test_launch_accepts_adb_client_timeout_when_listener_is_open(tmp_path, monkeypatch):
-    lifecycle = _lifecycle(tmp_path, FakeTransport([(-1, "")]))
+    lifecycle = _lifecycle(tmp_path, FakeTransport([(-1, "")]), active_driver=tmp_path / "active.zip")
     monkeypatch.setattr(lifecycle, "_copy_atomic", lambda *_args: None)
     monkeypatch.setattr(lifecycle, "_port_open", lambda: True)
 
@@ -108,7 +114,7 @@ def test_launch_accepts_adb_client_timeout_when_listener_is_open(tmp_path, monke
 
 
 def test_launch_reports_adb_client_timeout_when_listener_stays_closed(tmp_path, monkeypatch):
-    lifecycle = _lifecycle(tmp_path, FakeTransport([(-1, "")]))
+    lifecycle = _lifecycle(tmp_path, FakeTransport([(-1, "")]), active_driver=tmp_path / "active.zip")
     monkeypatch.setattr(lifecycle, "_copy_atomic", lambda *_args: None)
     monkeypatch.setattr(lifecycle, "_port_open", lambda: False)
 
@@ -138,3 +144,47 @@ def test_transport_from_adb_arguments():
     transport = lifecycle_module._transport_from_args(parser_args)
 
     assert transport.prefix == ["adb", "-s", "phone:5555", "shell"]
+
+
+def test_active_driver_is_found_under_whichever_python_minor_exists(tmp_path):
+    found = f"{tmp_path}/server/lib/python3.13/site-packages/lamda/aab.zip"
+    transport = FakeTransport([(0, f"Entering shell...\n{found}\n")])
+    lifecycle = _lifecycle(tmp_path, transport)
+
+    assert lifecycle.active_driver == Path(found)
+    assert "lib/python3.*/site-packages/lamda/aab.zip" in transport.commands[0][0]
+    assert lifecycle.active_driver == Path(found)
+    assert len(transport.commands) == 1, "the location is looked up once"
+
+
+@pytest.mark.parametrize(
+    "listing",
+    ["", "/a/lib/python3.12/site-packages/lamda/aab.zip\n/a/lib/python3.13/site-packages/lamda/aab.zip\n"],
+)
+def test_active_driver_fails_closed_unless_exactly_one_exists(tmp_path, listing):
+    lifecycle = _lifecycle(tmp_path, FakeTransport([(0, listing)]))
+
+    with pytest.raises(lifecycle_module.LifecycleError, match="expected exactly one"):
+        lifecycle.active_driver
+
+
+def _validating(tmp_path, monkeypatch, signed: str, patched: str):
+    lifecycle = _lifecycle(tmp_path, active_driver=tmp_path / "active.zip")
+    digests = {lifecycle.signed_driver: signed, lifecycle.patched_driver: patched}
+    monkeypatch.setattr(lifecycle, "_remote_sha256", lambda path: digests[path])
+    return lifecycle
+
+
+def test_validate_accepts_a_supported_signed_and_patched_pair(tmp_path, monkeypatch):
+    _validating(tmp_path, monkeypatch, SIGNED, PATCHED).validate()
+
+
+@pytest.mark.parametrize(
+    ("signed", "patched"),
+    [("0" * 64, PATCHED), (SIGNED, "0" * 64), (PATCHED, SIGNED)],
+)
+def test_validate_refuses_drivers_outside_the_version_table(tmp_path, monkeypatch, signed, patched):
+    lifecycle = _validating(tmp_path, monkeypatch, signed, patched)
+
+    with pytest.raises(lifecycle_module.LifecycleError, match="not a pair in SUPPORTED_DRIVERS"):
+        lifecycle.validate()
