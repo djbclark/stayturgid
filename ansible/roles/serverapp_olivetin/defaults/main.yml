@@ -1,9 +1,10 @@
 ---
 # serverapp_olivetin — own-mode OliveTin adapter (Site Contract v1 §5 / Phase D).
 # Config is a projection (§5.3 / design §2): D5 boots a minimal live config;
-# D6 owns inventory→actions purity. Formula not in homebrew-core — install
-# pinned GitHub release binary (installed when absent or when its reported
-# version differs from the pin).
+# D6 owns inventory→actions purity. Formula not in homebrew-core — installs the
+# latest GitHub release binary (resolved at converge time by the
+# github_latest_release role; reinstalled when absent or when its reported
+# version differs from that release). No version or checksum is pinned.
 
 serverapp_olivetin_home: "{{ lookup('env', 'HOME') }}"
 serverapp_olivetin_config_dir: "{{ serverapp_olivetin_home }}/.config/{{ site_ns }}/olivetin"
@@ -15,16 +16,6 @@ serverapp_olivetin_bin_path: "{{ serverapp_olivetin_install_dir }}/OliveTin"
 serverapp_olivetin_webui_dir: "{{ serverapp_olivetin_install_dir }}/webui"
 serverapp_olivetin_label: "com.{{ site_ns }}.olivetin"
 serverapp_olivetin_plist_path: "{{ serverapp_olivetin_home }}/Library/LaunchAgents/{{ serverapp_olivetin_label }}.plist"
-# Pinned version: tasks/main.yml reinstalls binary + webui when the installed
-# binary reports anything else.
-serverapp_olivetin_version: "3000.20.0"
-# M1-F MF-5: pinned sha256 of the GitHub release archive, per download arch —
-# from the vendor's published checksums.txt for this release (3000.20.0
-# verified 2026-10-02: both hashes read from the release checksums.txt, and
-# each archive downloaded and re-hashed locally to confirm).
-serverapp_olivetin_archive_sha256:
-  darwin-arm64: "d47437d1601ecb5409bd38f470be9d3165841e6fcacfd6730ac25b79492544f7"
-  darwin-amd64: "c4dd54317caa06278c2362fd6b393f1ccd87e55d2d7310ba4ba4fe128898793f"
 serverapp_olivetin_http_port: 1337
 serverapp_olivetin_listen: "127.0.0.1:{{ serverapp_olivetin_http_port }}"
 serverapp_olivetin_health_url: "http://127.0.0.1:{{ serverapp_olivetin_http_port }}/"

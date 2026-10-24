@@ -31,17 +31,21 @@
   check_mode: false
   changed_when: false
 
-- name: Cache and verify pinned otelcol-contrib archive on Mac
+# Resolves the latest otelcol-contrib release from GitHub and caches its
+# archive under stayturgid_otelcol_cache_root/<version>/. run_once: the
+# registered result is copied to every host in the play, so all devices
+# deploy the same version even if a release lands mid-run. A run_once `when`
+# is evaluated on the first host only, so it asks whether ANY host in the
+# batch has the collector enabled (hd8 turns it off in group_vars), or a
+# disabled first host would leave the enabled ones without a version.
+# hostvars carries inventory values only, hence default=true, the role default.
+- name: Cache the latest otelcol-contrib release archive on Mac
   ansible.builtin.command:
     argv:
       - python3
       - "{{ stayturgid_repo_root }}/control/bin/cache_otelcol.py"
-      - --url
-      - "{{ stayturgid_otelcol_archive_url }}"
-      - --sha256
-      - "{{ stayturgid_otelcol_archive_sha256 }}"
-      - --cache-dir
-      - "{{ stayturgid_otelcol_cache_dir }}"
+      - --cache-root
+      - "{{ stayturgid_otelcol_cache_root }}"
       - --architecture
       - "{{ stayturgid_otelcol_archive_arch }}"
       - --timeout
@@ -56,6 +60,16 @@
       | default('{}', true)
       | from_json
     ).get('changed', false) | bool
+  when: >-
+    ansible_play_batch
+    | map('extract', hostvars)
+    | map(attribute='stayturgid_otelcol_enabled', default=true)
+    | map('bool') | select | list | length > 0
+
+- name: Remember the latest otelcol-contrib version and its cached archive
+  ansible.builtin.set_fact:
+    _otelcol_version: "{{ (_otelcol_cache.stdout | from_json).version }}"
+    _otelcol_cached_archive: "{{ (_otelcol_cache.stdout | from_json).archive }}"
   when: stayturgid_otelcol_enabled | bool
 
 - name: Detect device architecture for otelcol-contrib
@@ -89,7 +103,7 @@
 
 # The 380 MB unpacked binary used to be copied over SSH (154 s on a fresh t2e).
 # The ~100 MB archive is copied and unpacked on the device instead, and only
-# when the installed binary is not already the pinned version.
+# when the installed binary is not already the latest version.
 - name: Probe installed otelcol-contrib version
   ansible.builtin.command:
     argv:
@@ -108,7 +122,7 @@
       {{
         _otelcol_installed_probe.rc | default(1) != 0
         or ((_otelcol_installed_probe.stdout | default('') | trim).split() | last | default(''))
-          != (stayturgid_otelcol_version | string)
+          != (_otelcol_version | string)
       }}
   when: stayturgid_otelcol_enabled | bool
 
@@ -130,7 +144,7 @@
     # with the device's tar and deletes the transfer copy.
     - name: Unpack the cached otelcol-contrib archive on the device
       ansible.builtin.unarchive:
-        src: "{{ stayturgid_otelcol_cached_archive }}"
+        src: "{{ _otelcol_cached_archive }}"
         dest: "{{ stayturgid_otelcol_unpack_dir }}"
         include:
           - otelcol-contrib
@@ -189,7 +203,7 @@
 - name: Fail an otelcol-contrib probe that ran under the run-as sshd with the real cause
   ansible.builtin.fail:
     msg: >-
-      otelcol-contrib {{ stayturgid_otelcol_version }} could not be probed on
+      otelcol-contrib {{ _otelcol_version }} could not be probed on
       {{ inventory_hostname }} (rc={{ _otelcol_runtime_probe.rc }}, error={{
         _otelcol_runtime_probe.stderr_lines | default([]) | first | default('no stderr')
       }}), and this session runs in the SELinux domain
@@ -220,7 +234,7 @@
     that:
       - _otelcol_runtime_probe.rc == 0
     fail_msg: >-
-      otelcol-contrib {{ stayturgid_otelcol_version }} cannot run on
+      otelcol-contrib {{ _otelcol_version }} cannot run on
       {{ inventory_hostname }} (rc={{ _otelcol_runtime_probe.rc }}); boot
       integration was removed. error={{
         _otelcol_runtime_probe.stderr_lines | default([]) | first | default('no stderr')
@@ -256,10 +270,10 @@
 - name: Apply pending otelcol-contrib restart
   ansible.builtin.meta: flush_handlers
 
-# The file at stayturgid_otelcol_binary can already be the pin while the
-# process still holds the previous inode. Its cmdline names the path, so the
+# The file at stayturgid_otelcol_binary can already be the latest version while
+# the process still holds the previous inode. Its cmdline names the path, so the
 # verify below would pass. /proc/$pid/exe is that inode. Restart only when
-# its version is older than the pin; a newer process is left alone.
+# its version is older than the deployed one; a newer process is left alone.
 - name: Probe the running otelcol-contrib version
   ansible.builtin.shell: |
     pid="$(cat {{ stayturgid_otelcol_pid_file | default('/dev/null') | quote }} 2>/dev/null || true)"
@@ -283,7 +297,7 @@
       {{
         _otelcol_running_version is match('^[0-9]+[.][0-9]+')
         and (
-          _otelcol_running_version is version(stayturgid_otelcol_version | string, '<')
+          _otelcol_running_version is version(_otelcol_version | string, '<')
         )
       }}
   vars:

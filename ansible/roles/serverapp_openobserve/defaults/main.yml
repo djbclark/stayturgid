@@ -2,6 +2,11 @@
 # serverapp_openobserve — own-mode OpenObserve adapter (Site Contract v1 §5 / Phase D).
 # Callers pass site_ns and site_dir as extra-vars. Never hard-code site_ns.
 # Data dir stays under ~/.local/share/openobserve (unchanged across migrate).
+# The binary tracks the latest release: tasks/main.yml resolves it from the
+# openobserve/openobserve GitHub releases at converge time, downloads that
+# version's enterprise darwin build from downloads.openobserve.ai (no checksum
+# is pinned; the CDN publishes none), and reinstalls + restarts when the
+# installed binary reports anything else.
 
 # Keep the live data path so parquet is not re-homed (D3 requirement).
 serverapp_openobserve_home: "{{ lookup('env', 'HOME') }}"
@@ -9,27 +14,10 @@ serverapp_openobserve_data_dir: "{{ lookup('env', 'HOME') }}/.local/share/openob
 serverapp_openobserve_bin_path: "{{ lookup('env', 'HOME') }}/.local/bin/openobserve"
 serverapp_openobserve_logs_dir: "{{ serverapp_openobserve_home }}/.config/{{ site_ns }}/logs"
 serverapp_openobserve_label: "com.{{ site_ns }}.openobserve"
-# Records the build that installed AND verified cleanly: "<version> <sha256>".
+# Records the version that installed AND verified cleanly.
 # Our namespace, not OpenObserve's data dir, so nothing it scans is polluted.
 serverapp_openobserve_stamp_path: "{{ serverapp_openobserve_home }}/.config/{{ site_ns }}/.openobserve-version"
 serverapp_openobserve_plist_path: "{{ serverapp_openobserve_home }}/Library/LaunchAgents/{{ serverapp_openobserve_label }}.plist"
-serverapp_openobserve_version: "1.0.4"
-# M1-F MF-5: pinned sha256 of the enterprise archive, per download arch. No
-# vendor checksum sidecar exists (CDN has no directory listing); obtained by
-# downloading over HTTPS and hashing directly. darwin-amd64 has no published
-# archive (CDN returns AccessDenied) — left empty; the role fails closed
-# rather than installing an unverified binary if that arch is ever needed.
-#
-# 1.0.4 hash hand-computed 2026-10-03 from
-# openobserve-ee-v1.0.4-darwin-arm64.tar.gz (143,830,322 bytes) and verified
-# by extracting it and running `openobserve --version` before installing.
-#
-# Bumping this version (and the sha256 below) upgrades the binary on the next
-# deploy: tasks/main.yml compares `openobserve --version` to it. It does NOT
-# restart the running service; see the role's tasks.
-serverapp_openobserve_archive_sha256:
-  darwin-arm64: "7acc59cc63c8fd6afd5765bb34471e8d5eec9d6ccf8485c941aa13df6500fff6"
-  darwin-amd64: ""
 serverapp_openobserve_http_port: "5080"
 serverapp_openobserve_http_address: "127.0.0.1"
 serverapp_openobserve_grpc_address: "127.0.0.1"

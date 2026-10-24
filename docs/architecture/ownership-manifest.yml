@@ -229,14 +229,14 @@
   note: "New since 2026-07-24; triggered by fleet-health over adb when SSH fails."
 
 - concern: edge-telemetry
-  title: "On-device OpenTelemetry collector (otelcol) deploy and pinned artifact cache"
+  title: "On-device OpenTelemetry collector (otelcol) deploy and latest-release artifact cache"
   paths:
     - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/otelcol.yml
     - ansible_collections/stayturgid/termux/roles/termux_userland/templates/otel-config.yaml.j2
     - ansible_collections/stayturgid/termux/roles/termux_userland/templates/start-otelcol.sh.j2
     - control/bin/cache_otelcol.py
   disposition: core+site-data
-  note: "Collector and pinning are product; the sink endpoint (the site's Vector/OpenObserve) is site data."
+  note: "Collector and its latest-release artifact cache are product; the sink endpoint (the site's Vector/OpenObserve) is site data."
 
 - concern: device-repair
   title: "On-device repair/healing state machine and its Ansible repair check"
@@ -570,12 +570,13 @@
   note: "The generic projection (control/site_contract/olivetin_projection.py) stays in site-contract."
 
 - concern: serverapp-launchd-common
-  title: "Shared serverapp launchd role and binary-state helper"
+  title: "Shared serverapp launchd role, binary-state helper, and latest-release lookup"
   paths:
     - ansible/roles/serverapp_launchd/**
+    - ansible/roles/github_latest_release/**
     - ansible/files/serverapp_binary_state.sh
   disposition: site
-  note: "New since 2026-07-24; moves with the serverapps that include it."
+  note: "New since 2026-07-24; moves with the serverapps that include it. github_latest_release resolves what the tarball serverapps install."
 
 - concern: consumer-examples
   title: "Generic consumer examples (full fleet, Termux-only)"

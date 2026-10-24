@@ -95,7 +95,7 @@ def test_otelcol_installs_from_archive_only_on_version_mismatch():
     block = _by_name(tasks, "Install otelcol-contrib from the cached archive")
     assert "_otelcol_needs_install" in "".join(block["when"])
     unpack = _by_name(block["block"], "Unpack the cached otelcol-contrib archive on the device")
-    assert unpack["ansible.builtin.unarchive"]["src"] == "{{ stayturgid_otelcol_cached_archive }}"
+    assert unpack["ansible.builtin.unarchive"]["src"] == "{{ _otelcol_cached_archive }}"
     # The 380 MB unpacked binary is no longer copied over SSH.
     copies = [t for t in _walk(tasks) if "ansible.builtin.copy" in t]
     assert not [t for t in copies if "cached_binary" in str(t["ansible.builtin.copy"].get("src", ""))]

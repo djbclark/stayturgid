@@ -3,7 +3,9 @@
 
 The launchd agent and the GitHub Action both run this. Each download takes the
 same lock the deploy holds, so the two do not start two transfers of one file.
-A partial is kept. A finished file whose sha256 is wrong is not cached.
+A partial is kept. A finished APK whose sha256 is wrong is not cached. The
+otelcol-contrib archive is the latest upstream release, resolved and cached by
+the same cache_otelcol.py the deploy runs, so prefetch fills what it will use.
 
 Pins are read from the checkout. ``git fetch`` plus a fast-forward is attempted
 first so a pin pushed from another clone is the one that gets fetched. A fetch
@@ -35,13 +37,7 @@ import asset_fetch  # noqa: E402
 # Same digest the deploy uses for ~/.cache/stayturgid/apks/partials/<token>/.
 _PARTIAL_FMT = "%s\0%s\0%s"
 _SHA = re.compile(r"^[0-9a-f]{64}$")
-# The otelcol role builds the URL from these two lines. If they change, refuse
-# rather than fetch a file the deploy will not look for.
-_OTEL_NAME_TMPL = "otelcol-contrib_{{ stayturgid_otelcol_version }}_{{ stayturgid_otelcol_archive_arch }}.tar.gz"
-_OTEL_URL_TMPL = (
-    "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/"
-    "v{{ stayturgid_otelcol_version }}/{{ stayturgid_otelcol_archive_name }}"
-)
+_OTEL_ARCH_VAR = "stayturgid_otelcol_archive_arch"
 
 
 class PrefetchError(RuntimeError):
@@ -56,11 +52,9 @@ class ApkPin(NamedTuple):
     sha256: str
 
 
-class OtelPin(NamedTuple):
+class OtelTarget(NamedTuple):
     version: str
     arch: str
-    sha256: str
-    url: str
 
     @property
     def archive_name(self) -> str:
@@ -71,8 +65,13 @@ def default_apk_cache() -> Path:
     return Path(os.path.expanduser("~/.cache/stayturgid/apks"))
 
 
+def otel_cache_root() -> Path:
+    # The termux_userland role's stayturgid_otelcol_cache_root.
+    return Path(os.path.expanduser("~/.cache/stayturgid/otelcol-contrib"))
+
+
 def otel_cache_dir(version: str) -> Path:
-    return Path(os.path.expanduser(f"~/.cache/stayturgid/otelcol-contrib/{version}"))
+    return otel_cache_root() / version
 
 
 def wanted_sha256(value: str) -> str:
@@ -178,21 +177,19 @@ def load_apk_pins(text: str) -> tuple[list[ApkPin], list[str]]:
     return pins, skipped
 
 
-def load_otel_pin(text: str) -> OtelPin:
-    if _OTEL_NAME_TMPL not in text or _OTEL_URL_TMPL not in text:
-        raise PrefetchError("otelcol URL template changed; prefetch_pins.py must be updated with it")
-    data = _top_scalars(text)
-    version = data.get("stayturgid_otelcol_version", "")
-    arch = data.get("stayturgid_otelcol_archive_arch", "")
-    digest = data.get("stayturgid_otelcol_archive_sha256", "")
-    if not version or not arch or not digest:
-        raise PrefetchError("otelcol pin is missing version, arch, or sha256")
-    pin = OtelPin(version, arch, wanted_sha256(digest), "")
-    url = (
-        "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/"
-        f"v{pin.version}/{pin.archive_name}"
-    )
-    return OtelPin(pin.version, pin.arch, pin.sha256, url)
+def load_otel_arch(text: str) -> str:
+    arch = _top_scalars(text).get(_OTEL_ARCH_VAR, "")
+    if not arch:
+        raise PrefetchError(f"otelcol defaults no longer set {_OTEL_ARCH_VAR}; prefetch_pins.py must be updated")
+    return arch
+
+
+def latest_otel(arch: str) -> OtelTarget:
+    module = _cache_otelcol()
+    try:
+        return OtelTarget(module.resolve_latest_version(), arch)
+    except module.ArtifactError as exc:
+        raise PrefetchError(str(exc)) from exc
 
 
 def _gh_asset(repo: str, tag: str, pattern: str) -> tuple[str, str]:
@@ -266,24 +263,20 @@ def ensure_apk(pin: ApkPin, cache_dir: Path, timeout: int) -> str:
         return "fetched"
 
 
-def otel_state(pin: OtelPin) -> str:
-    archive = otel_cache_dir(pin.version) / pin.archive_name
-    if archive.is_file() and sha256_file(archive) == pin.sha256:
-        return "hit"
-    return "miss"
+def otel_state(target: OtelTarget) -> str:
+    archive = otel_cache_dir(target.version) / target.archive_name
+    return "hit" if archive.is_file() else "miss"
 
 
-def ensure_otel(pin: OtelPin, timeout: int) -> str:
-    cache_dir = otel_cache_dir(pin.version)
-    state = otel_state(pin)
+def ensure_otel(target: OtelTarget, timeout: int) -> str:
+    state = otel_state(target)
     module = _cache_otelcol()
     try:
-        module.ensure_cached(
-            url=pin.url,
-            expected_sha256=pin.sha256,
-            cache_dir=cache_dir,
-            architecture=pin.arch,
+        module.cache_latest(
+            cache_root=otel_cache_root(),
+            architecture=target.arch,
             timeout_seconds=timeout,
+            version=target.version,
         )
     except module.ArtifactError as exc:
         raise PrefetchError(str(exc)) from exc
@@ -375,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
     failures: list[str] = []
     try:
         pins, skipped = load_apk_pins(apk_file.read_text())
-        otel = load_otel_pin(otel_file.read_text())
+        otel_arch = load_otel_arch(otel_file.read_text())
     except (OSError, PrefetchError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -392,13 +385,14 @@ def main(argv: list[str] | None = None) -> int:
             failures.append(f"{pin.ident}: {exc}")
             print(f"failed apk {pin.ident}: {exc}", file=sys.stderr)
     try:
+        otel = latest_otel(otel_arch)
         if args.dry_run:
             print(f"{otel_state(otel)} otelcol {otel.version}")
         else:
             print(f"{ensure_otel(otel, window)} otelcol {otel.version}")
     except PrefetchError as exc:
         failures.append(f"otelcol: {exc}")
-        print(f"failed otelcol {otel.version}: {exc}", file=sys.stderr)
+        print(f"failed otelcol: {exc}", file=sys.stderr)
     return 1 if failures else 0
 
 

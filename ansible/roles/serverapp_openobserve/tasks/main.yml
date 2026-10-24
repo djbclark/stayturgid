@@ -1,6 +1,7 @@
 ---
 # Own-mode openobserve lifecycle: dirs → binary (installed when absent or when
-# its reported version differs from the pin) → plist → bootstrap → health. Data dir path is fixed (no re-home). Does not
+# its reported version differs from the latest upstream release) → plist →
+# bootstrap → health. Data dir path is fixed (no re-home). Does not
 # delete legacy com.stayturgid.openobserve (retirement is D7).
 
 - name: Ensure openobserve data, cache, bin parent, and log directories exist
@@ -20,11 +21,10 @@
     path: "{{ serverapp_openobserve_bin_path }}"
   register: _oo_bin_stat
 
-# The pin used to be consulted only when the binary was absent, so bumping it
-# never upgraded anything. Ask the installed binary what it is
-# (`openobserve v1.0.4`) and compare. Fails open: a version string we cannot
-# parse never blocks a deploy and never triggers a reinstall, it leaves the
-# binary exactly as the old install-if-absent behaviour did.
+# Ask the installed binary what it is (`openobserve v1.0.4`) and compare it
+# with the latest release. Fails open: a version string we cannot parse never
+# blocks a deploy and never triggers a reinstall, it leaves the binary exactly
+# as the old install-if-absent behaviour did.
 - name: Probe the installed openobserve version
   ansible.builtin.shell: |
     if [ -x "{{ serverapp_openobserve_bin_path }}" ]; then
@@ -38,24 +38,22 @@
   check_mode: false
   register: _oo_version_probe
 
-# Arch is needed to pick the pinned checksum, which is half the version stamp,
-# which the install decision below reads -- so this must run BEFORE that decision
-# and must not be gated on it. `uname -m` is free and read-only.
-- name: Detect machine architecture for openobserve download
-  ansible.builtin.command:
-    cmd: uname -m
-  register: _oo_uname
-  changed_when: false
-  check_mode: false
+# The version number comes from the OSS repo's GitHub releases; the binary we
+# install is the enterprise build of that same version from OpenObserve's CDN
+# (downloads.openobserve.ai), which has no release API of its own.
+- name: Resolve the latest OpenObserve release
+  ansible.builtin.include_role:
+    name: github_latest_release
+  vars:
+    github_latest_release_repo: openobserve/openobserve
 
-- name: Set openobserve download architecture fact
+- name: Remember the latest OpenObserve version
   ansible.builtin.set_fact:
-    _oo_arch: "{{ 'darwin-arm64' if (_oo_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
+    _oo_latest_version: "{{ github_latest_release_version }}"
 
 # The stamp is written only after a verified install, so a partial install leaves
 # the OLD stamp (or none) and the next run redoes everything rather than trusting
-# a half-finished tree. Version alone is not enough: a re-pinned checksum at the
-# same version must also reinstall, so the checksum is part of the stamp.
+# a half-finished tree.
 - name: Read the recorded openobserve build stamp
   ansible.builtin.slurp:
     src: "{{ serverapp_openobserve_stamp_path }}"
@@ -65,8 +63,7 @@
 
 - name: Compute the expected and recorded openobserve stamps
   ansible.builtin.set_fact:
-    _oo_stamp_expected: >-
-      {{ serverapp_openobserve_version }} {{ serverapp_openobserve_archive_sha256[_oo_arch] | default('') }}
+    _oo_stamp_expected: "{{ _oo_latest_version }}"
     _oo_stamp_recorded: >-
       {{ (_oo_stamp_raw.content | default('') | b64decode | trim) if (_oo_stamp_raw.content is defined) else '' }}
 
@@ -80,7 +77,7 @@
         or (_oo_stamp_recorded | trim) != (_oo_stamp_expected | trim)
         or (
           ((_oo_version_probe.stdout | default('')) | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true) | length) > 0
-          and ((_oo_version_probe.stdout | default('')) | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true)) != serverapp_openobserve_version
+          and ((_oo_version_probe.stdout | default('')) | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true)) != _oo_latest_version
         )
       }}
 
@@ -93,14 +90,21 @@
     - _oo_bin_stat.stat.exists | default(false)
     - _oo_installed_version | trim | length == 0
 
-# M1-F MF-5: fail closed rather than install an unverified binary.
-- name: Fail closed when no pinned checksum exists for this OpenObserve download arch
-  ansible.builtin.assert:
-    that:
-      - (serverapp_openobserve_archive_sha256[_oo_arch] | default('', true) | length) > 0
-    fail_msg: >-
-      No pinned sha256 for OpenObserve {{ serverapp_openobserve_version }} ({{ _oo_arch }}) in
-      serverapp_openobserve_archive_sha256 — refusing to download an unverified binary.
+- name: Detect machine architecture for openobserve download
+  ansible.builtin.command:
+    cmd: uname -m
+  register: _oo_uname
+  changed_when: false
+  # Read-only; run in check mode too, so the arch fact is computed from a
+  # task that actually ran.
+  check_mode: false
+  when: _oo_install_required | bool
+
+# The CDN publishes darwin-arm64 only (darwin-amd64 answers 403); an Intel Mac
+# fails at the download below with that status.
+- name: Set openobserve download architecture fact
+  ansible.builtin.set_fact:
+    _oo_arch: "{{ 'darwin-arm64' if (_oo_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
   when: _oo_install_required | bool
 
 # Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
@@ -123,13 +127,13 @@
 - name: Report pending OpenObserve install (check mode only)
   ansible.builtin.debug:
     msg: >-
-      Would install OpenObserve {{ serverapp_openobserve_version }} (installed:
+      Would install OpenObserve {{ _oo_latest_version }} (installed:
       {{ _oo_installed_version | default('', true) | trim or 'none' }}).
   when:
     - ansible_check_mode
     - _oo_install_required | bool
 
-- name: Download, extract, and install OpenObserve binary when missing or not at the pinned version
+- name: Download, extract, and install OpenObserve binary when missing or not at the latest version
   when:
     - _oo_install_required | bool
     - not ansible_check_mode
@@ -137,12 +141,11 @@
     - name: Download OpenObserve archive when binary missing
       vars:
         _oo_base: "https://downloads.openobserve.ai/releases/o2-enterprise"
-        _oo_archive: "openobserve-ee-v{{ serverapp_openobserve_version }}-{{ _oo_arch }}.tar.gz"
+        _oo_archive: "openobserve-ee-v{{ _oo_latest_version }}-{{ _oo_arch }}.tar.gz"
       ansible.builtin.get_url:
-        url: "{{ _oo_base }}/v{{ serverapp_openobserve_version }}/{{ _oo_archive }}"
+        url: "{{ _oo_base }}/v{{ _oo_latest_version }}/{{ _oo_archive }}"
         dest: "{{ _oo_tmp.path }}/openobserve.tar.gz"
         mode: "0644"
-        checksum: "sha256:{{ serverapp_openobserve_archive_sha256[_oo_arch] }}"
 
     - name: Extract OpenObserve binary when missing
       ansible.builtin.unarchive:
@@ -180,20 +183,20 @@
     - not ansible_check_mode
     - _oo_install_required | bool
 
-- name: Fail if openobserve is not at the pinned version after install
+- name: Fail if openobserve is not at the latest version after install
   ansible.builtin.fail:
     msg: >-
       OpenObserve at {{ serverapp_openobserve_bin_path }} reports
       {{ _oo_version_verify.stdout | default('') | trim }} after install; expected
-      {{ serverapp_openobserve_version }}.
+      {{ _oo_latest_version }}.
   when:
     - not ansible_check_mode
     - _oo_install_required | bool
     - (_oo_version_verify.stdout | default('') | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true) | length) > 0
-    - (_oo_version_verify.stdout | default('') | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true)) != serverapp_openobserve_version
+    - (_oo_version_verify.stdout | default('') | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true)) != _oo_latest_version
 
 # Strictly after the verify above: this records a build that installed AND
-# reported the pinned version. Writing it earlier (or as a side effect of the
+# reported the latest version. Writing it earlier (or as a side effect of the
 # binary copy) would let a half-finished install look converged forever.
 - name: Record the installed openobserve build
   ansible.builtin.copy:

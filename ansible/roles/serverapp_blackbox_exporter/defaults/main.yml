@@ -1,6 +1,10 @@
 ---
 # serverapp_blackbox_exporter — own-mode blackbox_exporter adapter (Site Contract v1 §5 / Phase D).
 # Callers pass site_ns and site_dir as extra-vars. Never hard-code site_ns.
+# The binary tracks the latest prometheus/blackbox_exporter GitHub release
+# (resolved at converge time by the github_latest_release role, no checksum
+# pinned): reinstalled and restarted when the installed binary reports any
+# other version.
 
 serverapp_blackbox_exporter_home: "{{ lookup('env', 'HOME') }}"
 # Registry-seed generator (control/site_contract/generate_registry_seeds.py)
@@ -13,15 +17,6 @@ serverapp_blackbox_exporter_bin_path: "{{ lookup('env', 'HOME') }}/.local/bin/bl
 serverapp_blackbox_exporter_logs_dir: "{{ lookup('env', 'HOME') }}/.config/{{ site_ns }}/logs"
 serverapp_blackbox_exporter_label: "com.{{ site_ns }}.blackbox_exporter"
 serverapp_blackbox_exporter_plist_path: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents/{{ serverapp_blackbox_exporter_label }}.plist"
-serverapp_blackbox_exporter_version: "0.28.0"
-# M1-F-style MF-5: pinned sha256 of the release archive, per download arch.
-# Obtained from the upstream sha256sums.txt published alongside the release
-# (2026-07-21, recorded when this role was added). No Linux entries yet —
-# this role is macOS-only for now (no Linux host in inventory); add
-# linux-amd64/linux-arm64 hashes here when a systemd variant is built.
-serverapp_blackbox_exporter_archive_sha256:
-  darwin-arm64: "ec6c70ccca92e209dd22be76a4fa244f4bd31afdae3ddb2bb082144100ec52bb"
-  darwin-amd64: "12d7a3010235862d073bbb111b997870a50070bcda3b912bca8f0095cfda23c6"
 serverapp_blackbox_exporter_http_port: 9115
 serverapp_blackbox_exporter_http_address: "127.0.0.1"
 # Caddy's TLS cert is a real, publicly-trusted Let's Encrypt cert obtained

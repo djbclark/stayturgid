@@ -1,15 +1,19 @@
-"""The own-mode OpenObserve and OliveTin pins must actually gate the install.
+"""The own-mode OpenObserve, OliveTin and blackbox_exporter roles track the latest
+upstream release, and that version must actually gate the install.
 
-Both roles used to consult their pinned version only when the binary was
-absent, so bumping the pin upgraded nothing (OliveTin was pinned 3000.20.0 while
-3000.17.1 ran). The shape mirrors tests/python/test_firerpa_version_lock.py:
-probe in check mode, compare, fail open on anything unparseable, stamp last,
-verify afterwards. The seven brew-managed serverapp_* roles are deliberately NOT
-covered: install-if-absent is correct for them.
+Site policy (djbclark 2026-10-24): installed software tracks the latest release,
+no version or checksum is pinned. Each role resolves the latest release at
+converge time (the shared github_latest_release role), asks the installed binary
+what it is, and reinstalls + restarts when the two differ. The shape mirrors
+tests/python/test_firerpa_version_lock.py: probe in check mode, compare, fail
+open on anything unparseable, stamp last, verify afterwards. The latest-version
+lookup itself is mocked here (a plain fact); tests/python/test_github_latest_release_role.py
+runs that role against a local fake API.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import jinja2
@@ -19,27 +23,30 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 ROLES = REPO / "ansible/roles"
 
-# role -> (tag, pinned-version var, sample --version output, parsed version)
+# role -> (tag, GitHub repo, sample --version output, parsed version)
 CASES = {
-    "serverapp_openobserve": ("oo", "serverapp_openobserve_version", "openobserve v1.0.4", "1.0.4"),
+    "serverapp_openobserve": ("oo", "openobserve/openobserve", "openobserve v1.0.4", "1.0.4"),
     "serverapp_olivetin": (
         "ot",
-        "serverapp_olivetin_version",
+        "OliveTin/OliveTin",
         'level="info" msg="OliveTin is just printing the startup message" '
         'commit="5c3d342" date="2026-07-17T16:29:45Z" version="3000.17.1"',
         "3000.17.1",
     ),
+    "serverapp_blackbox_exporter": (
+        "bbe",
+        "prometheus/blackbox_exporter",
+        "blackbox_exporter, version 0.28.0 (branch: HEAD, revision: 5a059bee8d8ffa4e75947c5055fb0abeefc582e6)\n"
+        "  build user:       root@967d444a1ba3\n",
+        "0.28.0",
+    ),
 }
+# What the mocked latest-release lookup answers.
+LATEST = {"serverapp_openobserve": "1.1.2", "serverapp_olivetin": "3000.21.0", "serverapp_blackbox_exporter": "0.29.1"}
 
 
 def _tasks(role: str) -> list[dict]:
     return yaml.safe_load((ROLES / role / "tasks/main.yml").read_text(encoding="utf-8"))
-
-
-def _by_name(role: str, prefix: str) -> dict:
-    matches = [t for t in _walk(_tasks(role)) if str(t.get("name", "")).startswith(prefix)]
-    assert len(matches) == 1, (prefix, [m["name"] for m in matches])
-    return matches[0]
 
 
 def _walk(tasks: list[dict]):
@@ -50,44 +57,44 @@ def _walk(tasks: list[dict]):
                 yield from _walk(task[key])
 
 
-def _env() -> jinja2.Environment:
-    import re
+def _by_name(role: str, prefix: str) -> dict:
+    matches = [t for t in _walk(_tasks(role)) if str(t.get("name", "")).startswith(prefix)]
+    assert len(matches) == 1, (prefix, [m["name"] for m in matches])
+    return matches[0]
 
+
+def _env() -> jinja2.Environment:
     env = jinja2.Environment(undefined=jinja2.Undefined)
     env.filters["regex_findall"] = lambda value, pattern: re.findall(pattern, value)
     return env
 
 
 def _facts(role: str, stdout: str | None, *, bin_exists=True, webui_isdir=True) -> dict:
-    tag, version_var, _sample, _parsed = CASES[role]
+    tag = CASES[role][0]
     task = _by_name(role, "Record whether")
-    facts = task["ansible.builtin.set_fact"]
     ctx = {
         f"_{tag}_bin_stat": {"stat": {"exists": bin_exists}},
         f"_{tag}_webui_stat": {"stat": {"isdir": webui_isdir}},
         f"_{tag}_version_probe": {"stdout": stdout} if stdout is not None else {},
-        version_var: {"serverapp_openobserve_version": "1.0.4", "serverapp_olivetin_version": "3000.20.0"}[version_var],
+        f"_{tag}_latest_version": LATEST[role],
+        # openobserve's stamp: a converged one, so only the version gate is exercised.
+        "_oo_stamp_recorded": LATEST[role],
+        "_oo_stamp_expected": LATEST[role],
     }
     env = _env()
-    out = {}
-    for key, expr in facts.items():
-        rendered = env.from_string(expr).render(**ctx).strip()
-        out[key] = rendered
-    return out
+    return {key: env.from_string(expr).render(**ctx).strip() for key, expr in task["ansible.builtin.set_fact"].items()}
 
 
 @pytest.mark.parametrize("role", CASES)
-def test_pin_mismatch_triggers_install_and_match_does_not(role):
-    tag, version_var, sample, parsed = CASES[role]
-    pinned = {"serverapp_openobserve": "1.0.4", "serverapp_olivetin": "3000.20.0"}[role]
+def test_a_version_other_than_latest_triggers_install_and_latest_does_not(role):
+    tag, _repo, sample, parsed = CASES[role]
     facts = _facts(role, sample)
     assert facts[f"_{tag}_installed_version"] == parsed
-    assert facts[f"_{tag}_install_required"] == str(parsed != pinned)
+    assert facts[f"_{tag}_install_required"] == "True"
     # An up-to-date probe string must converge.
-    matching = sample.replace(parsed, pinned)
-    assert _facts(role, matching)[f"_{tag}_install_required"] == "False"
-    # A downgrade is a mismatch too: the pin is the authority.
-    assert _facts(role, sample.replace(parsed, "0.0.1"))[f"_{tag}_install_required"] == "True"
+    assert _facts(role, sample.replace(parsed, LATEST[role]))[f"_{tag}_install_required"] == "False"
+    # Newer than latest (a release pulled upstream) is a mismatch too: latest is the authority.
+    assert _facts(role, sample.replace(parsed, "9999.0.0"))[f"_{tag}_install_required"] == "True"
 
 
 @pytest.mark.parametrize("role", CASES)
@@ -114,8 +121,56 @@ def test_absent_binary_still_installs(role):
 
 
 def test_olivetin_missing_webui_installs_even_when_binary_current():
-    facts = _facts("serverapp_olivetin", 'version="3000.20.0"', webui_isdir=False)
+    facts = _facts("serverapp_olivetin", f'version="{LATEST["serverapp_olivetin"]}"', webui_isdir=False)
     assert facts["_ot_install_required"] == "True"
+
+
+@pytest.mark.parametrize("role", CASES)
+def test_the_latest_release_is_resolved_before_the_install_decision(role):
+    tag, repo, _sample, _parsed = CASES[role]
+    resolve = next(
+        t for t in _tasks(role) if t.get("ansible.builtin.include_role", {}).get("name") == "github_latest_release"
+    )
+    assert resolve["vars"] == {"github_latest_release_repo": repo}
+    remember = _by_name(role, "Remember the latest")
+    assert remember["ansible.builtin.set_fact"] == {f"_{tag}_latest_version": "{{ github_latest_release_version }}"}
+    names = [t.get("name") for t in _tasks(role)]
+    assert names.index(resolve["name"]) < names.index(remember["name"])
+    assert names.index(remember["name"]) < next(i for i, n in enumerate(names) if n.startswith("Record whether"))
+
+
+@pytest.mark.parametrize("role", CASES)
+def test_nothing_is_pinned(role):
+    """No version var, no checksum table, no fail-closed checksum assert, no get_url checksum."""
+    defaults = yaml.safe_load((ROLES / role / "defaults/main.yml").read_text(encoding="utf-8"))
+    assert not [key for key in defaults if key.endswith(("_version", "_sha256"))]
+    text = (ROLES / role / "tasks/main.yml").read_text(encoding="utf-8")
+    assert "Fail closed when no pinned checksum" not in text
+    assert "_archive_sha256" not in text
+    get_url = next(t for t in _walk(_tasks(role)) if "ansible.builtin.get_url" in t)
+    assert "checksum" not in get_url["ansible.builtin.get_url"]
+
+
+DOWNLOAD_URLS = {
+    "serverapp_openobserve": (
+        "https://downloads.openobserve.ai/releases/o2-enterprise/v1.1.2/openobserve-ee-v1.1.2-darwin-arm64.tar.gz"
+    ),
+    "serverapp_olivetin": "https://github.com/OliveTin/OliveTin/releases/download/3000.21.0/OliveTin-darwin-arm64.tar.gz",
+    "serverapp_blackbox_exporter": (
+        "https://github.com/prometheus/blackbox_exporter/releases/download/"
+        "v0.29.1/blackbox_exporter-0.29.1.darwin-arm64.tar.gz"
+    ),
+}
+
+
+@pytest.mark.parametrize("role", CASES)
+def test_the_download_is_the_latest_release(role):
+    tag = CASES[role][0]
+    get_url = next(t for t in _walk(_tasks(role)) if "ansible.builtin.get_url" in t)
+    env = _env()
+    ctx = {f"_{tag}_latest_version": LATEST[role], f"_{tag}_arch": "darwin-arm64"}
+    ctx.update({key: env.from_string(value).render(**ctx) for key, value in get_url.get("vars", {}).items()})
+    assert env.from_string(get_url["ansible.builtin.get_url"]["url"]).render(**ctx) == DOWNLOAD_URLS[role]
 
 
 @pytest.mark.parametrize("role", CASES)
@@ -130,46 +185,19 @@ def test_the_probe_runs_in_check_mode_so_dry_runs_are_honest(role):
 def test_the_expensive_install_steps_are_all_gated(role):
     tag = CASES[role][0]
     gate = f"_{tag}_install_required"
-    # The genuinely expensive work: a download, an extract, a copy, and the
-    # tempdir they need. These must never run on a converged host.
-    names = [
-        "Fail closed when no pinned checksum",
-        "Create temporary directory",
-        "Download, extract, and install",
-    ]
-    # The arch probe is `uname -m` -- free and read-only -- and openobserve
-    # deliberately runs it UNGATED, because its install decision reads a stamp
-    # whose expected value contains the arch-specific checksum. Gating the probe
-    # on the decision that depends on it is circular. olivetin has no stamp, so
-    # its arch probe stays gated; test_arch_detection_is_not_gated_on_the_install_decision
-    # asserts the openobserve side on purpose.
-    if role != "serverapp_openobserve":
-        names = ["Detect machine architecture", "Set "] + names
-    for prefix in names:
-        task = (
-            _by_name(role, prefix)
-            if prefix != "Set "
-            else next(t for t in _walk(_tasks(role)) if str(t.get("name", "")).endswith("download architecture fact"))
-        )
+    for prefix in ["Detect machine architecture", "Create temporary directory", "Download, extract, and install"]:
+        task = _by_name(role, prefix)
         assert gate in str(task.get("when")), f"{task['name']} is not gated on {gate}"
+    arch_fact = next(t for t in _walk(_tasks(role)) if str(t.get("name", "")).endswith("download architecture fact"))
+    assert gate in str(arch_fact.get("when"))
     # No gate may still key on mere existence of the artifact.
     text = (ROLES / role / "tasks/main.yml").read_text(encoding="utf-8")
     for task in _walk(_tasks(role)):
-        when = str(task.get("when", ""))
-        if "Record whether" in task.get("name", "") or "Note an unparseable" in task.get("name", ""):
+        name = task.get("name", "")
+        if name.startswith(("Record whether", "Assert", "Check whether", "Probe the", "Note an")):
             continue
-        if task.get("name", "").startswith(("Assert", "Check whether", "Probe the", "Note an")):
-            continue
-        assert f"_{tag}_bin_stat" not in when, task["name"]
+        assert f"_{tag}_bin_stat" not in str(task.get("when", "")), name
     assert "(never upgrade)" not in text
-
-
-@pytest.mark.parametrize("role", CASES)
-def test_the_checksum_check_stays_fail_closed(role):
-    task = _by_name(role, "Fail closed when no pinned checksum")
-    assert "ansible.builtin.assert" in task
-    get_url = next(t for t in _walk(_tasks(role)) if "ansible.builtin.get_url" in t)
-    assert str(get_url["ansible.builtin.get_url"]["checksum"]).startswith("sha256:")
 
 
 @pytest.mark.parametrize("role", CASES)
@@ -190,14 +218,13 @@ def test_check_mode_does_not_reach_tasks_that_need_a_download(role):
 def test_post_install_verification_guard_is_check_mode_and_skip_safe(role):
     """ansible.builtin.fail runs in check mode; and a skipped probe has no stdout."""
     tag = CASES[role][0]
-    # Prefix must stay specific: a second "Fail if ... stale binary" guard was
-    # added later for the restart path, and a bare "Fail if" matches both.
     guard = next(
-        t for t in _walk(_tasks(role)) if str(t.get("name", "")).endswith("is not at the pinned version after install")
+        t for t in _walk(_tasks(role)) if str(t.get("name", "")).endswith("is not at the latest version after install")
     )
     when = guard["when"]
     assert "not ansible_check_mode" in when
     assert f"_{tag}_install_required | bool" in when
+    assert any(f"!= _{tag}_latest_version" in cond for cond in when)
     # Every read of the register tolerates a missing stdout.
     for cond in when:
         if f"_{tag}_version_verify" in cond:
@@ -231,33 +258,29 @@ def test_olivetin_binary_is_installed_last_so_it_acts_as_the_stamp():
         assert "when" not in task
 
 
-@pytest.mark.parametrize("role", CASES)
-def test_the_pins_are_unchanged(role):
-    defaults = yaml.safe_load((ROLES / role / "defaults/main.yml").read_text(encoding="utf-8"))
-    key = CASES[role][1]
-    assert defaults[key] == {"serverapp_openobserve": "1.0.4", "serverapp_olivetin": "3000.20.0"}[role]
-
-
 # ---------------------------------------------------------------------------
 # Installing a binary is not the same as running it. launchd keeps the old
-# executable held open, so without a restart a version bump lands on disk while
+# executable held open, so without a restart an upgrade lands on disk while
 # the service keeps serving the previous build -- and the post-install
 # `--version` probe reads the on-disk binary, so the assert passes green on a
-# stale process. The four brew-managed serverapps get this from
-# serverapp_launchd; these two bootstrap launchd themselves, so they must do it.
+# stale process. The brew-managed serverapps get this from serverapp_launchd;
+# these three bootstrap launchd themselves, so they must do it.
 # ---------------------------------------------------------------------------
 
 STALE_DETECT = {
     "serverapp_openobserve": "Detect whether the running openobserve is on a stale binary",
     "serverapp_olivetin": "Detect whether the running OliveTin is on a stale binary",
+    "serverapp_blackbox_exporter": "Detect whether the running blackbox_exporter is on a stale binary",
 }
 KICKSTART = {
     "serverapp_openobserve": "Restart openobserve when it is running a stale binary",
     "serverapp_olivetin": "Kickstart site-namespace olivetin after a config-only or binary change",
+    "serverapp_blackbox_exporter": "Kickstart site-namespace blackbox_exporter after a config-only or binary change",
 }
 STALE_FAIL = {
     "serverapp_openobserve": "Fail if openobserve is still on a stale binary after the restart",
     "serverapp_olivetin": "Fail if OliveTin is still on a stale binary after the restart",
+    "serverapp_blackbox_exporter": "Fail if blackbox_exporter is still on a stale binary after the restart",
 }
 
 
@@ -306,19 +329,17 @@ def test_the_restart_happens_after_the_binary_is_installed(role):
 
 
 # ---------------------------------------------------------------------------
-# The stamp (operator decision 2026-10-03: harden rather than accept the limit).
-#
-# A version gate whose only evidence is "the binary copy happened" trusts a
-# half-finished install. The stamp is written strictly AFTER the post-install
-# verify passes, so a partial install leaves the old stamp (or none) and the next
-# run redoes everything. Its content is version + archive checksum, because a
-# re-pinned checksum at the SAME version must also reinstall.
+# The openobserve stamp (operator decision 2026-10-03: harden rather than accept
+# the limit). A version gate whose only evidence is "the binary copy happened"
+# trusts a half-finished install. The stamp is written strictly AFTER the
+# post-install verify passes, so a partial install leaves the old stamp (or
+# none) and the next run redoes everything.
 # ---------------------------------------------------------------------------
 
 OO = "serverapp_openobserve"
 
 
-def _oo_install_required(stamp_recorded, stamp_expected, *, bin_exists=True, probe="openobserve v1.0.4"):
+def _oo_install_required(stamp_recorded, stamp_expected, *, bin_exists=True, probe="openobserve v1.1.2"):
     task = _by_name(OO, "Record whether")
     expr = task["ansible.builtin.set_fact"]["_oo_install_required"]
     ctx = {
@@ -326,48 +347,37 @@ def _oo_install_required(stamp_recorded, stamp_expected, *, bin_exists=True, pro
         "_oo_version_probe": {"stdout": probe},
         "_oo_stamp_recorded": stamp_recorded,
         "_oo_stamp_expected": stamp_expected,
-        "serverapp_openobserve_version": "1.0.4",
+        "_oo_latest_version": "1.1.2",
     }
     return _env().from_string(expr).render(**ctx).strip()
 
 
 def test_a_matching_stamp_converges():
-    assert _oo_install_required("1.0.4 abc123", "1.0.4 abc123") == "False"
+    assert _oo_install_required("1.1.2", "1.1.2") == "False"
 
 
 def test_a_missing_stamp_installs():
     """Fail open in the safe direction: no evidence means do the work."""
-    assert _oo_install_required("", "1.0.4 abc123") == "True"
+    assert _oo_install_required("", "1.1.2") == "True"
 
 
-def test_a_repinned_checksum_at_the_same_version_still_installs():
-    """The reason the stamp is not version-only. Both report 1.0.4."""
-    assert _oo_install_required("1.0.4 OLDSHA", "1.0.4 NEWSHA") == "True"
+def test_an_old_pinned_stamp_reinstalls_once():
+    """Stamps written while a checksum was pinned read "<version> <sha256>"."""
+    assert (
+        _oo_install_required("1.1.2 7acc59cc63c8fd6afd5765bb34471e8d5eec9d6ccf8485c941aa13df6500fff6", "1.1.2")
+        == "True"
+    )
 
 
-def test_the_stamp_is_version_plus_checksum_not_version_alone():
+def test_the_stamp_is_the_latest_version():
     task = _by_name(OO, "Compute the expected and recorded openobserve stamps")
-    expr = task["ansible.builtin.set_fact"]["_oo_stamp_expected"]
-    assert "serverapp_openobserve_version" in expr
-    assert "serverapp_openobserve_archive_sha256" in expr, "checksum missing from the stamp"
-    assert "_oo_arch" in expr, "checksum must be the one for the detected arch"
-
-
-def test_arch_detection_is_not_gated_on_the_install_decision():
-    """Circular otherwise: the decision reads the stamp, the stamp needs the
-    checksum, the checksum needs the arch."""
-    for name in ("Detect machine architecture", "Set openobserve download architecture"):
-        task = _by_name(OO, name)
-        when = task.get("when")
-        assert when is None or "_oo_install_required" not in str(when), (
-            f"{name!r} must not depend on _oo_install_required"
-        )
+    assert task["ansible.builtin.set_fact"]["_oo_stamp_expected"] == "{{ _oo_latest_version }}"
 
 
 def test_the_stamp_is_written_strictly_after_the_verify():
     """The ordering IS the property. A 'stamp exists' test passes an ordering bug."""
     names = [str(t.get("name", "")) for t in _walk(_tasks(OO))]
-    verify = names.index("Fail if openobserve is not at the pinned version after install")
+    verify = names.index("Fail if openobserve is not at the latest version after install")
     write = names.index("Record the installed openobserve build")
     assert write > verify, "stamp must be recorded only after the version verify passes"
     # And after every install step, for the same reason.

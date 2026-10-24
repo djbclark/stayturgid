@@ -58,7 +58,7 @@ def test_older_running_collector_restarts_and_a_newer_one_does_not(tmp_path: Pat
                 "gather_facts": False,
                 "vars": {
                     "stayturgid_otelcol_enabled": True,
-                    "stayturgid_otelcol_version": "0.163.2",
+                    "_otelcol_version": "0.163.2",
                     "stayturgid_otelcol_boot_script": str(boot),
                     "stayturgid_otelcol_pid_file": str(tmp_path / "otelcol.pid"),
                     "termux_prefix": str(prefix),

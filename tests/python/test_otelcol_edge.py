@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import hashlib
 import importlib.util
 import io
+import json
 import os
 import signal
 import subprocess
 import tarfile
 import time
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -39,7 +40,7 @@ def _aarch64_elf(payload: bytes = b"") -> bytes:
     return bytes(header) + payload
 
 
-def _artifact(tmp_path: Path) -> tuple[Path, str]:
+def _artifact(tmp_path: Path) -> Path:
     archive = tmp_path / "otelcol-contrib_0.156.0_linux_arm64.tar.gz"
     data = _aarch64_elf(b"collector")
     info = tarfile.TarInfo("otelcol-contrib")
@@ -47,8 +48,7 @@ def _artifact(tmp_path: Path) -> tuple[Path, str]:
     info.mode = 0o755
     with tarfile.open(archive, "w:gz") as bundle:
         bundle.addfile(info, io.BytesIO(data))
-    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-    return archive, digest
+    return archive
 
 
 def _render(name: str, **variables: object) -> str:
@@ -60,11 +60,69 @@ def _render(name: str, **variables: object) -> str:
     return environment.get_template(name).render(**variables)
 
 
-def test_checksum_mismatch_fails_closed(tmp_path: Path) -> None:
-    artifact = tmp_path / "artifact"
-    artifact.write_bytes(b"not the pinned release")
-    with pytest.raises(cache_otelcol.ArtifactError, match="SHA-256 mismatch"):
-        cache_otelcol.verify_checksum(artifact, "0" * 64)
+class _Release(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+
+def _mock_latest(monkeypatch: pytest.MonkeyPatch, tag: str) -> list[urllib.request.Request]:
+    """Answer the GitHub releases/latest lookup locally; anything else (file:// fixtures) is real."""
+    seen: list[urllib.request.Request] = []
+    real_urlopen = urllib.request.urlopen
+
+    def urlopen(request, timeout=None):
+        if not request.full_url.startswith("https://api.github.com/"):
+            return real_urlopen(request, timeout=timeout)
+        seen.append(request)
+        return _Release(json.dumps({"tag_name": tag}).encode())
+
+    monkeypatch.setattr(cache_otelcol.urllib.request, "urlopen", urlopen)
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    return seen
+
+
+def test_latest_version_is_resolved_from_the_releases_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _mock_latest(monkeypatch, "v0.170.1")
+    assert cache_otelcol.resolve_latest_version() == "0.170.1"
+    assert seen[0].full_url.endswith("/repos/open-telemetry/opentelemetry-collector-releases/releases/latest")
+    assert seen[0].get_header("Authorization") == "Bearer tok"
+    assert cache_otelcol.archive_url("0.170.1", "linux_arm64") == (
+        "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/"
+        "v0.170.1/otelcol-contrib_0.170.1_linux_arm64.tar.gz"
+    )
+
+
+@pytest.mark.parametrize("tag", ["", "nightly", "v1", "v0.170.1-rc1"])
+def test_a_latest_tag_that_is_not_a_dotted_version_fails(monkeypatch: pytest.MonkeyPatch, tag: str) -> None:
+    _mock_latest(monkeypatch, tag)
+    with pytest.raises(cache_otelcol.ArtifactError, match="not a dotted version"):
+        cache_otelcol.resolve_latest_version()
+
+
+def test_cache_latest_caches_the_resolved_version_and_prunes_older_ones(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive = _artifact(tmp_path)
+    _mock_latest(monkeypatch, "v0.156.0")
+    monkeypatch.setattr(cache_otelcol, "archive_url", lambda version, arch: archive.as_uri())
+    root = tmp_path / "root"
+    old = root / "0.155.0"
+    old.mkdir(parents=True)
+    (root / "notes").mkdir()
+    result = cache_otelcol.cache_latest(cache_root=root, architecture="linux_arm64")
+    assert result == {
+        "version": "0.156.0",
+        "archive": str(root / "0.156.0" / "otelcol-contrib_0.156.0_linux_arm64.tar.gz"),
+        "binary": str(root / "0.156.0" / "otelcol-contrib"),
+        "changed": True,
+    }
+    assert Path(str(result["archive"])).is_file()
+    assert not old.exists()
+    assert (root / "notes").is_dir()
+    assert cache_otelcol.cache_latest(cache_root=root, architecture="linux_arm64")["changed"] is False
 
 
 def test_http_download_timeout_keeps_the_partial(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -152,19 +210,29 @@ def test_download_to_keeps_a_partial_on_aria2_when_a_host_is_set(
     assert partial.read_bytes() == b"already"
 
 
+def test_a_truncated_download_is_not_cached(tmp_path: Path) -> None:
+    archive = _artifact(tmp_path)
+    truncated = tmp_path / "otelcol-contrib_0.156.0_linux_arm64.tar.gz.src"
+    truncated.write_bytes(archive.read_bytes()[:-20])
+    cache_dir = tmp_path / "cache"
+    with pytest.raises(cache_otelcol.ArtifactError, match="invalid collector archive"):
+        cache_otelcol.ensure_cached(url=truncated.as_uri(), cache_dir=cache_dir, architecture="linux_arm64")
+    assert list(cache_dir.glob("*.tar.gz*")) == []
+
+
 def test_corrupt_cached_archive_is_not_silently_replaced(tmp_path: Path) -> None:
-    archive, digest = _artifact(tmp_path)
+    archive = _artifact(tmp_path)
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
     cached_archive = cache_dir / archive.name
     cached_archive.write_bytes(b"corrupt")
-    with pytest.raises(cache_otelcol.ArtifactError, match="SHA-256 mismatch"):
+    with pytest.raises(cache_otelcol.ArtifactError, match="invalid collector archive"):
         cache_otelcol.ensure_cached(
             url=archive.as_uri(),
-            expected_sha256=digest,
             cache_dir=cache_dir,
             architecture="linux_arm64",
         )
+    assert cached_archive.read_bytes() == b"corrupt"
 
 
 def test_abi_selection_and_elf_validation_fail_closed(tmp_path: Path) -> None:
@@ -182,17 +250,15 @@ def test_abi_selection_and_elf_validation_fail_closed(tmp_path: Path) -> None:
 
 
 def test_mac_cache_is_idempotent(tmp_path: Path) -> None:
-    archive, digest = _artifact(tmp_path)
+    archive = _artifact(tmp_path)
     cache_dir = tmp_path / "cache"
     assert cache_otelcol.ensure_cached(
         url=archive.as_uri(),
-        expected_sha256=digest,
         cache_dir=cache_dir,
         architecture="linux_arm64",
     )
     assert not cache_otelcol.ensure_cached(
         url=archive.as_uri(),
-        expected_sha256=digest,
         cache_dir=cache_dir,
         architecture="linux_arm64",
     )
@@ -202,11 +268,10 @@ def test_mac_cache_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_corrupt_cached_binary_fails_closed(tmp_path: Path) -> None:
-    archive, digest = _artifact(tmp_path)
+    archive = _artifact(tmp_path)
     cache_dir = tmp_path / "cache"
     cache_otelcol.ensure_cached(
         url=archive.as_uri(),
-        expected_sha256=digest,
         cache_dir=cache_dir,
         architecture="linux_arm64",
     )
@@ -214,7 +279,6 @@ def test_corrupt_cached_binary_fails_closed(tmp_path: Path) -> None:
     with pytest.raises(cache_otelcol.ArtifactError, match="does not match"):
         cache_otelcol.ensure_cached(
             url=archive.as_uri(),
-            expected_sha256=digest,
             cache_dir=cache_dir,
             architecture="linux_arm64",
         )
@@ -306,7 +370,7 @@ def test_boot_entrypoint_is_idempotent_and_supports_rollback(tmp_path: Path) -> 
 def test_role_orders_mac_prerequisites_before_device_and_integrates_supervision() -> None:
     tasks = (ROLE / "tasks/otelcol.yml").read_text()
     assert tasks.index("Verify Vector API") < tasks.index("Detect device architecture")
-    assert tasks.index("Cache and verify pinned") < tasks.index("Detect device architecture")
+    assert tasks.index("Cache the latest otelcol-contrib release archive") < tasks.index("Detect device architecture")
     assert "Deploy otelcol-contrib Termux supervisor integration" in tasks
     assert tasks.index("Probe installed otelcol-contrib runtime compatibility") < tasks.index(
         "Install otelcol-contrib Termux boot integration"
@@ -337,7 +401,7 @@ def test_otelcol_verify_self_heals_once_before_hard_failing() -> None:
     assert tasks.index("Restart otelcol-contrib when the running version is older than the deployed one") < tasks.index(
         "Verify otelcol-contrib is running"
     )
-    assert "is version(stayturgid_otelcol_version | string, '<')" in tasks
+    assert "is version(_otelcol_version | string, '<')" in tasks
     assert "/proc/${pid}/exe" in tasks
     assert tasks.index("Verify otelcol-contrib is running") < tasks.index(
         "Restart otelcol-contrib when not found running"

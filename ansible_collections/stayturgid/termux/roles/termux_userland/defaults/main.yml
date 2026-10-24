@@ -39,21 +39,15 @@ stayturgid_termux_packages:
   # Termux SSH transport -- installed before the sync tasks further down.
   - rsync
 
-# Edge OpenTelemetry Collector. The official contrib archive is downloaded
-# once to the Mac controller, checksum/ELF-architecture verified, then copied
-# to each supported Termux device. Bump version, URL, and SHA-256 together.
+# Edge OpenTelemetry Collector: always the latest official contrib release.
+# control/bin/cache_otelcol.py (run on the Mac controller) resolves it from
+# GitHub at deploy time, downloads its archive once into
+# <cache root>/<version>/, checks the gzip stream and AArch64 ELF, then the
+# role unpacks it on each supported Termux device whose installed collector
+# reports a different version. No version or checksum is pinned.
 stayturgid_otelcol_enabled: true
-stayturgid_otelcol_version: "0.163.2"
 stayturgid_otelcol_archive_arch: linux_arm64
-stayturgid_otelcol_archive_name: >-
-  otelcol-contrib_{{ stayturgid_otelcol_version }}_{{ stayturgid_otelcol_archive_arch }}.tar.gz
-stayturgid_otelcol_archive_url: >-
-  https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{{ stayturgid_otelcol_version }}/{{ stayturgid_otelcol_archive_name }}
-stayturgid_otelcol_archive_sha256: d239e219cf81993213fda2fd6de7dc1f9229d32698c45d2dd7bec31b69c1c004
-stayturgid_otelcol_cache_dir: >-
-  {{ lookup('env', 'HOME') }}/.cache/stayturgid/otelcol-contrib/{{ stayturgid_otelcol_version }}
-stayturgid_otelcol_cached_archive: "{{ stayturgid_otelcol_cache_dir }}/{{ stayturgid_otelcol_archive_name }}"
-stayturgid_otelcol_cached_binary: "{{ stayturgid_otelcol_cache_dir }}/otelcol-contrib"
+stayturgid_otelcol_cache_root: "{{ lookup('env', 'HOME') }}/.cache/stayturgid/otelcol-contrib"
 # Unpack scratch dir on the device: under the Termux home (never /sdcard), removed after install.
 stayturgid_otelcol_unpack_dir: "{{ termux_home }}/.stayturgid/tmp/otelcol-unpack"
 stayturgid_otelcol_supported_uname_arches:

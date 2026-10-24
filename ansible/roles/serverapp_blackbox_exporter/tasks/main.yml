@@ -1,8 +1,9 @@
 ---
-# Own-mode blackbox_exporter lifecycle: dirs → binary if absent (never
-# upgrade) → blackbox.yml + plist → bootstrap → health → best-effort ICMP
-# probe. New role (no legacy label to migrate away from), so this is
-# simpler than serverapp_openobserve's cutover logic.
+# Own-mode blackbox_exporter lifecycle: dirs → binary (installed when absent or
+# when its reported version differs from the latest upstream release) →
+# blackbox.yml + plist → bootstrap → restart onto a new binary → health →
+# best-effort ICMP probe. New role (no legacy label to migrate away from), so
+# this is simpler than serverapp_openobserve's cutover logic.
 
 - name: Ensure blackbox_exporter config, bin parent, and log directories exist
   ansible.builtin.file:
@@ -20,27 +21,67 @@
     path: "{{ serverapp_blackbox_exporter_bin_path }}"
   register: _bbe_bin_stat
 
+# `blackbox_exporter --version` prints
+# `blackbox_exporter, version 0.28.0 (branch: HEAD, ...)`. Fails open: a version
+# we cannot parse never blocks a deploy and never triggers a reinstall.
+- name: Probe the installed blackbox_exporter version
+  ansible.builtin.shell: |
+    if [ -x "{{ serverapp_blackbox_exporter_bin_path }}" ]; then
+      "{{ serverapp_blackbox_exporter_bin_path }}" --version 2>&1 || true
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: false
+  failed_when: false
+  # Run in check mode too, so a dry run reports what a real run would do.
+  check_mode: false
+  register: _bbe_version_probe
+
+- name: Resolve the latest blackbox_exporter release
+  ansible.builtin.include_role:
+    name: github_latest_release
+  vars:
+    github_latest_release_repo: prometheus/blackbox_exporter
+
+- name: Remember the latest blackbox_exporter version
+  ansible.builtin.set_fact:
+    _bbe_latest_version: "{{ github_latest_release_version }}"
+
+- name: Record whether blackbox_exporter needs installing
+  ansible.builtin.set_fact:
+    _bbe_installed_version: >-
+      {{ (_bbe_version_probe.stdout | default('')) | regex_findall('version ([0-9]+(?:[.][0-9]+)+)') | first | default('', true) }}
+    _bbe_install_required: >-
+      {{
+        not (_bbe_bin_stat.stat.exists | default(false))
+        or (
+          ((_bbe_version_probe.stdout | default('')) | regex_findall('version ([0-9]+(?:[.][0-9]+)+)') | first | default('', true) | length) > 0
+          and ((_bbe_version_probe.stdout | default('')) | regex_findall('version ([0-9]+(?:[.][0-9]+)+)') | first | default('', true)) != _bbe_latest_version
+        )
+      }}
+
+- name: Note an unparseable blackbox_exporter version (binary left as is)
+  ansible.builtin.debug:
+    msg: >-
+      Could not parse a version from `{{ serverapp_blackbox_exporter_bin_path }} --version`; not reinstalling.
+  when:
+    - _bbe_bin_stat.stat.exists | default(false)
+    - _bbe_installed_version | trim | length == 0
+
 - name: Detect machine architecture for blackbox_exporter download
   ansible.builtin.command:
     cmd: uname -m
   register: _bbe_uname
   changed_when: false
-  when: not (_bbe_bin_stat.stat.exists | default(false))
+  # Read-only; run in check mode too, so the arch fact is computed from a
+  # task that actually ran.
+  check_mode: false
+  when: _bbe_install_required | bool
 
 - name: Set blackbox_exporter download architecture fact
   ansible.builtin.set_fact:
     _bbe_arch: "{{ 'darwin-arm64' if (_bbe_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
-  when: not (_bbe_bin_stat.stat.exists | default(false))
-
-# M1-F-style MF-5: fail closed rather than install an unverified binary.
-- name: Fail closed when no pinned checksum exists for this blackbox_exporter download arch
-  ansible.builtin.assert:
-    that:
-      - (serverapp_blackbox_exporter_archive_sha256[_bbe_arch] | default('', true) | length) > 0
-    fail_msg: >-
-      No pinned sha256 for blackbox_exporter {{ serverapp_blackbox_exporter_version }} ({{ _bbe_arch }}) in
-      serverapp_blackbox_exporter_archive_sha256 — refusing to download an unverified binary.
-  when: not (_bbe_bin_stat.stat.exists | default(false))
+  when: _bbe_install_required | bool
 
 # Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
 # (unpredictable name under the system temp dir, not a fixed /tmp/blackbox_*
@@ -51,22 +92,34 @@
     state: directory
     prefix: blackbox_exporter-
   register: _bbe_tmp
-  # Run in check mode too, so downstream `.path` resolves during a dry-run.
-  check_mode: false
-  when: not (_bbe_bin_stat.stat.exists | default(false))
+  when:
+    - _bbe_install_required | bool
+    - not ansible_check_mode
 
-- name: Download, extract, and install blackbox_exporter binary when missing
-  when: not (_bbe_bin_stat.stat.exists | default(false))
+# In check mode nothing is downloaded, so the extract/copy tasks below would
+# fail on a missing source; report the pending change instead of running them.
+- name: Report pending blackbox_exporter install (check mode only)
+  ansible.builtin.debug:
+    msg: >-
+      Would install blackbox_exporter {{ _bbe_latest_version }} (installed:
+      {{ _bbe_installed_version | default('', true) | trim or 'none' }}).
+  when:
+    - ansible_check_mode
+    - _bbe_install_required | bool
+
+- name: Download, extract, and install blackbox_exporter binary when missing or not at the latest version
+  when:
+    - _bbe_install_required | bool
+    - not ansible_check_mode
   block:
-    - name: Download blackbox_exporter archive when binary missing
+    - name: Download blackbox_exporter archive
       vars:
         _bbe_base: "https://github.com/prometheus/blackbox_exporter/releases/download"
-        _bbe_archive: "blackbox_exporter-{{ serverapp_blackbox_exporter_version }}.{{ _bbe_arch }}.tar.gz"
+        _bbe_archive: "blackbox_exporter-{{ _bbe_latest_version }}.{{ _bbe_arch }}.tar.gz"
       ansible.builtin.get_url:
-        url: "{{ _bbe_base }}/v{{ serverapp_blackbox_exporter_version }}/{{ _bbe_archive }}"
+        url: "{{ _bbe_base }}/v{{ _bbe_latest_version }}/{{ _bbe_archive }}"
         dest: "{{ _bbe_tmp.path }}/blackbox_exporter.tar.gz"
         mode: "0644"
-        checksum: "sha256:{{ serverapp_blackbox_exporter_archive_sha256[_bbe_arch] }}"
 
     # ansible.builtin.unarchive requires GNU tar for .tar.gz on the local
     # strategy it picks for this archive shape; macOS ships only BSD tar by
@@ -75,7 +128,7 @@
     # its gnubin shim to PATH for just this task rather than requiring the
     # operator's shell profile to be edited (brew's own caveat suggests a
     # global PATH change — scoping it here avoids depending on that).
-    - name: Extract blackbox_exporter archive when missing
+    - name: Extract blackbox_exporter archive
       ansible.builtin.unarchive:
         src: "{{ _bbe_tmp.path }}/blackbox_exporter.tar.gz"
         dest: "{{ _bbe_tmp.path }}"
@@ -85,9 +138,9 @@
         # gather_facts: false (matches every other serverapp_* playbook).
         PATH: "/opt/homebrew/opt/gnu-tar/libexec/gnubin:{{ lookup('env', 'PATH') }}"
 
-    - name: Install blackbox_exporter binary to destination when missing
+    - name: Install blackbox_exporter binary to destination
       ansible.builtin.copy:
-        src: "{{ _bbe_tmp.path }}/blackbox_exporter-{{ serverapp_blackbox_exporter_version }}.{{ _bbe_arch }}/blackbox_exporter"
+        src: "{{ _bbe_tmp.path }}/blackbox_exporter-{{ _bbe_latest_version }}.{{ _bbe_arch }}/blackbox_exporter"
         dest: "{{ serverapp_blackbox_exporter_bin_path }}"
         mode: "0755"
         remote_src: true
@@ -97,6 +150,31 @@
         path: "{{ _bbe_tmp.path }}"
         state: absent
       when: _bbe_tmp.path is defined
+
+# Skipped in check mode (the install tasks did not run) and when nothing was
+# installed; fails open when the new binary reports a version we cannot parse.
+- name: Probe the blackbox_exporter version after install
+  ansible.builtin.shell: |
+    "{{ serverapp_blackbox_exporter_bin_path }}" --version 2>&1 || true
+  args:
+    executable: /bin/bash
+  changed_when: false
+  failed_when: false
+  register: _bbe_version_verify
+  when:
+    - not ansible_check_mode
+    - _bbe_install_required | bool
+
+- name: Fail if blackbox_exporter is not at the latest version after install
+  ansible.builtin.fail:
+    msg: >-
+      blackbox_exporter at {{ serverapp_blackbox_exporter_bin_path }} does not
+      report the latest version {{ _bbe_latest_version }} after install.
+  when:
+    - not ansible_check_mode
+    - _bbe_install_required | bool
+    - (_bbe_version_verify.stdout | default('') | regex_findall('version ([0-9]+(?:[.][0-9]+)+)') | first | default('', true) | length) > 0
+    - (_bbe_version_verify.stdout | default('') | regex_findall('version ([0-9]+(?:[.][0-9]+)+)') | first | default('', true)) != _bbe_latest_version
 
 - name: Render blackbox_exporter module config
   ansible.builtin.template:
@@ -146,15 +224,66 @@
   retries: 5
   delay: 1
 
-- name: Kickstart site-namespace blackbox_exporter after config-only change
+# Installing a new binary does not replace the running process: launchd keeps
+# the old executable held open, so an upgrade would land on disk while the
+# service carried on serving the previous build. Same script and kickstart as
+# serverapp_olivetin / serverapp_openobserve.
+- name: Detect whether the running blackbox_exporter is on a stale binary
+  ansible.builtin.command:
+    cmd: >-
+      {{ role_path }}/../../files/serverapp_binary_state.sh
+      {{ serverapp_blackbox_exporter_uid }}
+      {{ serverapp_blackbox_exporter_label }}
+      {{ serverapp_blackbox_exporter_bin_path }}
+  changed_when: false
+  # Must run under --check too, or a dry run cannot report a pending restart.
+  check_mode: false
+  register: _bbe_binary_state
+
+- name: Kickstart site-namespace blackbox_exporter after a config-only or binary change
   ansible.builtin.command:
     cmd: >-
       launchctl kickstart -k gui/{{ serverapp_blackbox_exporter_uid }}/{{ serverapp_blackbox_exporter_label }}
   when:
     - _bbe_launch_state.stdout | trim == 'loaded'
-    - _bbe_config.changed | default(false)
+    - >-
+      (_bbe_config.changed | default(false))
+      or ((_bbe_binary_state.stdout | default('') | trim) == 'stale')
     - not (_bbe_plist.changed | default(false))
   register: _bbe_kickstart
+
+- name: Report a pending blackbox_exporter restart under --check
+  ansible.builtin.debug:
+    msg: >-
+      blackbox_exporter is running a stale binary; a real run would
+      `launchctl kickstart -k` {{ serverapp_blackbox_exporter_label }}.
+  when:
+    - ansible_check_mode
+    - (_bbe_binary_state.stdout | default('') | trim) == 'stale'
+
+- name: Re-check blackbox_exporter binary state after the restart
+  ansible.builtin.command:
+    cmd: >-
+      {{ role_path }}/../../files/serverapp_binary_state.sh
+      {{ serverapp_blackbox_exporter_uid }}
+      {{ serverapp_blackbox_exporter_label }}
+      {{ serverapp_blackbox_exporter_bin_path }}
+  changed_when: false
+  when: _bbe_kickstart.changed | default(false)
+  register: _bbe_binary_verify
+
+# The probe endpoint answers happily from a stale binary, which is why this
+# asserts on the held-open executable rather than on health. `unknown` is
+# tolerated: it means the state could not be determined, not that it is wrong.
+- name: Fail if blackbox_exporter is still on a stale binary after the restart
+  ansible.builtin.fail:
+    msg: >-
+      blackbox_exporter is still running a stale binary after
+      `launchctl kickstart -k {{ serverapp_blackbox_exporter_label }}`.
+  when:
+    - not ansible_check_mode
+    - _bbe_kickstart.changed | default(false)
+    - (_bbe_binary_verify.stdout | default('') | trim) == 'stale'
 
 - name: Wait for blackbox_exporter health endpoint (http_2xx self-probe)
   ansible.builtin.uri:

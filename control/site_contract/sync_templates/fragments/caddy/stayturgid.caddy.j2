@@ -28,8 +28,8 @@
 #   Stripping would 301-loop Grafana (root_url → strip → root_url) and send
 #   OO's /web/ redirect off the /oo/ prefix.
 #
-# OliveTin (still handle_path, unresolved): the pinned OliveTin 3000.17.1
-# webUI ships a static, pre-built index.html with a hardcoded
+# OliveTin (still handle_path, unresolved): the OliveTin webUI (3000.17.1 when
+# checked) ships a static, pre-built index.html with a hardcoded
 # `<base href="/" />` and root-absolute /assets/*.js references baked in at
 # build time (verified in ~/.local/share/olivetin/webui/index.html — no
 # server-side templating). OliveTin's own docs (reverse-proxies/caddy.html)

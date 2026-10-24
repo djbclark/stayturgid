@@ -44,7 +44,7 @@ def _run_probe(tmp_path: Path, context: str) -> tuple[int, str, Path]:
                     "gather_facts": False,
                     "vars": {
                         "stayturgid_otelcol_enabled": True,
-                        "stayturgid_otelcol_version": "0.162.0",
+                        "_otelcol_version": "0.162.0",
                         "stayturgid_otelcol_binary": str(tmp_path / "no-such-otelcol-contrib"),
                         "stayturgid_otelcol_boot_script": str(boot_script),
                         "stayturgid_selinux_context_file": str(context_file),

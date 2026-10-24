@@ -1,0 +1,36 @@
+---
+# Read-only, so it runs under --check too: a dry run must decide against the
+# same version a real run would install.
+- name: Query the latest GitHub release of {{ github_latest_release_repo }}
+  ansible.builtin.uri:
+    url: "{{ github_latest_release_api }}/repos/{{ github_latest_release_repo }}/releases/latest"
+    headers:
+      Accept: application/vnd.github+json
+      X-GitHub-Api-Version: "2022-11-28"
+    # Basic auth with the token as the password: url_password is no_log in the
+    # uri module, an Authorization header would show up in -vvv output.
+    url_username: "{{ 'x-access-token' if (github_latest_release_token | trim | length) > 0 else omit }}"
+    url_password: "{{ (github_latest_release_token | trim) if (github_latest_release_token | trim | length) > 0 else omit }}"
+    force_basic_auth: "{{ (github_latest_release_token | trim | length) > 0 }}"
+    return_content: true
+    status_code: 200
+    timeout: 30
+  register: _glr_response
+  changed_when: false
+  check_mode: false
+
+- name: Record the latest release version of {{ github_latest_release_repo }}
+  ansible.builtin.set_fact:
+    github_latest_release_version: "{{ (_glr_response.json.tag_name | default('', true)) | regex_replace('^v', '') }}"
+
+# The version is spliced into download URLs and compared with what the
+# installed binary reports; anything but a dotted version would build a bogus
+# URL or reinstall on every run.
+- name: Reject a latest release tag that is not a dotted version for {{ github_latest_release_repo }}
+  ansible.builtin.assert:
+    that:
+      - github_latest_release_version is match('^[0-9]+([.][0-9]+)+$')
+    fail_msg: >-
+      {{ github_latest_release_repo }} releases/latest has tag
+      {{ _glr_response.json.tag_name | default('none') }}, which is not a dotted version.
+    quiet: true

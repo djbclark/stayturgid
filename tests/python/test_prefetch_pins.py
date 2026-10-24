@@ -45,17 +45,63 @@ def test_real_pins_are_the_fleet_set() -> None:
     assert all(len(pin.sha256) == 64 for pin in pins)
 
 
-def test_otel_pin_matches_the_role_template() -> None:
-    pin = prefetch.load_otel_pin(OTEL_DEFAULTS.read_text())
-    assert pin.version == "0.163.2"
-    assert pin.arch == "linux_arm64"
-    assert pin.sha256 == "d239e219cf81993213fda2fd6de7dc1f9229d32698c45d2dd7bec31b69c1c004"
-    assert pin.url.endswith("/v0.163.2/otelcol-contrib_0.163.2_linux_arm64.tar.gz")
+def test_otel_arch_and_cache_root_match_the_role() -> None:
+    defaults = OTEL_DEFAULTS.read_text()
+    assert prefetch.load_otel_arch(defaults) == "linux_arm64"
+    # The deploy caches under stayturgid_otelcol_cache_root; prefetch must fill the same tree.
+    assert (
+        "stayturgid_otelcol_cache_root: \"{{ lookup('env', 'HOME') }}/.cache/stayturgid/otelcol-contrib\"" in defaults
+    )
+    assert prefetch.otel_cache_root() == Path.home() / ".cache/stayturgid/otelcol-contrib"
+    assert "stayturgid_otelcol_version" not in defaults, "otelcol tracks the latest release; nothing is pinned"
+    assert "sha256" not in defaults
 
 
-def test_otel_loader_refuses_a_changed_url_template() -> None:
-    with pytest.raises(prefetch.PrefetchError, match="URL template changed"):
-        prefetch.load_otel_pin("stayturgid_otelcol_version: '1'\n")
+def test_otel_loader_refuses_defaults_without_the_arch() -> None:
+    with pytest.raises(prefetch.PrefetchError, match="no longer set stayturgid_otelcol_archive_arch"):
+        prefetch.load_otel_arch("stayturgid_otelcol_enabled: true\n")
+
+
+class _FakeCache:
+    class ArtifactError(RuntimeError):
+        pass
+
+    def __init__(self, lookup_error: str = "") -> None:
+        self.calls: list[dict] = []
+        self.lookup_error = lookup_error
+
+    def resolve_latest_version(self) -> str:
+        if self.lookup_error:
+            raise self.ArtifactError(self.lookup_error)
+        return "0.170.1"
+
+    def cache_latest(self, **kwargs) -> dict:
+        self.calls.append(kwargs)
+        return {}
+
+
+def test_ensure_otel_caches_the_latest_release_where_the_deploy_looks(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeCache()
+    monkeypatch.setattr(prefetch, "_cache_otelcol", lambda: fake)
+    target = prefetch.latest_otel("linux_arm64")
+    assert target == prefetch.OtelTarget("0.170.1", "linux_arm64")
+    assert target.archive_name == "otelcol-contrib_0.170.1_linux_arm64.tar.gz"
+    assert prefetch.ensure_otel(target, 30) in {"hit", "fetched"}
+    assert fake.calls == [
+        {
+            "cache_root": prefetch.otel_cache_root(),
+            "architecture": "linux_arm64",
+            "timeout_seconds": 30,
+            "version": "0.170.1",
+        }
+    ]
+
+
+def test_a_failed_latest_lookup_is_a_prefetch_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeCache(lookup_error="rate limited")
+    monkeypatch.setattr(prefetch, "_cache_otelcol", lambda: fake)
+    with pytest.raises(prefetch.PrefetchError, match="rate limited"):
+        prefetch.latest_otel("linux_arm64")
 
 
 def test_partial_token_matches_the_deploy_downloader() -> None:
@@ -158,16 +204,11 @@ def test_dry_run_does_not_download_or_update(tmp_path: Path, monkeypatch: pytest
         "    gh_pattern: demo.apk\n"
         '    checksum: "sha256:' + ("ab" * 32) + '"\n'
     )
-    otel.write_text(
-        "stayturgid_otelcol_version: '0.0.1'\n"
-        "stayturgid_otelcol_archive_arch: linux_arm64\n"
-        "stayturgid_otelcol_archive_sha256: " + ("cd" * 32) + "\n"
-        "# " + prefetch._OTEL_NAME_TMPL + "\n"
-        "# " + prefetch._OTEL_URL_TMPL + "\n"
-    )
+    otel.write_text("stayturgid_otelcol_archive_arch: linux_arm64\n")
     monkeypatch.setattr(prefetch, "_paths", lambda _repo: (apk, otel))
     monkeypatch.setattr(prefetch, "default_apk_cache", lambda: tmp_path / "apks")
     monkeypatch.setattr(prefetch, "update_checkout", lambda _repo: pytest.fail("updated"))
     monkeypatch.setattr(prefetch, "ensure_apk", lambda *_a, **_k: pytest.fail("downloaded"))
     monkeypatch.setattr(prefetch, "ensure_otel", lambda *_a, **_k: pytest.fail("downloaded"))
+    monkeypatch.setattr(prefetch, "latest_otel", lambda arch: prefetch.OtelTarget("0.0.1", arch))
     assert prefetch.main(["--repo-root", str(tmp_path), "--dry-run", "--no-update"]) == 0

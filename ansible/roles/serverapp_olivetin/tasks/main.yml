@@ -1,7 +1,7 @@
 ---
 # Own-mode olivetin lifecycle: binary + webui (installed when either is absent
-# or the binary's reported version differs from the pin) → dirs →
-# config.yaml bootstrap (only when absent — site-sync's projection is the
+# or the binary's reported version differs from the latest upstream release) →
+# dirs → config.yaml bootstrap (only when absent — site-sync's projection is the
 # single writer of the live file, design §2) → plist → bootstrap → health.
 # New installs skip legacy cutover.
 
@@ -26,12 +26,10 @@
     path: "{{ serverapp_olivetin_webui_dir }}"
   register: _ot_webui_stat
 
-# The pin used to be consulted only when the binary or webui was absent, so
-# bumping it never upgraded anything (the pin said 3000.20.0 while 3000.17.1
-# kept running). `OliveTin --version` prints its startup message with
-# `version="3000.17.1"` in it; compare that. Fails open: a version we cannot
-# parse never blocks a deploy and never triggers a reinstall, it leaves the
-# tree exactly as the old install-if-absent behaviour did.
+# `OliveTin --version` prints its startup message with `version="3000.17.1"`
+# in it; compare that with the latest GitHub release. Fails open: a version we
+# cannot parse never blocks a deploy and never triggers a reinstall, it leaves
+# the tree exactly as the old install-if-absent behaviour did.
 - name: Probe the installed OliveTin version
   ansible.builtin.shell: |
     if [ -x "{{ serverapp_olivetin_bin_path }}" ]; then
@@ -44,6 +42,16 @@
   # Run in check mode too, so a dry run reports what a real run would do.
   check_mode: false
   register: _ot_version_probe
+
+- name: Resolve the latest OliveTin release
+  ansible.builtin.include_role:
+    name: github_latest_release
+  vars:
+    github_latest_release_repo: OliveTin/OliveTin
+
+- name: Remember the latest OliveTin version
+  ansible.builtin.set_fact:
+    _ot_latest_version: "{{ github_latest_release_version }}"
 
 # Binary and webui must move together or the UI no longer matches the API, so
 # either artifact missing, or a binary at the wrong version, reinstalls both.
@@ -60,7 +68,7 @@
           and (
             (_ot_version_probe.stdout | default(''))
             | regex_findall('version="([0-9]+(?:[.][0-9]+)+)"') | first | default('', true)
-          ) != serverapp_olivetin_version
+          ) != _ot_latest_version
         )
       }}
 
@@ -78,24 +86,14 @@
     cmd: uname -m
   register: _ot_uname
   changed_when: false
-  # Read-only; run in check mode too, or the arch fact (and the checksum
-  # assert keyed on it) is computed from a skipped task.
+  # Read-only; run in check mode too, so the arch fact is computed from a
+  # task that actually ran.
   check_mode: false
   when: _ot_install_required | bool
 
 - name: Set OliveTin download architecture fact
   ansible.builtin.set_fact:
     _ot_arch: "{{ 'darwin-arm64' if (_ot_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
-  when: _ot_install_required | bool
-
-# M1-F MF-5: fail closed rather than install an unverified binary.
-- name: Fail closed when no pinned checksum exists for this OliveTin download arch
-  ansible.builtin.assert:
-    that:
-      - (serverapp_olivetin_archive_sha256[_ot_arch] | default('', true) | length) > 0
-    fail_msg: >-
-      No pinned sha256 for OliveTin {{ serverapp_olivetin_version }} ({{ _ot_arch }}) in
-      serverapp_olivetin_archive_sha256 — refusing to download an unverified binary.
   when: _ot_install_required | bool
 
 # Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
@@ -119,13 +117,13 @@
 - name: Report pending OliveTin install (check mode only)
   ansible.builtin.debug:
     msg: >-
-      Would install OliveTin {{ serverapp_olivetin_version }} (installed:
+      Would install OliveTin {{ _ot_latest_version }} (installed:
       {{ _ot_installed_version | default('', true) | trim or 'none' }}).
   when:
     - ansible_check_mode
     - _ot_install_required | bool
 
-- name: Download, extract, and install OliveTin binary/webui when missing or not at the pinned version
+- name: Download, extract, and install OliveTin binary/webui when missing or not at the latest version
   when:
     - _ot_install_required | bool
     - not ansible_check_mode
@@ -135,11 +133,10 @@
         _ot_base: "https://github.com/OliveTin/OliveTin/releases/download"
         _ot_archive: "OliveTin-{{ _ot_arch }}.tar.gz"
       ansible.builtin.get_url:
-        url: "{{ _ot_base }}/{{ serverapp_olivetin_version }}/{{ _ot_archive }}"
+        url: "{{ _ot_base }}/{{ _ot_latest_version }}/{{ _ot_archive }}"
         dest: "{{ _ot_tmp.path }}/OliveTin.tar.gz"
         mode: "0644"
         force: true
-        checksum: "sha256:{{ serverapp_olivetin_archive_sha256[_ot_arch] }}"
 
     # ansible.builtin.unarchive requires GNU tar for .tar.gz; macOS ships
     # only BSD tar by default. `brew install gnu-tar` provides it as `gtar`;
@@ -202,16 +199,16 @@
     - not ansible_check_mode
     - _ot_install_required | bool
 
-- name: Fail if OliveTin is not at the pinned version after install
+- name: Fail if OliveTin is not at the latest version after install
   ansible.builtin.fail:
     msg: >-
-      OliveTin at {{ serverapp_olivetin_bin_path }} does not report the pinned
-      version {{ serverapp_olivetin_version }} after install.
+      OliveTin at {{ serverapp_olivetin_bin_path }} does not report the latest
+      version {{ _ot_latest_version }} after install.
   when:
     - not ansible_check_mode
     - _ot_install_required | bool
     - (_ot_version_verify.stdout | default('') | regex_findall('version="([0-9]+(?:[.][0-9]+)+)"') | first | default('', true) | length) > 0
-    - (_ot_version_verify.stdout | default('') | regex_findall('version="([0-9]+(?:[.][0-9]+)+)"') | first | default('', true)) != serverapp_olivetin_version
+    - (_ot_version_verify.stdout | default('') | regex_findall('version="([0-9]+(?:[.][0-9]+)+)"') | first | default('', true)) != _ot_latest_version
 
 - name: Assert OliveTin binary is present
   ansible.builtin.stat:

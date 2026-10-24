@@ -1,0 +1,19 @@
+---
+# github_latest_release — resolve the newest published release (GitHub's
+# releases/latest: not a draft, not a prerelease) of one repo at converge time.
+# Site policy: installed software tracks the latest upstream release; nothing
+# pins a version or a checksum.
+#
+# Input:  github_latest_release_repo  "owner/name" (required, passed by the caller)
+# Output: fact github_latest_release_version — the tag with any leading "v"
+#         stripped, asserted to be a dotted version.
+
+github_latest_release_api: https://api.github.com
+# Unauthenticated calls share GitHub's 60/hour per-IP budget with every other
+# lookup on the box (update_monitor, check_apk_updates, the other roles); a
+# token lifts that to 5000. Env first, then the gh CLI's stored login; empty
+# means unauthenticated.
+github_latest_release_token: >-
+  {{ lookup('env', 'GITHUB_TOKEN')
+     or lookup('env', 'GH_TOKEN')
+     or lookup('pipe', 'gh auth token 2>/dev/null || true') }}

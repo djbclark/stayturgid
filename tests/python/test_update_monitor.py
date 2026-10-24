@@ -52,3 +52,30 @@ def test_non_numeric_segments_fall_back_to_string_inequality():
 def test_escape_label_value_handles_prometheus_special_chars():
     assert um.escape_label_value('1.2"x') == '1.2\\"x'
     assert um.escape_label_value("a\\b\nc") == "a\\\\b\\nc"
+
+
+def _fake_binary(tmp_path, output: str) -> str:
+    """A stand-in binary whose --version prints `output`."""
+    (tmp_path / "version.out").write_text(output + "\n")
+    binary = tmp_path / "app"
+    binary.write_text(f"#!/bin/sh\ncat '{tmp_path / 'version.out'}'\n")
+    binary.chmod(0o755)
+    return str(binary)
+
+
+def test_installed_version_comes_from_the_binary_not_a_pin(tmp_path):
+    """The roles install the latest release, so the monitor compares installed vs latest."""
+    apps = {app["name"]: app for app in um.GITHUB_APPS}
+    assert set(apps) == {"openobserve", "olivetin", "blackbox_exporter"}
+    samples = {
+        "openobserve": ("openobserve v1.0.4", "1.0.4"),
+        "olivetin": ('level="info" msg="startup" commit="5c3d342" version="3000.17.1"', "3000.17.1"),
+        "blackbox_exporter": ("blackbox_exporter, version 0.28.0 (branch: HEAD, revision: 5a059be)", "0.28.0"),
+    }
+    for name, (output, expected) in samples.items():
+        assert um.get_installed_version(_fake_binary(tmp_path, output), apps[name]["pattern"]) == expected
+
+
+def test_absent_or_unparseable_binary_reports_nothing(tmp_path):
+    assert um.get_installed_version(str(tmp_path / "missing"), r"([0-9.]+)") is None
+    assert um.get_installed_version(_fake_binary(tmp_path, "usage: app"), r"version ([0-9]+(?:\.[0-9]+)+)") is None

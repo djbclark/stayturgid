@@ -27,6 +27,32 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 # "1" sample lingering after a package stops being outdated.
 MONITORED_BREW_FORMULAE = ["caddy", "grafana", "vector", "victoriametrics", "hermes-agent"]
 
+# Serverapps installed from GitHub/vendor release tarballs. Each role installs
+# the latest release on converge (github_latest_release), so installed != latest
+# means a converge has not run since the release, or failed. Binary paths are
+# the roles' *_bin_path defaults; the patterns match what each binary's
+# --version prints, as the roles' own version probes do.
+GITHUB_APPS = [
+    {
+        "name": "openobserve",
+        "repo": "openobserve/openobserve",
+        "bin": "~/.local/bin/openobserve",
+        "pattern": r"([0-9]+(?:\.[0-9]+)+)",
+    },
+    {
+        "name": "olivetin",
+        "repo": "OliveTin/OliveTin",
+        "bin": "~/.local/share/olivetin/OliveTin",
+        "pattern": r'version="([0-9]+(?:\.[0-9]+)+)"',
+    },
+    {
+        "name": "blackbox_exporter",
+        "repo": "prometheus/blackbox_exporter",
+        "bin": "~/.local/bin/blackbox_exporter",
+        "pattern": r"version ([0-9]+(?:\.[0-9]+)+)",
+    },
+]
+
 
 def escape_label_value(value: str) -> str:
     """Escapes a Prometheus exposition-format label value (backslash, quote, newline)."""
@@ -39,9 +65,8 @@ def versions_differ(current: str, latest: str) -> bool:
     Compares dotted-integer segments numerically so "1.2" and "1.2.0" (or a
     CalVer tag like "2026.7.20") compare equal/ordered correctly instead of
     the raw strings just happening to differ. Avoids a hard dependency (this
-    script intentionally has none — see get_ansible_version's regex parsing)
-    by falling back to plain string inequality for anything that doesn't
-    parse as dotted integers.
+    script intentionally has none) by falling back to plain string inequality
+    for anything that doesn't parse as dotted integers.
     """
 
     def parse(v: str):
@@ -76,22 +101,21 @@ def fetch_github_latest_release(repo: str) -> Optional[str]:
         return None
 
 
-def get_ansible_version(role_path: str, var_name: str) -> Optional[str]:
-    """Reads a version string from an Ansible defaults/main.yml file using regex to avoid yaml dependency."""
+def get_installed_version(bin_path: str, pattern: str) -> Optional[str]:
+    """The version an installed binary reports via --version; None when absent or unparseable."""
+    path = os.path.expanduser(bin_path)
+    if not os.path.isfile(path):
+        return None
     try:
-        with open(os.path.join(role_path, "defaults", "main.yml"), "r") as f:
-            for line in f:
-                match = re.match(rf'^{var_name}:\s*"(.*?)"', line.strip())
-                if match:
-                    return match.group(1)
-                # handle unquoted values just in case
-                match_unquoted = re.match(rf"^{var_name}:\s*([^\s#]+)", line.strip())
-                if match_unquoted:
-                    return match_unquoted.group(1)
+        result = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        logging.error(f"Failed to run {path} --version: {e}")
         return None
-    except Exception as e:
-        logging.error(f"Failed to read {var_name} from {role_path}: {e}")
+    match = re.search(pattern, result.stdout + result.stderr)
+    if not match:
+        logging.error(f"Could not parse a version from {path} --version")
         return None
+    return match.group(1)
 
 
 def get_brew_outdated() -> List[Dict[str, str]]:
@@ -151,31 +175,13 @@ def push_to_victoriametrics(metrics: List[str], vm_url: str = "http://127.0.0.1:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Stayturgid Update Monitor")
-    parser.add_argument("--repo-root", required=True, help="Path to stayturgid repo root")
-    args = parser.parse_args()
+    argparse.ArgumentParser(description="Stayturgid Update Monitor").parse_args()
 
     metrics = []
 
-    # 1. Check GitHub Releases
-    github_apps = [
-        {
-            "name": "openobserve",
-            "repo": "openobserve/openobserve",
-            "role": "serverapp_openobserve",
-            "var": "serverapp_openobserve_version",
-        },
-        {
-            "name": "olivetin",
-            "repo": "OliveTin/OliveTin",
-            "role": "serverapp_olivetin",
-            "var": "serverapp_olivetin_version",
-        },
-    ]
-
-    for app in github_apps:
-        role_path = os.path.join(args.repo_root, "ansible", "roles", app["role"])
-        current_version = get_ansible_version(role_path, app["var"])
+    # 1. Check GitHub Releases: installed binary vs latest release.
+    for app in GITHUB_APPS:
+        current_version = get_installed_version(app["bin"], app["pattern"])
         if not current_version:
             continue
 
@@ -183,19 +189,15 @@ def main():
         if not latest_version:
             continue
 
-        # Clean versions for comparison
-        clean_current = current_version.lstrip("v")
-        clean_latest = latest_version.lstrip("v")
-
-        has_update = 1 if versions_differ(clean_current, clean_latest) else 0
+        has_update = 1 if versions_differ(current_version, latest_version) else 0
         metrics.append(
             f'software_update_available{{package="{escape_label_value(app["name"])}", '
-            f'type="github", current="{escape_label_value(clean_current)}", '
-            f'latest="{escape_label_value(clean_latest)}"}} {has_update}'
+            f'type="github", current="{escape_label_value(current_version)}", '
+            f'latest="{escape_label_value(latest_version)}"}} {has_update}'
         )
 
         if has_update:
-            logging.info(f"Update available for {app['name']}: {clean_current} -> {clean_latest}")
+            logging.info(f"Update available for {app['name']}: {current_version} -> {latest_version}")
 
     # 2. Check Homebrew Packages (MONITORED_BREW_FORMULAE).
     # Emit an explicit 0/1 for every monitored formula each run so the series
