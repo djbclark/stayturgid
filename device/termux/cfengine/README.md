@@ -18,13 +18,15 @@ Python 3.5+, but on this Mac Python 3.12 is the known-compatible choice:
 uv tool install --python /opt/homebrew/bin/python3.12 'cfbs==5.5.6'
 ```
 
-CFEngine Core (for `cf-promises` policy validation) is supplied by Homebrew,
-pinned to `cfengine@3.27.1` (see
-[packaging/homebrew/README.md](../../../packaging/homebrew/README.md)); plain
-`brew install cfengine` would install the unpinned formula that the pin removes:
+CFEngine Core (for `cf-promises` policy validation) is homebrew-core's
+`cfengine`, never pinned: the control node's `control_node` role installs it and
+site-djbclark's nightly `brew-fast-upgrade` keeps it current, so it can run
+ahead of the Termux fleet's 3.27.1
+([cfengine-update-investigation.md](../../../docs/operations/cfengine-update-investigation.md)).
+Validate new policy syntax against the fleet before relying on it:
 
 ```bash
-just cfengine-pin
+brew install cfengine
 ```
 
 ## Build and validate

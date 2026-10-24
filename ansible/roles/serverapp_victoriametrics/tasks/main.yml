@@ -1,5 +1,5 @@
 ---
-# Own-mode victoriametrics lifecycle: brew (never upgrade) → dirs → scrape
+# Own-mode victoriametrics lifecycle: brew install → dirs → scrape
 # config → plist → bootstrap → health. New installs skip legacy cutover.
 # Does not delete any legacy product label (retirement is D7).
 
@@ -10,24 +10,13 @@
   changed_when: false
   failed_when: false
 
-- name: Install victoriametrics via Homebrew when absent (never upgrade)
+# Install only; site-djbclark's nightly brew-fast-upgrade keeps it current
+# (never pinned) and restarts the launchd job off the upgraded-away binary.
+- name: Install victoriametrics via Homebrew when absent
   community.general.homebrew:
     name: victoriametrics
     state: present
   when: _vm_brew_list.rc != 0
-
-- name: Pin victoriametrics formula in Homebrew to prevent drift
-  ansible.builtin.command:
-    cmd: brew pin victoriametrics
-  register: _vm_pin
-  changed_when: "'already pinned' not in (_vm_pin.stderr | default(''))"
-  # Degrade gracefully if the formula is somehow absent (e.g. a failed install)
-  # instead of aborting the play; only a genuine unexpected error fails.
-  failed_when:
-    - _vm_pin.rc != 0
-    - "'already pinned' not in (_vm_pin.stderr | default(''))"
-    - "'not installed' not in (_vm_pin.stderr | default(''))"
-    - "'No available formula' not in (_vm_pin.stderr | default(''))"
 
 - name: Resolve victoria-metrics binary after install
   ansible.builtin.command:

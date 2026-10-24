@@ -108,8 +108,8 @@ EXEC denied bundle activation`. Fix: `resource_type => "bundle"`. No
      the exec ACL) at `cf-runagent-wrapper.sh`, which runs
      `cf-agent -f stayturgid.cf "$@"` with the Termux env.
 
-   Also confirmed correct along the way: Mac pinned to CFEngine **3.27.1**
-   (`packaging/homebrew/cfengine@3.27.1.rb`, `just cfengine-pin`); per-host
+   Also confirmed correct along the way: Mac then pinned to CFEngine **3.27.1**
+   (unpinned 2026-10-24; it now tracks homebrew-core's latest); per-host
    targeting via `-H <ip>` (a bare trailing arg is parsed as an input FILE,
    overriding `-f`); `_try_cf_runagent_repair()` builds a valid argv. Note the
    heal bundle's individual _actions_ can still fail per device (e.g. Shizuku

@@ -1,5 +1,13 @@
 # CFEngine update investigation (#63)
 
+> **Superseded 2026-10-24 (djbclark):** nothing is pinned any more. The Mac
+> control node runs homebrew-core's latest `cfengine` (3.28.0 at cutover),
+> kept current by site-djbclark's nightly `brew-fast-upgrade`; the vendored
+> `cfengine@3.27.1` formula, `just cfengine-pin` and the `prereqs.yml` pin are
+> gone. Being current outranks the policy-syntax-drift risk described below:
+> run new `.cf` syntax on a fleet device before relying on it. The fleet itself
+> is still capped at 3.27.1 by Termux.
+
 ## Current state
 
 - **Control node (Mac):** CFEngine Core **3.27.1**, installed via a

@@ -121,7 +121,7 @@ API and does not require a committed filedb.
 
 - `just site-serverapps [args]` activates serverapp adapters (own / inject /
   off) for a site overlay, using `serverapps.py`.
-- `just serverapps-upgrade <app>` upgrades one Tier-1 pinned serverapp formula (the serverapp roles pin and never upgrade, so this is an explicit operator action); `site-serverapps`
+- `just serverapps-upgrade <app>` upgrades one serverapp formula now (nothing is pinned; site-djbclark's nightly brew-fast-upgrade also upgrades them); `site-serverapps`
   then restarts it and checks that it runs the new binary.
 - Exit codes match site-sync: `0` success/no-op; `1` precondition or execution
   failure; `2` would touch user-owned content.

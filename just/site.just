@@ -81,10 +81,10 @@ site-serverapps *args:
     fi
     exec "$py" -m control.site_contract.serverapps {{ args }}
 
-# Upgrade a Tier-1 pinned serverapp formula and converge the running service
-# onto the new binary. The serverapp_* roles deliberately never upgrade (they
-# pin to prevent drift), so the version bump is an explicit operator action —
-# this recipe is that action, in one place instead of tribal knowledge.
+# Upgrade one serverapp formula now and converge the running service onto the
+# new binary. Nothing is pinned: site-djbclark's nightly brew-fast-upgrade
+# upgrades these formulae with everything else; this recipe is for doing it
+# immediately and asserting the service really runs the new binary.
 #
 #   just serverapps-upgrade grafana
 #   just serverapps-upgrade vector formula=vectordotdev/brew/vector
@@ -98,12 +98,8 @@ serverapps-upgrade app dir="" formula="":
     dir="{{ dir }}"
     formula="{{ formula }}"
     [ -n "$formula" ] || formula="$app"
-    echo "==> $formula: unpin"
-    brew unpin "$formula" >/dev/null 2>&1 || true
     echo "==> $formula: upgrade"
     brew upgrade "$formula"
-    echo "==> $formula: re-pin"
-    brew pin "$formula" >/dev/null 2>&1 || true
     echo "==> $app: converge onto the new binary"
     if [ -n "$dir" ]; then
       just --justfile "{{ repo }}/justfile" site-serverapps dir="$dir" apps="$app"

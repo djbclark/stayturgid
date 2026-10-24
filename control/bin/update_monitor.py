@@ -16,8 +16,10 @@ from typing import Dict, List, Optional
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-# Homebrew formulae pinned to Tier-1 on the control node (see the brew-pin
-# tasks in ansible/roles/serverapp_* and control_node/tasks/hermes.yml). The
+# Homebrew formulae behind the control node's serverapps (ansible/roles/serverapp_*)
+# and hermes (control_node/tasks/hermes.yml). None is pinned: site-djbclark's
+# nightly brew-fast-upgrade upgrades them, so a lingering "1" here means that
+# run is failing. The
 # update monitor runs only on the control node (it pushes to localhost
 # VictoriaMetrics), so hermes-agent is always part of the monitored set. We
 # emit an explicit 0/1 for every formula here each run so the
@@ -195,7 +197,7 @@ def main():
         if has_update:
             logging.info(f"Update available for {app['name']}: {clean_current} -> {clean_latest}")
 
-    # 2. Check Homebrew Packages (Tier-1 pinned set).
+    # 2. Check Homebrew Packages (MONITORED_BREW_FORMULAE).
     # Emit an explicit 0/1 for every monitored formula each run so the series
     # is resettable: once a formula stops being outdated, its 0 sample clears
     # the alert instead of a stale 1 lingering until retention.

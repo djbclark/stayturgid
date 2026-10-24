@@ -10,7 +10,6 @@ stayturgid is organized around **where code runs**, not around Ansible alone.
 | `device/`                           | Android phones   | Termux runtime + native-agent Kotlin APK                  |
 | `ansible/` + `ansible_collections/` | Mac (deploy)     | Idempotent fleet provisioning via Galaxy collections      |
 | `just/` + `justfile`                | Mac control node | Operator recipes (`just --list`)                          |
-| `packaging/`                        | Mac control node | Homebrew pins and packaging notes                         |
 | `examples/`                         | Consumer repos   | Example consumer sites (termux-only, full-fleet, FIRERPA) |
 | `docs/`                             | —                | Narrative docs, ADRs, module guides                       |
 | `tests/`                            | Mac CI           | Unit tests and device-tier harness                        |

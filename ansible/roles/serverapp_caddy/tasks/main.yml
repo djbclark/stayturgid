@@ -1,5 +1,5 @@
 ---
-# Own-mode caddy lifecycle: brew (never upgrade) → config → validate →
+# Own-mode caddy lifecycle: brew install → config → validate →
 # plist → bootstrap → health. Does not delete legacy com.stayturgid.caddy.
 
 - name: Resolve caddy binary path
@@ -13,24 +13,13 @@
   changed_when: false
   failed_when: false
 
-- name: Install caddy via Homebrew when absent (never upgrade)
+# Install only; site-djbclark's nightly brew-fast-upgrade keeps it current
+# (never pinned) and restarts the launchd job off the upgraded-away binary.
+- name: Install caddy via Homebrew when absent
   community.general.homebrew:
     name: caddy
     state: present
   when: _caddy_brew_list.rc != 0
-
-- name: Pin caddy formula in Homebrew to prevent drift
-  ansible.builtin.command:
-    cmd: brew pin caddy
-  register: _caddy_pin
-  changed_when: "'already pinned' not in (_caddy_pin.stderr | default(''))"
-  # Degrade gracefully if the formula is somehow absent (e.g. a failed install)
-  # instead of aborting the play; only a genuine unexpected error fails.
-  failed_when:
-    - _caddy_pin.rc != 0
-    - "'already pinned' not in (_caddy_pin.stderr | default(''))"
-    - "'not installed' not in (_caddy_pin.stderr | default(''))"
-    - "'No available formula' not in (_caddy_pin.stderr | default(''))"
 
 - name: Resolve caddy binary after install
   ansible.builtin.command:

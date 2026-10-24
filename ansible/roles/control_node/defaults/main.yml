@@ -72,6 +72,10 @@ stayturgid_mac_brew_packages_base:
   - gawk
   - gnu-sed
   - grep
+  # CFEngine Core for `cf-promises` policy validation: homebrew-core's latest,
+  # never pinned (djbclark 2026-10-24), even though the Termux fleet is capped
+  # at 3.27.1 (docs/operations/cfengine-update-investigation.md).
+  - cfengine
   # Hermes Agent: installed via canonical git+uv method (see tasks/hermes.yml)
   # The brew formula is unsupported by upstream and pins Python 3.14 which breaks
   # DaemonThreadPoolExecutor (upstream requires-python caps at <3.14).
