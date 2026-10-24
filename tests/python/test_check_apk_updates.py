@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import logging
 import urllib.error
 from pathlib import Path
 
@@ -16,6 +17,10 @@ assert _spec is not None
 cau = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None
 _spec.loader.exec_module(cau)
+
+# cau's own import of control.lib.hermes_notify (for its sys.path setup) has
+# already run by this point, so this import needs no path manipulation here.
+from control.lib import hermes_notify  # noqa: E402
 
 
 class _FakeResponse:
@@ -89,6 +94,7 @@ def test_main_skips_own_release_and_notifies_on_mismatch(monkeypatch: pytest.Mon
         return "v999.999.999"
 
     monkeypatch.setattr(cau, "latest_tag_for", fake_latest_tag_for)
+    monkeypatch.setattr(cau, "resolve_target", lambda route: "telegram:838808636:44130")
 
     sent: dict[str, list[str]] = {}
     monkeypatch.setattr(cau.subprocess, "run", lambda args, **kw: sent.setdefault("args", args))
@@ -101,7 +107,7 @@ def test_main_skips_own_release_and_notifies_on_mismatch(monkeypatch: pytest.Mon
     assert state["updates"], "expected at least one mismatched pinned APK"
     assert "args" in sent
     assert sent["args"][:3] == ["hermes", "send", "-t"]
-    assert sent["args"][3] == cau.HERMES_TARGET
+    assert sent["args"][3] == "telegram:838808636:44130"
 
 
 def test_main_does_not_notify_when_everything_current(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -241,3 +247,58 @@ def test_main_corrupt_state_treated_as_first_run(monkeypatch: pytest.MonkeyPatch
     assert len(sent) == 1
     state = json.loads(state_path.read_text())
     assert state["updates"]
+
+
+# --- route resolution via the inbox register (control/lib/hermes_notify) -------
+
+
+def test_hermes_route_resolves_from_register_fixture(tmp_path: Path) -> None:
+    """A fixture site dir stands in for the real site-djbclark checkout, so this
+    route resolves deterministically without the register having landed yet."""
+    site_dir = tmp_path / "site-djbclark"
+    registry_dir = site_dir / "registry"
+    registry_dir.mkdir(parents=True)
+    (registry_dir / "telegram-inbox.env").write_text("INBOX_ROUTE_STAYTURGID_APK_UPDATES=telegram:838808636:44130\n")
+
+    target = cau.resolve_target(cau.HERMES_ROUTE, site_dir=site_dir)
+
+    assert target == "telegram:838808636:44130"
+
+
+def test_hermes_route_falls_back_when_register_missing(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """A site dir with no registry env file must not silence the ping."""
+    site_dir = tmp_path / "site-djbclark-no-registry"
+    site_dir.mkdir()
+
+    with caplog.at_level(logging.WARNING, logger=hermes_notify.logger.name):
+        target = cau.resolve_target(cau.HERMES_ROUTE, site_dir=site_dir)
+
+    assert target == hermes_notify.FALLBACK_TARGET
+    assert any("fallback" in record.message for record in caplog.records)
+
+
+def test_hermes_route_falls_back_when_route_missing_from_register(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An env file that exists but has no entry for this route also falls back."""
+    site_dir = tmp_path / "site-djbclark"
+    registry_dir = site_dir / "registry"
+    registry_dir.mkdir(parents=True)
+    (registry_dir / "telegram-inbox.env").write_text("INBOX_ROUTE_SOME_OTHER_ROUTE=telegram:838808636:99999\n")
+
+    with caplog.at_level(logging.WARNING, logger=hermes_notify.logger.name):
+        target = cau.resolve_target(cau.HERMES_ROUTE, site_dir=site_dir)
+
+    assert target == hermes_notify.FALLBACK_TARGET
+    assert any("fallback" in record.message for record in caplog.records)
+
+
+def test_hermes_notify_sends_to_resolved_target(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """check_apk_updates.hermes_notify() must use the route-resolved target, not a literal."""
+    monkeypatch.setattr(cau, "resolve_target", lambda route: "telegram:838808636:44130")
+    sent: dict[str, list[str]] = {}
+    monkeypatch.setattr(cau.subprocess, "run", lambda args, **kw: sent.setdefault("args", args))
+
+    cau.hermes_notify("a message")
+
+    assert sent["args"] == ["hermes", "send", "-t", "telegram:838808636:44130", "a message"]

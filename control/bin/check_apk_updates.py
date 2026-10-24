@@ -29,7 +29,13 @@ from datetime import datetime, timezone
 
 import yaml
 
-HERMES_TARGET = "telegram:838808636:44130"
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from control.lib.hermes_notify import resolve_target  # noqa: E402
+
+HERMES_ROUTE = "stayturgid.apk-updates"
 STATE_PATH = os.path.expanduser("~/.local/state/stayturgid/apk-updates.json")
 
 # This project's own release is tracked separately (native-agent release
@@ -117,13 +123,13 @@ def write_state(path, updates):
 
 
 def hermes_notify(message):
-    subprocess.run(["hermes", "send", "-t", HERMES_TARGET, message], check=False)
+    target = resolve_target(HERMES_ROUTE)
+    subprocess.run(["hermes", "send", "-t", target, message], check=False)
 
 
 def main():
-    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     yaml_path = os.path.join(
-        repo_root, "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/defaults/main.yml"
+        _REPO_ROOT, "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/defaults/main.yml"
     )
 
     with open(yaml_path, "r") as f:
