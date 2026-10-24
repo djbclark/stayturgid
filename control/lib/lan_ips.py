@@ -17,7 +17,11 @@ Sources, most authoritative first:
 1. adb over Tailscale: ``ip -4 -o addr show wlan0`` on the device.
 2. ``tailscale status --json``: the peer's direct endpoint (``CurAddr``)
    when it is a private LAN address.
-Devices neither source can see keep their last known entry.
+Devices neither source can see keep their last known entry for ``STALE_AFTER``
+(7 days); after that the entry is dropped and the inventory's ``device_lan_ip``
+applies again. A device with a live address but no ``<name>-lan`` SSH block
+gets one cloned from its ``Host <name>`` block. Fixing the address itself is a
+router DHCP reservation (MAC-keyed), not code.
 """
 
 from __future__ import annotations
@@ -101,8 +105,26 @@ def discover(devices, adb: str = "adb") -> dict[str, tuple[str, str]]:
     return found
 
 
+def _host_blocks(text: str) -> list[tuple[list[str], list[str]]]:
+    """Split an ssh config fragment into ``(patterns, body lines)`` per ``Host`` line."""
+    blocks: list[tuple[list[str], list[str]]] = []
+    for line in text.splitlines():
+        m = re.match(r"^Host\s+(.+?)\s*$", line)
+        if m:
+            blocks.append((m.group(1).split(), []))
+        elif blocks and line[:1] in (" ", "\t"):
+            blocks[-1][1].append(line)
+    return blocks
+
+
 def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
-    """Point each ``Host <name>-lan`` block's HostName at ``ips[name]``."""
+    """Point each ``Host <name>-lan`` block's HostName at ``ips[name]``.
+
+    A device with a live address but no ``<name>-lan`` block (added to the
+    fleet, or its inventory had no LAN address at deploy time) gets one,
+    cloned from its ``Host <name>`` block with ``HostKeyAlias <name>`` so the
+    CA host certificate still validates whatever the current IP is.
+    """
     out = []
     new_ip = None
     for line in text.splitlines(keepends=True):
@@ -114,7 +136,21 @@ def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
             ip = new_ip
             line = re.sub(r"^(\s*HostName\s+)\S+", lambda mm: mm.group(1) + ip, line)
         out.append(line)
-    return "".join(out)
+    result = "".join(out)
+    blocks = _host_blocks(result)
+    have = {p for patterns, _ in blocks for p in patterns}
+    extra = []
+    for name, ip in sorted(ips.items()):
+        if "%s-lan" % name in have:
+            continue
+        source = next((body for patterns, body in blocks if name in patterns), None)
+        if source is None:
+            continue
+        keep = [b for b in source if not re.match(r"^\s*(HostName|HostKeyAlias)\s", b)]
+        extra.append("\n".join(["Host %s-lan" % name, "  HostName %s" % ip, "  HostKeyAlias %s" % name, *keep]) + "\n")
+    if extra:
+        result += ("" if result.endswith("\n") or not result else "\n") + "".join(extra)
+    return result
 
 
 def rewrite_devices_conf(text: str, ips: dict[str, str]) -> str:
@@ -155,22 +191,49 @@ def load_state(path: str = STATE_PATH) -> dict[str, dict[str, str]]:
         return {}
 
 
+# An offline phone's last address is kept this long, then dropped so the
+# inventory value (the deploy-time fallback) wins again instead of a
+# months-old DHCP lease overriding it forever.
+STALE_AFTER = datetime.timedelta(days=7)
+
+
+def prune_stale(state: dict[str, dict[str, str]], now: datetime.datetime) -> dict[str, str]:
+    """Remove entries not seen within ``STALE_AFTER`` (or with no readable ``seen``); return ``{name: old_ip}``."""
+    dropped = {}
+    for name, entry in list(state.items()):
+        try:
+            seen = datetime.datetime.fromisoformat(entry["seen"])
+            if seen.tzinfo is None:
+                seen = seen.replace(tzinfo=datetime.timezone.utc)
+            stale = now - seen > STALE_AFTER
+        except (KeyError, TypeError, ValueError):
+            stale = True
+        if stale:
+            dropped[name] = (entry or {}).get("ip", "") if isinstance(entry, dict) else ""
+            del state[name]
+    return dropped
+
+
 def refresh(
     devices,
     state_path: str = STATE_PATH,
     ssh_path: str = SSH_FRAGMENT,
     conf_path: str = DEVICES_CONF,
     adb: str = "adb",
-) -> dict[str, tuple[str | None, str]]:
+) -> dict[str, tuple[str | None, str | None]]:
     """Discover, persist, and apply; return ``{name: (old_ip, new_ip)}`` for changes."""
     state = load_state(state_path)
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
-    changes = {}
+    now_dt = datetime.datetime.now(datetime.timezone.utc)
+    now = now_dt.isoformat(timespec="seconds")
+    changes: dict[str, tuple[str | None, str | None]] = {}
     for name, (ip, source) in discover(devices, adb=adb).items():
         old = (state.get(name) or {}).get("ip")
         if old != ip:
             changes[name] = (old, ip)
         state[name] = {"ip": ip, "source": source, "seen": now}
+    for name, old_ip in prune_stale(state, now_dt).items():
+        if old_ip:
+            changes[name] = (old_ip, None)
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(state_path), prefix=".lan_ips.")
     with os.fdopen(fd, "w") as f:
@@ -194,7 +257,21 @@ def _devices_from_conf(conf_path: str):
         return
 
 
+def devices_from_env(value: str) -> list[tuple[str, str]]:
+    """Parse ``STAYTURGID_LAN_DEVICES`` (``name=tailscale_ip`` pairs, whitespace separated)."""
+    pairs = []
+    for item in value.split():
+        name, sep, ts_ip = item.partition("=")
+        if sep and name and ts_ip:
+            pairs.append((name, ts_ip))
+    return pairs
+
+
 if __name__ == "__main__":
-    for name, (old, new) in refresh(list(_devices_from_conf(DEVICES_CONF))).items():
-        print("%s: %s -> %s" % (name, old or "-", new))
+    # The role passes the inventory's devices in STAYTURGID_LAN_DEVICES so the
+    # first deploy (no devices.conf yet) and newly added phones are discovered
+    # too; by hand or from fleet-health the rendered devices.conf is the source.
+    devs = devices_from_env(os.environ.get("STAYTURGID_LAN_DEVICES", "")) or list(_devices_from_conf(DEVICES_CONF))
+    for name, (old, new) in refresh(devs).items():
+        print("%s: %s -> %s" % (name, old or "-", new or "-"))
     sys.exit(0)

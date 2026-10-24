@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import sys
 from pathlib import Path
@@ -35,6 +36,10 @@ hd8 GN43T503430603PS 100.124.55.39 192.168.1.157 Kindle Fire HD 8 -
 """
 
 
+def _ago(**delta) -> str:
+    return (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(**delta)).isoformat(timespec="seconds")
+
+
 def test_lan_ipv4_accepts_only_private_lan_addresses():
     assert lan_ips.lan_ipv4("192.168.68.62") == "192.168.68.62"
     assert lan_ips.lan_ipv4("10.0.0.5") == "10.0.0.5"
@@ -62,7 +67,7 @@ def test_rewrite_devices_conf_sets_lan_column_and_keeps_labels():
 def test_refresh_persists_applies_and_keeps_offline_devices(tmp_path, monkeypatch):
     state = tmp_path / "state" / "lan_ips.json"
     state.parent.mkdir()
-    state.write_text(json.dumps({"hd8": {"ip": "192.168.1.157", "source": "adb", "seen": "x"}}))
+    state.write_text(json.dumps({"hd8": {"ip": "192.168.1.157", "source": "adb", "seen": _ago(hours=2)}}))
     ssh = tmp_path / "ssh"
     ssh.write_text(SSH_FRAGMENT)
     conf = tmp_path / "devices.conf"
@@ -124,3 +129,70 @@ def test_templates_prefer_live_lan_ip_over_inventory():
     conf = _render("devices.conf.j2", **ctx)
     assert "t2e T 100.73.253.10 192.168.68.62 " in conf
     assert "hd8 H 100.124.55.39 192.168.1.157 " in conf
+
+
+def test_template_omits_lan_alias_when_inventory_lan_ip_is_a_dash():
+    hostvars = {"t2e": {"ansible_host": "100.73.253.10", "device_lan_ip": "-", "device_usb_serial": "T"}}
+    ctx = dict(
+        groups={"stayturgid": ["t2e"]},
+        hostvars=hostvars,
+        stayturgid_ssh_identity_files=[],
+        stayturgid_firerpa_certificate_path="/k",
+        stayturgid_live_lan_ips={},
+    )
+    assert "t2e-lan" not in _render("ssh_config_stayturgid.j2", **ctx)
+
+
+def test_refresh_drops_offline_entries_after_the_ttl_and_stops_applying_them(tmp_path, monkeypatch):
+    state = tmp_path / "state" / "lan_ips.json"
+    state.parent.mkdir()
+    state.write_text(
+        json.dumps(
+            {
+                "p7a": {"ip": "192.168.68.66", "source": "adb", "seen": _ago(days=19)},
+                "hd8": {"ip": "192.168.1.157", "source": "adb", "seen": _ago(days=2)},
+                "s24": {"ip": "192.168.68.75", "source": "adb"},  # no readable `seen`: treated as stale
+            }
+        )
+    )
+    ssh = tmp_path / "ssh"
+    ssh.write_text("Host p7a-lan\n  HostName 192.168.68.66\nHost hd8-lan\n  HostName 192.168.1.157\n")
+    conf = tmp_path / "devices.conf"
+    conf.write_text("p7a P 100.65.230.108 192.168.68.66 Pixel 7a -\n")
+    monkeypatch.setattr(lan_ips, "discover", lambda devices, adb="adb": {})
+
+    changes = lan_ips.refresh([], str(state), str(ssh), str(conf))
+
+    assert changes == {"p7a": ("192.168.68.66", None), "s24": ("192.168.68.75", None)}
+    assert sorted(json.loads(state.read_text())) == ["hd8"]  # a 19-day-old lease no longer overrides inventory
+
+
+def test_rewrite_ssh_config_creates_missing_lan_alias_from_the_device_block():
+    text = (
+        "# header\n"
+        "Host t2e 100.73.253.10\n"
+        "  HostName 100.73.253.10\n"
+        "  Port 8022\n"
+        "  User u0_a1\n"
+        "  IdentityFile ~/.ssh/termux_key\n"
+        "Host t2e-firerpa\n"
+        "  HostName 100.73.253.10\n"
+        "  Port 65000\n"
+    )
+    out = lan_ips.rewrite_ssh_config(text, {"t2e": "192.168.68.58", "ghost": "192.168.68.99"})
+    assert out.endswith(
+        "Host t2e-lan\n  HostName 192.168.68.58\n  HostKeyAlias t2e\n"
+        "  Port 8022\n  User u0_a1\n  IdentityFile ~/.ssh/termux_key\n"
+    )
+    assert "ghost" not in out  # no device block to clone: nothing invented
+    assert out.count("Host t2e-firerpa\n  HostName 100.73.253.10\n  Port 65000\n") == 1
+    # Idempotent, and a later address change only rewrites the new block.
+    assert lan_ips.rewrite_ssh_config(out, {"t2e": "192.168.68.58"}) == out
+    assert "HostName 192.168.68.61\n  HostKeyAlias t2e" in lan_ips.rewrite_ssh_config(out, {"t2e": "192.168.68.61"})
+
+
+def test_devices_from_env_parses_inventory_pairs():
+    assert lan_ips.devices_from_env("s24=100.123.218.30 t2e=100.73.253.10 junk =x y=") == [
+        ("s24", "100.123.218.30"),
+        ("t2e", "100.73.253.10"),
+    ]

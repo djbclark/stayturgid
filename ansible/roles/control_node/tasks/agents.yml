@@ -61,6 +61,7 @@
       - "{{ stayturgid_repo_root | realpath }}/control/lib/lan_ips.py"
   environment:
     STAYTURGID_DEVICES_CONF: "{{ conf_dir }}/devices.conf"
+    STAYTURGID_LAN_DEVICES: "{% for h in groups['stayturgid'] %}{{ h }}={{ hostvars[h].ansible_host }} {% endfor %}"
   register: _lan_ip_refresh
   changed_when: (_lan_ip_refresh.stdout | default('')) | length > 0
   failed_when: false

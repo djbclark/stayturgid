@@ -21,7 +21,7 @@ Host {{ h }} {{ hostvars[h].ansible_host }}
   IdentityFile {{ key }}
 {%   endfor %}
 {%   set lan_ip = ((stayturgid_live_lan_ips | default({})).get(h) or {}).get('ip') or hostvars[h].device_lan_ip | default('') %}
-{%   if lan_ip | length > 0 %}
+{%   if lan_ip | length > 0 and lan_ip != '-' %}
 Host {{ h }}-lan
   # Live DHCP address (control/lib/lan_ips.py); fleet-health rewrites it when
   # it changes. HostKeyAlias makes the CA host cert (principal: {{ h }}) valid
