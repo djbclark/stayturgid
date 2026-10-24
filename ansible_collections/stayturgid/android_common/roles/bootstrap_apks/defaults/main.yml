@@ -2,9 +2,9 @@
 # Bootstrap APK list — installed over ADB from the Mac before Termux SSH exists.
 # These are the minimum set needed for the stayturgid fleet to bootstrap itself.
 #
-# Release-locked: every APK names an immutable GitHub release tag (except the
-# explicitly documented Termux:X11 nightly snapshot below), exact asset,
-# expected installed versionName, and SHA-256 digest. A coordinated ops release
+# Release-locked: every APK names an immutable GitHub release tag, exact asset,
+# expected installed versionName, and SHA-256 digest (except entries with
+# gh_latest, which follow the newest upstream release; see Termux:X11 below). A coordinated ops release
 # therefore keeps deploying the same desired state even when a repository
 # publishes another release or has several independent release streams.
 # Set stayturgid_bootstrap_apks_force=true to skip version check and always reinstall.
@@ -15,11 +15,12 @@
 # Each entry:
 #   id          — Android package name (required)
 #   gh_repo     — GitHub owner/repo (required)
-#   gh_tag      — exact immutable release tag (required)
+#   gh_tag      — exact immutable release tag (required unless gh_latest)
+#   gh_latest   — follow the newest release instead; verified against GitHub's
+#                 published asset digest. Excludes gh_tag/version_name/checksum
 #   gh_pattern  — Asset glob for `gh release download --pattern` (required)
-#   version_name — exact Android versionName expected after install (required)
-#   checksum    — SHA-256 of the release asset before optional resigning (required)
-#   mutable_tag_snapshot — Explicitly approved mutable-tag checksum snapshot
+#   version_name — exact Android versionName expected after install (required unless gh_latest)
+#   checksum    — SHA-256 of the release asset before optional resigning (required unless gh_latest)
 #   resign      — Resign with debug keystore before install (fork debug builds)
 #   monkey      — Launch app via monkey after install (Termux:Boot)
 #   start_broadcast_* — headless application-context trigger after install
@@ -105,37 +106,15 @@ stayturgid_bootstrap_apks:
     gh_pattern: "termux-tasker-app_v0.9.0+github.debug.apk"
     version_name: 0.9.0
     checksum: "sha256:4dd14de5f18791b3594256a9ead6bfddafa0434f11e0d39c3b551dda53db2fff"
-  # Pinned to an immutable private mirror (2026-10-06, operator decision): upstream
-  # republishes its "nightly" tag in place, which failed fleet deploys 3 times in
-  # 2 days. To update: vet a new nightly (signing cert below), upload it as a new
-  # mirror-termux-x11-<version> release on djbclark/site-private (private, so no
-  # public GPL redistribution), then change gh_tag, version_name and checksum.
+  # Tracks the newest upstream release (operator decision 2026-10-24: latest
+  # over stability). Each deploy resolves the newest release (the republished
+  # `nightly` prerelease), verifies the APK against the sha256 digest GitHub
+  # publishes for the asset (installs unverified if none), and reinstalls
+  # whenever the installed base.apk differs.
   - id: com.termux.x11
-    gh_repo: djbclark/site-private
-    gh_tag: mirror-termux-x11-1.03.01-05b0cb7
+    gh_repo: termux/termux-x11
+    gh_latest: true
     gh_pattern: termux-x11-universal-debug.apk
-    # Re-pinned 2026-10-22 from 1.03.01-8d536db-06.10.26 / sha256:a3b96a5b...
-    # Upstream nightly 2026-10-22 11:07Z (05b0cb7). Same signing cert as the
-    # fleet copy (SHA-256 b6da0148... CN=APK Signer). Compare:
-    # https://github.com/termux/termux-x11/compare/8d536db...05b0cb7
-    # Re-pinned 2026-10-06 from 1.03.01-e85aa49-05.10.26 / sha256:dde066f1...
-    # Upstream republished nightly 2026-10-06 06:47Z (8d536db); operator approved
-    # after the signing cert was checked (same b6da0148... CN=APK Signer). Changes
-    # e85aa49...8d536db: 2c56cb6 + 9a2dd63 (sharedUid flavor only: components in
-    # com.termux; build guard) and 8d536db (MainActivity skips lifecycle callbacks
-    # after redirecting to the tagged window).
-    # Re-pinned 2026-10-05 from 1.03.01-0e1ebb4-01.10.26 / sha256:97e1c5d4...
-    # Upstream republished the nightly tag on 2026-10-05 (target d55f1b7), so the
-    # old digest failed deploys fleet-wide. Checked before accepting (operator
-    # approved): the signing certificate matches the fleet copy's (recorded 2026-10-02)
-    # (SHA-256 b6da01480eefd5fbf2cd3771b8d1021ec791304bdd6c4bf41d3faabad48ee5e1,
-    # CN=APK Signer, OU=Earth, O=Earth). Unlike the CI-only 2026-10-02 bump, this
-    # one changes the app: 0e1ebb4...e85aa49 is 50af52a (additional X displays as
-    # separate Android windows; AndroidManifest.xml changes), 88073aa (GPU fence
-    # waits bounded to 100 ms instead of forever) and e85aa49 (libxfont 2.0.9,
-    # xorgproto 2026.1). Earlier: 2026-10-02 re-pin from 29f57c0 (CI-only change).
-    version_name: 1.03.01-05b0cb7-22.10.26
-    checksum: "sha256:25d2c958c0fa99f31f351ab2173fafd2092487ffcbd0614a9b9274c8194ebd5f"
   # ShizukuTendCF Drop-In flavor: package id stays moe.shizuku.privileged.api
   # (a true drop-in for stock Shizuku), manager namespace is af.shizuku.manager.
   # resign is FALSE here, unlike every other fork entry: the release is signed

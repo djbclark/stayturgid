@@ -60,14 +60,14 @@
       ansible.builtin.set_fact:
         _version_current: >-
           {{ not stayturgid_bootstrap_apks_force
-             and not (_apk.mutable_tag_snapshot | default(false) | bool)
+             and not (_apk.gh_latest | default(false) | bool)
              and _installed_version == _apk.version_name }}
 
     - name: Report immutable APK comparison — {{ _apk.id }}
       ansible.builtin.debug:
         msg:
           installed: "{{ _installed_version }}"
-          locked: "{{ _apk.version_name }}"
+          locked: "{{ _apk.version_name | default('newest release') }}"
           force: "{{ stayturgid_bootstrap_apks_force }}"
           current: "{{ _version_current }}"
         verbosity: 1
@@ -77,17 +77,17 @@
         device: "{{ _bootstrap_adb }}"
         package: "{{ _apk.id }}"
         gh_repo: "{{ _apk.gh_repo }}"
-        gh_tag: "{{ _apk.gh_tag }}"
+        gh_tag: "{{ _apk.gh_tag | default(omit) }}"
+        gh_latest: "{{ _apk.gh_latest | default(false) }}"
         gh_pattern: "{{ _apk.gh_pattern }}"
-        checksum: "{{ _apk.checksum }}"
+        checksum: "{{ _apk.checksum | default(omit) }}"
         resign: "{{ _apk.resign | default(false) }}"
         clean: "{{ _apk.clean | default(false) }}"
         detached_install: "{{ _apk.detached_install | default(false) }}"
         install_timeout: "{{ _apk.install_timeout | default(omit) }}"
         download_timeout: "{{ _apk.download_timeout | default(stayturgid_download_timeout_seconds) }}"
         force: "{{ stayturgid_bootstrap_apks_force | default(false) }}"
-        verify_on_current: "{{ _apk.mutable_tag_snapshot | default(false) }}"
-        version_name: "{{ _apk.version_name }}"
+        version_name: "{{ _apk.version_name | default(omit) }}"
         apksigner_bin: "{{ stayturgid_apksigner_bin | default(omit) }}"
         keystore: "{{ stayturgid_debug_keystore | default(omit) }}"
         keystore_pass: "{{ stayturgid_debug_keystore_pass | default('android') }}"
@@ -137,7 +137,7 @@
   delegate_to: localhost
   when:
     - _apk.service_component | default('') | length > 0
-    - not ansible_check_mode or _installed_version == _apk.version_name
+    - not ansible_check_mode or _installed_version == _apk.version_name | default(_installed_version)
 
 # A package in Android's stopped state gets no BOOT_COMPLETED, so a stopped
 # Termux:Boot silently skips every boot script after the next reboot (t2e,

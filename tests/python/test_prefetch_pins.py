@@ -32,7 +32,6 @@ PINNED_IDS = {
     "com.termux.boot",
     "com.termux.api",
     "com.termux.tasker",
-    "com.termux.x11",
     "moe.shizuku.privileged.api",
     "com.tailscale.ipn",
 }
@@ -40,7 +39,8 @@ PINNED_IDS = {
 
 def test_real_pins_are_the_fleet_set() -> None:
     pins, skipped = prefetch.load_apk_pins(APK_DEFAULTS.read_text())
-    assert skipped == []
+    # Termux:X11 tracks the newest upstream release, so there is nothing to prefetch.
+    assert skipped == ["com.termux.x11"]
     assert {pin.ident for pin in pins} == PINNED_IDS
     assert all(len(pin.sha256) == 64 for pin in pins)
 

@@ -13,41 +13,30 @@ def _catalog():
     return yaml.safe_load(DEFAULTS.read_text(encoding="utf-8"))["stayturgid_bootstrap_apks"]
 
 
-def test_every_github_apk_is_immutably_locked():
+def _locked():
+    return [apk for apk in _catalog() if not apk.get("gh_latest")]
+
+
+def test_every_pinned_github_apk_is_immutably_locked():
     required = {"id", "gh_repo", "gh_tag", "gh_pattern", "version_name", "checksum"}
-    for apk in _catalog():
+    for apk in _locked():
         assert required <= apk.keys(), apk["id"]
-        assert apk["gh_tag"] not in {"latest", ""}
+        assert apk["gh_tag"] not in {"latest", "nightly", ""}
         assert re.fullmatch(r"sha256:[0-9a-f]{64}", apk["checksum"])
 
 
-def test_no_apk_pins_a_mutable_tag():
-    # termux-x11's nightly tag was republished in place three times in two days
-    # (2026-10-05/06), each time failing fleet deploys; it now comes from an
-    # immutable private mirror release.
-    mutable_aliases = {"nightly", "latest"}
-    assert [apk["id"] for apk in _catalog() if apk["gh_tag"] in mutable_aliases] == []
-    assert [apk["id"] for apk in _catalog() if apk.get("mutable_tag_snapshot")] == []
-    x11 = next(apk for apk in _catalog() if apk["id"] == "com.termux.x11")
-    assert x11["gh_repo"] == "djbclark/site-private"
-    assert x11["gh_tag"].startswith("mirror-termux-x11-")
-
-
-def test_x11_snapshot_policy_is_limited_and_verified_on_every_deploy():
-    role_tasks = (ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/main.yml").read_text(
-        encoding="utf-8"
-    )
+def test_latest_tracking_entries_carry_no_pin():
+    # Termux:X11 follows upstream's newest release (operator, 2026-10-24); the
+    # module resolves tag and digest on each deploy.
+    latest = [apk for apk in _catalog() if apk.get("gh_latest")]
+    assert [apk["id"] for apk in latest] == ["com.termux.x11"]
+    for apk in latest:
+        assert apk["gh_repo"] == "termux/termux-x11"
+        assert not {"gh_tag", "version_name", "checksum"} & apk.keys()
     install_tasks = (
         ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
     ).read_text(encoding="utf-8")
-    module = (ROOT / "ansible_collections/stayturgid/android_common/plugins/modules/android_apk.py").read_text(
-        encoding="utf-8"
-    )
-
-    assert "_locked_apk.id == 'com.termux.x11' and _locked_apk.gh_tag == 'nightly'" in role_tasks
-    assert 'verify_on_current: "{{ _apk.mutable_tag_snapshot | default(false) }}"' in install_tasks
-    assert 'verify_on_current=dict(type="bool", default=False)' in module
-    assert 'reason="version %s and checksum verified" % current' in module
+    assert 'gh_latest: "{{ _apk.gh_latest | default(false) }}"' in install_tasks
 
 
 def test_native_agent_uses_its_release_stream_and_real_asset_name():

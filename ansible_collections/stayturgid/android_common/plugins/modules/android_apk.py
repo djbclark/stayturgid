@@ -40,6 +40,17 @@ options:
   gh_tag:
     description: Release tag (default latest).
     type: str
+  gh_latest:
+    description:
+      - Resolve the newest release of I(gh_repo) (prereleases such as a
+        C(nightly) tag included) on every run and install its I(gh_pattern) asset.
+      - The APK is verified against the SHA-256 digest GitHub publishes for that
+        asset (C(assets[].digest)); an asset without a digest is installed
+        unverified. Idempotent by comparing the digest with the installed
+        C(base.apk). Mutually exclusive with I(gh_tag), I(checksum) and
+        I(version_name).
+    type: bool
+    default: false
   version_name:
     description: Expected versionName; install only when the device differs.
     type: str
@@ -50,14 +61,6 @@ options:
     type: str
   force:
     description: Install even when the package is already present.
-    type: bool
-    default: false
-  verify_on_current:
-    description:
-      - Download and verify the configured artifact even when C(version_name)
-        already matches, without reinstalling it.
-      - This makes a checksum-pinned mutable release alias fail closed if its
-        upstream asset is replaced.
     type: bool
     default: false
   clean:
@@ -146,7 +149,7 @@ options:
         C(/data/local/tmp/stayturgid-<package>.log). The module then reconnects
         and polls that log for up to I(detached_timeout) seconds.
       - Refused together with I(clean) and I(work_profile). The
-        I(clean_on_incompatible) fallback is not run: it would need a second
+        I(clean_on_incompatible) fallback is not run; it would need a second
         detached step, so an incompatible upgrade fails the install instead.
     type: bool
     default: false
@@ -378,10 +381,70 @@ def install_detached(module, device, package, apk, user, install_timeout):
 def fail_install(module, package, reason):
     if "INSTALL_FAILED_VERSION_DOWNGRADE" in reason:
         module.fail_json(
-            msg="adb install failed: %s: the device has a newer %s than the pinned APK; "
+            msg="adb install failed: %s: the device has a newer %s than the configured APK; "
             "not uninstalling it (that would lose its data). Update the pin, or downgrade by hand." % (reason, package)
         )
     module.fail_json(msg="adb install failed: %s" % reason)
+
+
+def installed_sha256(run_command, device, package):
+    """SHA-256 of the package's installed base.apk, or None when unreadable."""
+    rc, out, _err = adb_shell(run_command, device, "pm path %s" % package)
+    if rc != 0:
+        return None
+    paths = [
+        line.strip()[len("package:") :]
+        for line in normalize_adb_output(out).splitlines()
+        if line.strip().startswith("package:")
+    ]
+    base = [path for path in paths if path.endswith("/base.apk")]
+    if len(base) != 1:
+        return None
+    rc, out, _err = adb_shell(run_command, device, "sha256sum %s" % shlex.quote(base[0]))
+    if rc != 0:
+        return None
+    fields = normalize_adb_output(out).split()
+    if fields and re.match(r"^[0-9a-f]{64}$", fields[0]):
+        return fields[0]
+    return None
+
+
+def gh_newest_release(module, repo, pattern):
+    """(tag, sha256 hex or None) of the pattern asset in repo's newest release.
+
+    GitHub lists releases newest first (prereleases included, so a republished
+    C(nightly) tag counts). The digest is the one GitHub computed for the asset
+    (C(sha256:<hex>)); older assets have none.
+    """
+    gh = module.get_bin_path("gh", required=True)
+    rc, out, err = run_command_with_timeout(
+        module.run_command,
+        [gh, "api", "repos/%s/releases?per_page=10" % repo],
+        timeout=60,
+        get_bin_path_fn=module.get_bin_path,
+    )
+    if rc != 0:
+        module.fail_json(msg="could not list releases of %s: %s" % (repo, (err or out).strip()[:500]))
+    try:
+        releases = [r for r in json.loads(out) if not r.get("draft")]
+    except (ValueError, TypeError, AttributeError):
+        module.fail_json(msg="unparseable release list for %s" % repo)
+    if not releases:
+        module.fail_json(msg="%s has no published release" % repo)
+    release = releases[0]
+    tag = release.get("tag_name")
+    matches = [a for a in release.get("assets") or [] if fnmatch.fnmatch(a.get("name", ""), pattern or "*.apk")]
+    if not tag or len(matches) != 1:
+        module.fail_json(
+            msg="newest release %s of %s has %d assets matching %r, expected 1" % (tag, repo, len(matches), pattern)
+        )
+    digest = matches[0].get("digest") or ""
+    if not digest:
+        return tag, None
+    wanted = _wanted_sha256(digest)
+    if not digest.startswith("sha256:") or not re.match(r"^[0-9a-f]{64}$", wanted):
+        module.fail_json(msg="unexpected digest %r on %s %s" % (digest, repo, tag))
+    return tag, wanted
 
 
 def installed_version(run_command, device, package):
@@ -468,7 +531,14 @@ def gh_asset(module, gh, repo, tag, pattern):
 
 
 def _apk_partial_dir(module, repo, tag, pattern):
-    """Stable directory for one release asset, so a later deploy can resume it."""
+    """Stable directory for one release asset, so a later deploy can resume it.
+
+    The key matches control/bin/prefetch_pins.py. A gh_latest download also keys
+    on the published digest: the republished C(nightly) tag must not continue
+    the previous build's file.
+    """
+    if module.params.get("gh_latest") and module.params.get("checksum"):
+        pattern = "%s@%s" % (pattern or "", module.params["checksum"])
     token = hashlib.sha256(("%s\0%s\0%s" % (repo, tag or "", pattern or "")).encode()).hexdigest()[:16]
     path = os.path.join(APK_CACHE_DIR, "partials", token)
     if not os.path.isdir(path):
@@ -687,10 +757,10 @@ def main():
             gh_repo=dict(type="str"),
             gh_pattern=dict(type="str"),
             gh_tag=dict(type="str"),
+            gh_latest=dict(type="bool", default=False),
             version_name=dict(type="str"),
             checksum=dict(type="str"),
             force=dict(type="bool", default=False),
-            verify_on_current=dict(type="bool", default=False),
             clean=dict(type="bool", default=False),
             clean_on_incompatible=dict(type="bool", default=True),
             installer=dict(type="str"),
@@ -710,7 +780,13 @@ def main():
             detached_timeout=dict(type="int", default=300),
         ),
         required_one_of=[["apk_path", "url", "gh_repo"]],
-        mutually_exclusive=[["apk_path", "url", "gh_repo"]],
+        mutually_exclusive=[
+            ["apk_path", "url", "gh_repo"],
+            ["gh_latest", "gh_tag"],
+            ["gh_latest", "checksum"],
+            ["gh_latest", "version_name"],
+        ],
+        required_if=[["gh_latest", True, ["gh_repo"]]],
         supports_check_mode=True,
     )
 
@@ -726,14 +802,20 @@ def main():
         adb_connect(module.run_command, device)
 
     present = package_installed(module.run_command, device, package)
-    verify_current = False
+    latest_tag = None
+    if module.params["gh_latest"]:
+        latest_tag, digest = gh_newest_release(module, module.params["gh_repo"], module.params["gh_pattern"])
+        module.params["gh_tag"] = latest_tag
+        module.params["checksum"] = digest
     if present and not module.params["force"]:
-        if module.params["version_name"]:
+        if latest_tag:
+            # Without a published digest the comparison waits for the download.
+            if digest and installed_sha256(module.run_command, device, package) == digest:
+                module.exit_json(changed=False, reason="newest release %s already installed" % latest_tag)
+        elif module.params["version_name"]:
             current = installed_version(module.run_command, device, package)
             if current == module.params["version_name"]:
-                if not module.params["verify_on_current"]:
-                    module.exit_json(changed=False, reason="version %s already installed" % current)
-                verify_current = True
+                module.exit_json(changed=False, reason="version %s already installed" % current)
         else:
             module.exit_json(changed=False, reason="already installed")
 
@@ -759,8 +841,17 @@ def main():
 
     verify_sha256(module, apk, module.params["checksum"])
 
-    if verify_current:
-        module.exit_json(changed=False, reason="version %s and checksum verified" % current)
+    if latest_tag and not digest:
+        module.warn(
+            "%s release %s publishes no digest for its asset; installing unverified"
+            % (module.params["gh_repo"], latest_tag)
+        )
+        if (
+            present
+            and not module.params["force"]
+            and installed_sha256(module.run_command, device, package) == _sha256_of(apk)
+        ):
+            module.exit_json(changed=False, reason="newest release %s already installed" % latest_tag)
 
     if module.params["resign"]:
         resign_apk(module, apk)

@@ -22,10 +22,11 @@
         id=_apk.id,
         repo=_apk.gh_repo,
         installed=(_check_dev.stdout | default('') | regex_replace('.*versionName=', '')).strip(),
-        latest=_apk.version_name,
+        latest=_apk.version_name | default('newest release'),
         missing=(_check_dev.stdout | default('') | trim) == '',
         gh_failed=false,
         stale=(_check_dev.stdout | default('') | trim) != ''
+              and _apk.version_name is defined
               and (_check_dev.stdout | default('') | regex_replace('.*versionName=', '')).strip()
                   != _apk.version_name
       )] }}

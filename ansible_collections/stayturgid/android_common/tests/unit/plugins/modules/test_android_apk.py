@@ -862,3 +862,100 @@ def test_detached_script_runs_under_sh(tmp_path):
         "settings put global verifier_verify_adb_installs 1",
         "settings delete global package_verifier_enable",
     ]
+
+
+def _releases(digest, draft_first=False):
+    newest = {
+        "tag_name": "nightly",
+        "draft": False,
+        "assets": [
+            {"name": "termux-x11-universal-debug.apk", "digest": digest},
+            {"name": "termux-x11-universal-sharedUid-debug.apk", "digest": "sha256:" + "1" * 64},
+        ],
+    }
+    releases = [newest, {"tag_name": "1.02.07", "draft": False, "assets": []}]
+    if draft_first:
+        releases.insert(0, {"tag_name": "draft-x", "draft": True, "assets": []})
+    return json.dumps(releases)
+
+
+def _run_latest(mocker, tmp_path, monkeypatch, digest, device_sha, apk_bytes=b"PK", draft_first=False):
+    monkeypatch.setattr(mod, "APK_CACHE_DIR", str(tmp_path / "cache"))
+    downloads = []
+
+    def fake_download(module, repo, pattern, tag):
+        downloads.append((repo, pattern, tag))
+        path = tmp_path / "dl.apk"
+        path.write_bytes(apk_bytes)
+        return str(path)
+
+    monkeypatch.setattr(mod, "download_gh_release", fake_download)
+    seen = []
+
+    def command_fn(cmd):
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        seen.append(joined)
+        if "api repos/termux/termux-x11/releases" in joined:
+            return (0, _releases(digest, draft_first), "")
+        if "pm list packages" in joined:
+            return (0, "package:com.termux.x11\n", "")
+        if "pm path" in joined:
+            return (0, "package:/data/app/~~x/com.termux.x11-y/base.apk\n", "")
+        if "sha256sum" in joined:
+            return (0, "%s  /data/app/~~x/com.termux.x11-y/base.apk\n" % device_sha, "")
+        if " install" in joined:
+            return (0, "Success\n", "")
+        return (0, "", "")
+
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.termux.x11",
+            gh_repo="termux/termux-x11",
+            gh_latest=True,
+            gh_pattern="termux-x11-universal-debug.apk",
+            connect=False,
+        ),
+        command_fn=command_fn,
+    )
+    return out, downloads, seen
+
+
+def test_gh_latest_skips_when_installed_apk_matches_published_digest(mocker, tmp_path, monkeypatch):
+    digest = sha256(b"PK").hexdigest()
+    out, downloads, seen = _run_latest(mocker, tmp_path, monkeypatch, "sha256:" + digest, digest)
+    assert out.get("failed") is not True, out
+    assert out["changed"] is False
+    assert out["reason"] == "newest release nightly already installed"
+    assert downloads == []
+
+
+def test_gh_latest_installs_newest_release_verified_by_digest(mocker, tmp_path, monkeypatch):
+    digest = sha256(b"PK").hexdigest()
+    out, downloads, seen = _run_latest(mocker, tmp_path, monkeypatch, "sha256:" + digest, "0" * 64, draft_first=True)
+    assert out.get("failed") is not True, out
+    assert out["changed"] is True
+    assert downloads == [("termux/termux-x11", "termux-x11-universal-debug.apk", "nightly")]
+    assert any(" install " in c for c in seen)
+
+
+def test_gh_latest_rejects_asset_that_does_not_match_digest(mocker, tmp_path, monkeypatch):
+    out, _downloads, seen = _run_latest(mocker, tmp_path, monkeypatch, "sha256:" + "a" * 64, "0" * 64)
+    assert out["failed"] is True
+    assert "checksum mismatch" in out["msg"]
+    assert not any(" install " in c for c in seen)
+
+
+def test_gh_latest_installs_unverified_when_no_digest_is_published(mocker, tmp_path, monkeypatch):
+    out, downloads, _seen = _run_latest(mocker, tmp_path, monkeypatch, None, "0" * 64)
+    assert out.get("failed") is not True, out
+    assert out["changed"] is True
+    assert any("installing unverified" in w for w in out["_warnings"])
+
+
+def test_gh_latest_without_digest_skips_when_download_matches_device(mocker, tmp_path, monkeypatch):
+    out, downloads, seen = _run_latest(mocker, tmp_path, monkeypatch, None, sha256(b"PK").hexdigest())
+    assert out["changed"] is False
+    assert len(downloads) == 1
+    assert not any(" install " in c for c in seen)
