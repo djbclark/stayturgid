@@ -1044,7 +1044,9 @@ def refresh_lan_ips() -> None:
         devices = [(name, ts_ip) for name, ts_ip, _lan in read_devices(CONF)]
         for name, (old, new) in lan_ips.refresh(devices).items():
             if new is None:
-                _fleet_log(INFO, "%s LAN IP %s expired (offline past the TTL); inventory value applies again" % (name, old))
+                _fleet_log(
+                    INFO, "%s LAN IP %s expired (offline past the TTL); inventory value applies again" % (name, old)
+                )
             else:
                 _fleet_log(INFO, "%s LAN IP %s -> %s (ssh -lan alias + devices.conf updated)" % (name, old or "-", new))
     except Exception as e:  # never let discovery break health checks
