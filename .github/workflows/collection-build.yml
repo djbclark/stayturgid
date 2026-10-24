@@ -9,16 +9,16 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install uv (Python package manager)
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v10.3.2
       - name: Install ansible
         run: uv tool install ansible-core
       - name: Install just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@v4
       - name: Map tag to collection path
         id: map
         run: |
@@ -38,7 +38,7 @@ jobs:
       - name: Run collection unit tests
         run: just ansible-test
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: "${{ steps.map.outputs.collection }}-tarball"
           path: dist/*.tar.gz
