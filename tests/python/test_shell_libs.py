@@ -78,7 +78,7 @@ def test_resolve_adb_cli_usb_tailscale_and_dash_ts(tmp_path):
 def test_gplaycli_wrapper_sets_pythonpath(tmp_path):
     """Smoke: gplaycli launcher prepends pip vendor before exec (no real gplaycli needed)."""
     script = REPO / "control/tools/play/gplaycli.py"
-    fake_py = tmp_path / "python3.14"
+    fake_py = tmp_path / "python3"
     fake_py.write_text(
         "#!/usr/bin/env bash\n"
         'case "$1" in -c) echo "/fake/pip/_vendor"; exit 0 ;; -m) echo "MODULE:$PYTHONPATH"; exit 0 ;; esac\n'

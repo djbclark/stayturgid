@@ -11,11 +11,13 @@ builds and deploys that generated artifact for both normal and check-mode runs.
 
 ## Prerequisites
 
-Install CFEngine Build with a supported Python. The current package supports
-Python 3.5+, but on this Mac Python 3.12 is the known-compatible choice:
+Install CFEngine Build, unpinned, on Homebrew's newest Python (the
+`control_node` role's `stayturgid_mac_uv_tools` also installs it unpinned, and
+site-djbclark's nightly `brew-fast-upgrade` runs `uv tool upgrade --all`, so it
+stays current; cfbs 5.8.1 on Python 3.15 validates and builds this project):
 
 ```bash
-uv tool install --python /opt/homebrew/bin/python3.12 'cfbs==5.5.6'
+uv tool install --python /opt/homebrew/bin/python3 cfbs
 ```
 
 CFEngine Core (for `cf-promises` policy validation) is homebrew-core's
