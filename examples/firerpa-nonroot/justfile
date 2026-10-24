@@ -1,4 +1,4 @@
-# Standalone FIRERPA v10.9 deployment for an unrooted Android device.
+# Standalone FIRERPA deployment for an unrooted Android device.
 #
 # Quick start:
 #   cp .env.example .env
@@ -13,11 +13,18 @@
 set dotenv-load
 set shell := ["bash", "-uc"]
 
-FIRERPA_VERSION := env_var_or_default("FIRERPA_VERSION", "10.9")
+# Empty means the latest upstream release: `just fetch` resolves GitHub's
+# releases/latest and records the answer in WORKDIR, and every later step
+# (client, patch, venv) uses that recorded version. Set it to pin a release.
+FIRERPA_VERSION := env_var_or_default("FIRERPA_VERSION", "")
 FIRERPA_ARCH := env_var_or_default("FIRERPA_ARCH", "arm64-v8a")
 FIRERPA_PORT := env_var_or_default("FIRERPA_PORT", "65000")
 FIRERPA_ROOT := env_var_or_default("FIRERPA_ROOT", "/data/local/tmp/firerpa")
-FIRERPA_PYTHON := env_var_or_default("FIRERPA_PYTHON", "python3.12")
+
+# The newest Python the lamda client installs on: lamda declares
+# Requires-Python <3.15, and grpcio publishes no cp315 wheels. Raise this when
+# both move.
+FIRERPA_PYTHON := env_var_or_default("FIRERPA_PYTHON", "python3.14")
 ADB_TARGET := env_var_or_default("ADB_TARGET", "")
 FIRERPA_HOST := env_var_or_default("FIRERPA_HOST", "")
 CONFIRM := env_var_or_default("CONFIRM", "NO")
@@ -28,7 +35,8 @@ CERT_DIR := env_var_or_default("CERT_DIR", BASE + "/certs")
 VENV := WORKDIR + "/venv"
 ARCHIVE_NAME := "lamda-server-" + FIRERPA_ARCH + ".tar.gz"
 ARCHIVE := WORKDIR + "/" + ARCHIVE_NAME
-CLIENT_ARCHIVE := WORKDIR + "/lamda-client-py-" + FIRERPA_VERSION + ".tar.gz"
+CLIENT_ARCHIVE := WORKDIR + "/lamda-client-py.tar.gz"
+VERSION_FILE := WORKDIR + "/firerpa-version"
 PATCH_SCRIPT := WORKDIR + "/firerpa_service_patch.py"
 LIFECYCLE_SCRIPT := WORKDIR + "/firerpa_lifecycle.py"
 PATCHED_DRIVER := WORKDIR + "/aab.zip.patched"
@@ -36,17 +44,21 @@ DEFAULT_CERTIFICATE := CERT_DIR + "/lamda.pem"
 CERTIFICATE := env_var_or_default("FIRERPA_CERTIFICATE", DEFAULT_CERTIFICATE)
 DEVICE_CERTIFICATE := FIRERPA_ROOT + "/server/lamda.pem"
 
-# The GitHub release is versioned; source helpers are pinned to immutable commits.
-UPSTREAM_RELEASE := "https://github.com/firerpa/lamda/releases/download/v" + FIRERPA_VERSION
-UPSTREAM_SOURCE_REF := env_var_or_default("UPSTREAM_SOURCE_REF", "9a4736f327aa89be687ee7c411fee59730081a5e")
-STAYTURGID_REF := env_var_or_default("STAYTURGID_REF", "339144d")
+# Everything tracks a moving target by default: the latest FIRERPA release,
+# upstream's default branch for tools/cert.py, and stayturgid master for the two
+# helper scripts. README.md "Pinning for reproducibility" shows how to fix each.
+UPSTREAM_SOURCE_REF := env_var_or_default("UPSTREAM_SOURCE_REF", "HEAD")
+STAYTURGID_REF := env_var_or_default("STAYTURGID_REF", "master")
 STAYTURGID_RAW := "https://raw.githubusercontent.com/djbclark/stayturgid/" + STAYTURGID_REF
 
-# Update these only after auditing the corresponding immutable source revisions.
-CLIENT_SHA256 := env_var_or_default("CLIENT_SHA256", "3a1fa9bceace4638173e15446cb49697b38f6419a14343a8c5aa057039354406")
-CERT_TOOL_SHA256 := env_var_or_default("CERT_TOOL_SHA256", "ae063140681ac6d2644f2010817ed9d7e4ba7adab8d45d08f975b4fd4fb01eb9")
-PATCH_SCRIPT_SHA256 := env_var_or_default("PATCH_SCRIPT_SHA256", "fff67ca115d4d92bd9a2e1abdfde47646e4de7e3474713a87f8df0a00a7b7eb9")
-LIFECYCLE_SCRIPT_SHA256 := env_var_or_default("LIFECYCLE_SCRIPT_SHA256", "59cdf10114b48c8c0276459e85f40234ac1ca768bba7370e63e433a90751526b")
+# Optional SHA-256 pins. Empty server/client pins fall back to the checksum the
+# release publishes (PyPI's digest for the client, which ships no .sha256sum);
+# empty helper pins download whatever the ref holds and print its digest.
+SERVER_SHA256 := env_var_or_default("SERVER_SHA256", "")
+CLIENT_SHA256 := env_var_or_default("CLIENT_SHA256", "")
+CERT_TOOL_SHA256 := env_var_or_default("CERT_TOOL_SHA256", "")
+PATCH_SCRIPT_SHA256 := env_var_or_default("PATCH_SCRIPT_SHA256", "")
+LIFECYCLE_SCRIPT_SHA256 := env_var_or_default("LIFECYCLE_SCRIPT_SHA256", "")
 
 # Show available operations.
 default:
@@ -54,14 +66,23 @@ default:
 
 # Show the effective non-secret configuration.
 config:
-    @printf '%s\n' \
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="{{ FIRERPA_VERSION }}"
+    if test -z "$version"; then
+      version="latest"
+      test ! -f "{{ VERSION_FILE }}" || version="latest (last fetched: $(cat "{{ VERSION_FILE }}"))"
+    fi
+    printf '%s\n' \
       "ADB_TARGET={{ ADB_TARGET }}" \
       "FIRERPA_HOST={{ FIRERPA_HOST }}" \
-      "FIRERPA_VERSION={{ FIRERPA_VERSION }}" \
+      "FIRERPA_VERSION=$version" \
       "FIRERPA_ARCH={{ FIRERPA_ARCH }}" \
       "FIRERPA_PORT={{ FIRERPA_PORT }}" \
       "FIRERPA_ROOT={{ FIRERPA_ROOT }}" \
       "FIRERPA_PYTHON={{ FIRERPA_PYTHON }}" \
+      "STAYTURGID_REF={{ STAYTURGID_REF }}" \
+      "UPSTREAM_SOURCE_REF={{ UPSTREAM_SOURCE_REF }}" \
       "WORKDIR={{ WORKDIR }}" \
       "CERTIFICATE={{ CERTIFICATE }}"
 
@@ -69,14 +90,13 @@ config:
 doctor: _require-adb-target
     #!/usr/bin/env bash
     set -euo pipefail
-    for tool in adb curl ssh; do
+    for tool in adb curl ssh uv; do
       command -v "$tool" >/dev/null || { echo "ERROR: missing host tool: $tool" >&2; exit 1; }
     done
     command -v "{{ FIRERPA_PYTHON }}" >/dev/null || {
-      echo "ERROR: missing {{ FIRERPA_PYTHON }}; lamda-client currently needs Python 3.13 or older" >&2
+      echo "ERROR: missing {{ FIRERPA_PYTHON }}; install it or set FIRERPA_PYTHON to the newest Python the lamda client supports" >&2
       exit 1
     }
-    "{{ FIRERPA_PYTHON }}" -c 'import sys; assert (3, 6) <= sys.version_info[:2] <= (3, 13), "lamda-client requires Python 3.6–3.13; use FIRERPA_PYTHON=python3.12"'
     case "{{ FIRERPA_ARCH }}" in
       arm64-v8a|armeabi-v7a|x86|x86_64) ;;
       *) echo "ERROR: unsupported FIRERPA_ARCH={{ FIRERPA_ARCH }}" >&2; exit 1 ;;
@@ -98,62 +118,96 @@ doctor: _require-adb-target
     }
     echo "OK: {{ ADB_TARGET }} is reachable as shell UID 2000 ($abi)"
 
-# Download v10.9 server/client artifacts and pinned setup helpers; verify SHA-256.
+# Resolve the release, download its server/client artifacts and the setup helpers; verify SHA-256.
 fetch:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "{{ WORKDIR }}"
+    py="{{ FIRERPA_PYTHON }}"
     fetch() { curl --fail --location --retry 3 --silent --show-error --output "$2" "$1"; }
-    digest() { "{{ FIRERPA_PYTHON }}" -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
-    require_digest() {
-      actual="$(digest "$1")"
-      test "$actual" = "$2" || {
-        echo "ERROR: SHA-256 mismatch for $1: $actual (expected $2)" >&2
+    digest() { "$py" -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
+    require_sha256() {
+      [[ "$2" =~ ^[0-9a-f]{64}$ ]] || { echo "ERROR: $1 has no usable SHA-256 (got '$2')" >&2; exit 1; }
+    }
+    # fetch_verified URL DEST SHA256: reuse DEST when it already has those bytes.
+    fetch_verified() {
+      require_sha256 "$2" "$3"
+      if test ! -f "$2" || test "$(digest "$2")" != "$3"; then
+        fetch "$1" "$2"
+      fi
+      actual="$(digest "$2")"
+      test "$actual" = "$3" || {
+        echo "ERROR: SHA-256 mismatch for $2: $actual (expected $3)" >&2
         exit 1
       }
     }
+    # fetch_source URL DEST [SHA256]: source helpers follow a moving ref, so they
+    # are re-downloaded each time and verified only when a pin is set.
+    fetch_source() {
+      if test -n "$3"; then
+        fetch_verified "$1" "$2" "$3"
+      else
+        fetch "$1" "$2"
+        echo "unpinned: $(digest "$2")  $2"
+      fi
+    }
+    published_sha256() { awk 'NR == 1 {print $1}' "$1"; }
 
-    fetch "{{ UPSTREAM_RELEASE }}/{{ ARCHIVE_NAME }}.sha256sum" "{{ ARCHIVE }}.sha256sum"
-    expected_archive="$(awk 'NR == 1 {print $1}' "{{ ARCHIVE }}.sha256sum")"
-    if test ! -f "{{ ARCHIVE }}" || test "$(digest "{{ ARCHIVE }}")" != "$expected_archive"; then
-      fetch "{{ UPSTREAM_RELEASE }}/{{ ARCHIVE_NAME }}" "{{ ARCHIVE }}"
+    version="{{ FIRERPA_VERSION }}"
+    if test -z "$version"; then
+      # github.com/<repo>/releases/latest redirects to the newest non-draft,
+      # non-prerelease tag; unlike the REST API it is not rate limited.
+      latest="$(curl --fail --location --retry 3 --silent --show-error --output /dev/null \
+        --write-out '%{url_effective}' https://github.com/firerpa/lamda/releases/latest)"
+      version="${latest##*/tag/}"
+      version="${version#v}"
     fi
-    require_digest "{{ ARCHIVE }}" "$expected_archive"
+    [[ "$version" =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "ERROR: FIRERPA version '$version' is not a dotted version" >&2; exit 1; }
+    release="https://github.com/firerpa/lamda/releases/download/v$version"
+    echo "FIRERPA $version"
 
-    if test ! -f "{{ CLIENT_ARCHIVE }}" || test "$(digest "{{ CLIENT_ARCHIVE }}")" != "{{ CLIENT_SHA256 }}"; then
-      fetch "{{ UPSTREAM_RELEASE }}/lamda-client-py-{{ FIRERPA_VERSION }}.tar.gz" "{{ CLIENT_ARCHIVE }}"
+    server_sha256="{{ SERVER_SHA256 }}"
+    if test -z "$server_sha256"; then
+      fetch "$release/{{ ARCHIVE_NAME }}.sha256sum" "{{ ARCHIVE }}.sha256sum"
+      server_sha256="$(published_sha256 "{{ ARCHIVE }}.sha256sum")"
     fi
-    require_digest "{{ CLIENT_ARCHIVE }}" "{{ CLIENT_SHA256 }}"
+    fetch_verified "$release/{{ ARCHIVE_NAME }}" "{{ ARCHIVE }}" "$server_sha256"
 
-    if test ! -f "{{ WORKDIR }}/cert.py" || test "$(digest "{{ WORKDIR }}/cert.py")" != "{{ CERT_TOOL_SHA256 }}"; then
-      fetch "https://raw.githubusercontent.com/firerpa/lamda/{{ UPSTREAM_SOURCE_REF }}/tools/cert.py" "{{ WORKDIR }}/cert.py"
+    client_name="lamda-client-py-$version.tar.gz"
+    client_sha256="{{ CLIENT_SHA256 }}"
+    if test -z "$client_sha256" && fetch "$release/$client_name.sha256sum" "{{ CLIENT_ARCHIVE }}.sha256sum" 2>/dev/null; then
+      client_sha256="$(published_sha256 "{{ CLIENT_ARCHIVE }}.sha256sum")"
     fi
-    require_digest "{{ WORKDIR }}/cert.py" "{{ CERT_TOOL_SHA256 }}"
+    if test -z "$client_sha256"; then
+      # The release publishes no client checksum, but PyPI serves the same sdist
+      # bytes as lamda-<version>.tar.gz and publishes their SHA-256.
+      client_sha256="$(curl --fail --location --retry 3 --silent --show-error "https://pypi.org/pypi/lamda/$version/json" |
+        "$py" -c 'import json,sys; name=f"lamda-{sys.argv[1]}.tar.gz"; print(next((u["digests"]["sha256"] for u in json.load(sys.stdin)["urls"] if u["filename"] == name), ""))' "$version")"
+    fi
+    fetch_verified "$release/$client_name" "{{ CLIENT_ARCHIVE }}" "$client_sha256"
 
-    if test ! -f "{{ PATCH_SCRIPT }}" || test "$(digest "{{ PATCH_SCRIPT }}")" != "{{ PATCH_SCRIPT_SHA256 }}"; then
-      fetch "{{ STAYTURGID_RAW }}/ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_service_patch.py" "{{ PATCH_SCRIPT }}"
-    fi
-    require_digest "{{ PATCH_SCRIPT }}" "{{ PATCH_SCRIPT_SHA256 }}"
-    if test ! -f "{{ LIFECYCLE_SCRIPT }}" || test "$(digest "{{ LIFECYCLE_SCRIPT }}")" != "{{ LIFECYCLE_SCRIPT_SHA256 }}"; then
-      fetch "{{ STAYTURGID_RAW }}/ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_lifecycle.py" "{{ LIFECYCLE_SCRIPT }}"
-    fi
-    require_digest "{{ LIFECYCLE_SCRIPT }}" "{{ LIFECYCLE_SCRIPT_SHA256 }}"
+    fetch_source "https://raw.githubusercontent.com/firerpa/lamda/{{ UPSTREAM_SOURCE_REF }}/tools/cert.py" "{{ WORKDIR }}/cert.py" "{{ CERT_TOOL_SHA256 }}"
+    fetch_source "{{ STAYTURGID_RAW }}/ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_service_patch.py" "{{ PATCH_SCRIPT }}" "{{ PATCH_SCRIPT_SHA256 }}"
+    fetch_source "{{ STAYTURGID_RAW }}/ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_lifecycle.py" "{{ LIFECYCLE_SCRIPT }}" "{{ LIFECYCLE_SCRIPT_SHA256 }}"
     chmod 0755 "{{ PATCH_SCRIPT }}" "{{ LIFECYCLE_SCRIPT }}"
-    echo "OK: upstream artifacts and pinned helpers verified"
+    printf '%s\n' "$version" > "{{ VERSION_FILE }}"
+    echo "OK: FIRERPA $version artifacts verified; helpers from stayturgid {{ STAYTURGID_REF }}"
 
 # Create an isolated Python environment with cert generation and gRPC client support.
 venv: fetch
     #!/usr/bin/env bash
     set -euo pipefail
-    stamp="{{ VENV }}/.firerpa-{{ FIRERPA_VERSION }}-{{ CLIENT_SHA256 }}"
+    stamp="{{ VENV }}/.firerpa-$(cat "{{ VERSION_FILE }}")-{{ FIRERPA_PYTHON }}"
     if test -x "{{ VENV }}/bin/python" && test -f "$stamp" && \
        "{{ VENV }}/bin/python" -c 'import cryptography; from lamda.client import Device'; then
       echo "OK: preserving ready Python environment at {{ VENV }}"
       exit 0
     fi
     rm -rf "{{ VENV }}"
-    uv venv "{{ VENV }}"
-    uv pip install --python "{{ VENV }}/bin/python" --quiet cryptography "{{ CLIENT_ARCHIVE }}"
+    uv venv --python "{{ FIRERPA_PYTHON }}" "{{ VENV }}"
+    # Fail instead of compiling grpcio from source (a long C++ build) when this
+    # Python has no wheel for it; lower FIRERPA_PYTHON instead.
+    uv pip install --python "{{ VENV }}/bin/python" --quiet --only-binary grpcio,grpcio-tools cryptography "{{ CLIENT_ARCHIVE }}"
     touch "$stamp"
     echo "OK: Python environment ready at {{ VENV }}"
 
@@ -176,23 +230,26 @@ certificate: venv
     chmod 0600 "{{ CERTIFICATE }}" "{{ CERT_DIR }}/root.key"
     echo "OK: generated {{ CERTIFICATE }}; back it up securely and never commit it"
 
-# Build the hash-pinned aab.zip that preserves ordinary accessibility services.
+# Build the patched aab.zip; the patcher refuses an unaudited release before the device is touched.
 patch: fetch
-    "{{ FIRERPA_PYTHON }}" "{{ PATCH_SCRIPT }}" --archive "{{ ARCHIVE }}" --output "{{ PATCHED_DRIVER }}"
-    @echo "OK: accessibility-coexistence driver ready at {{ PATCHED_DRIVER }}"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    "{{ FIRERPA_PYTHON }}" "{{ PATCH_SCRIPT }}" --version "$(cat "{{ VERSION_FILE }}")" \
+      --archive "{{ ARCHIVE }}" --output "{{ PATCHED_DRIVER }}"
+    echo "OK: accessibility-coexistence driver ready at {{ PATCHED_DRIVER }}"
 
 # Prepare all host-side artifacts without changing the Android device.
 prepare: venv certificate patch
     @echo "OK: host-side FIRERPA materials are ready"
 
-# Install the server, certificate, signed/patched JARs, properties, and lifecycle helper.
+# Install the server, certificate, signed/patched drivers, properties, and lifecycle helper.
 deploy: doctor prepare
     #!/usr/bin/env bash
     set -euo pipefail
     adb=(adb -s "{{ ADB_TARGET }}")
     root="{{ FIRERPA_ROOT }}"
     remote_archive=/data/local/tmp/firerpa-server.tar.gz
-    active="$root/server/lib/python3.12/site-packages/lamda/aab.zip"
+    active="$root/server/lib/python3.*/site-packages/lamda/aab.zip"
 
     "${adb[@]}" push "{{ ARCHIVE }}" "$remote_archive"
     "${adb[@]}" shell '
@@ -245,6 +302,8 @@ install: deploy start status
 status: _require-adb-target
     #!/usr/bin/env bash
     set -euo pipefail
+    test -f "{{ PATCHED_DRIVER }}" || { echo "ERROR: {{ PATCHED_DRIVER }} is missing; run just patch first" >&2; exit 1; }
+    expected="$("{{ FIRERPA_PYTHON }}" -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "{{ PATCHED_DRIVER }}")"
     adb -s "{{ ADB_TARGET }}" shell '
       echo "uid=$(id -u)"
       echo "listener:"
@@ -255,10 +314,9 @@ status: _require-adb-target
       echo "lamda processes:"
       ps -A -o USER,PID,NAME,ARGS 2>/dev/null | grep "[l]amda" || true
       echo "active aab.zip:"
-      actual=$(sha256sum "{{ FIRERPA_ROOT }}/server/lib/python3.12/site-packages/lamda/aab.zip" | awk "{print \$1}")
-      echo "$actual  {{ FIRERPA_ROOT }}/server/lib/python3.12/site-packages/lamda/aab.zip"
-      expected=3be26ac64d6532d1c8635737d4c186c976ea5c1c02e71c17b7207ab0cfbcb510
-      test "$actual" = "$expected" || {
+      line=$(sha256sum {{ FIRERPA_ROOT }}/server/lib/python3.*/site-packages/lamda/aab.zip)
+      echo "$line"
+      test "${line%% *}" = '"$expected"' || {
         echo "ERROR: active aab.zip is not the expected accessibility patch" >&2
         exit 1
       }
