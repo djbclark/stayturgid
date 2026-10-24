@@ -17,7 +17,7 @@ import os
 import shutil
 import subprocess
 
-HERMES_TARGET = "telegram:838808636:22158"
+HERMES_TARGET = "telegram:838808636:44132"
 
 
 def _hermes_bin() -> str:

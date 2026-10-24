@@ -27,7 +27,7 @@ def test_heal_session_notifications(mock_device):
         # Should send one Hermes notice (no macOS notification)
         mock_run.assert_called_once()
         args = mock_run.call_args[0][0]
-        assert args[1:4] == ["send", "-t", "telegram:838808636:22158"]
+        assert args[1:4] == ["send", "-t", "telegram:838808636:44130"]
         assert "healed s24: restart_sshd, restart_shizuku (2 actions)" in args[-1]
 
 
