@@ -717,7 +717,7 @@ tap_like "$(cat "$STUB_LOG")" \
 # happen, it would be in the log by the time that line is.
 tap_unlike_settled "$STUB_LOG" \
   "firerpa_lifecycle.py start" \
-  "/data/local/tmp/firerpa/server/bin/python3.12 -u -m lamda" \
+  "-u -m lamda" \
   "start-adb: never launches FIRERPA directly as the Termux app UID"
 
 # start-adb: empty version stamp must not break daily check arithmetic
