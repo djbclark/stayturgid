@@ -15,6 +15,8 @@
     <dict>
         <key>HERMES_HOME</key>
         <string>{{ stayturgid_hermes_home }}</string>
+        <key>RELAY_SENDER_NAME</key>
+        <string>hermes</string>
         <key>PATH</key>
         <string>{{ lookup('env', 'HOME') }}/.local/bin:{{ stayturgid_homebrew_prefix }}/bin:{{ stayturgid_homebrew_prefix }}/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
 {% if (stayturgid_hermes_telegram_allowed_users | default('') | string | trim | length) > 0 %}
