@@ -297,6 +297,21 @@ def test_resolved_env_defaults_to_smart_fact_gathering(tmp_path):
     assert env["ANSIBLE_GATHERING"] == "explicit"  # a caller's choice wins
 
 
+def test_resolved_env_disables_objc_fork_safety_for_workers(tmp_path):
+    """macOS aborts a forked worker running lookup('url'): 'A worker was found in a dead state'."""
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site)
+    (site / "inventory").mkdir()
+    (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
+
+    env = ac.resolved_env(tmp_path, {"ANSIBLE_CONFIG": str(config)})
+    assert env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] == "YES"
+
+    env = ac.resolved_env(tmp_path, {"ANSIBLE_CONFIG": str(config), "OBJC_DISABLE_INITIALIZE_FORK_SAFETY": "NO"})
+    assert env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] == "NO"  # a caller's choice wins
+
+
 def test_resolved_env_preserves_additional_callbacks(tmp_path):
     """A caller-configured callback list keeps its entries alongside profile_tasks."""
     site = tmp_path / "site"

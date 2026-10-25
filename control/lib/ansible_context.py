@@ -200,6 +200,12 @@ def resolved_env(repo_root: Path, environ: Mapping[str, str] | None = None) -> d
     # beats any `gathering` in the selected ansible.cfg, so a site that wants
     # another mode must set the env var, not the cfg key.
     env.setdefault("ANSIBLE_GATHERING", "smart")
+    # macOS aborts a forked Ansible worker that first touches CoreFoundation
+    # (lookup('ansible.builtin.url') does, through the system proxy lookup) with
+    # "A worker was found in a dead state"; the FIRERPA checksum read hit this
+    # on macOS 27 (2026-10-25, SIGABRT "crashed on child side of fork pre-exec").
+    # Documented Ansible workaround; no effect on Linux. A caller's value wins.
+    env.setdefault("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
     return env
 
 
