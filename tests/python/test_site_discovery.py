@@ -141,3 +141,124 @@ def test_landing_resolver_rejects_missing_explicit_ansible_config(tmp_path: Path
                 "ANSIBLE_CONFIG": str(tmp_path / "missing.cfg"),
             }
         )
+
+
+@pytest.mark.parametrize(
+    ("name", "reserved"),
+    [
+        ("site-private", True),
+        ("site-private-", True),
+        ("site-private-dann", True),
+        ("site-public-a", False),
+        ("site-a", False),
+        ("site-privately", False),
+    ],
+)
+def test_reserved_private_name_predicate(name: str, reserved: bool) -> None:
+    assert sd.is_reserved_private_name(name) is reserved
+
+
+@pytest.mark.parametrize("private_name", ["site-private-dann", "site-private-"])
+def test_prefixed_private_companion_is_excluded(tmp_path: Path, private_name: str) -> None:
+    ops = tmp_path / "ops"
+    _site(ops, private_name, ansible=True)
+    site = _site(ops, "site-public-a", ansible=True)
+
+    selection = sd.resolve_site_selection({"OPS_ROOT": str(ops)}, require_ansible_config=True)
+
+    assert selection.path == site
+
+
+@pytest.mark.parametrize("private_name", ["site-private-y", "site-private-"])
+def test_only_prefixed_private_companion_finds_no_overlay(tmp_path: Path, private_name: str) -> None:
+    ops = tmp_path / "ops"
+    _site(ops, private_name)
+
+    with pytest.raises(sd.SiteDiscoveryError, match="No site overlay found") as error:
+        sd.resolve_site_selection({"OPS_ROOT": str(ops)})
+
+    assert "site-private* is reserved for private companions" in str(error.value)
+    assert "site-public-<operator>" in str(error.value)
+    assert "ANSIBLE_CONFIG, STAYTURGID_SITE_DIR, or OPS_ROOT/.mysite" in str(error.value)
+
+
+@pytest.mark.parametrize("via_alias", [False, True])
+def test_mysite_cannot_select_prefixed_private_companion(tmp_path: Path, via_alias: bool) -> None:
+    ops = tmp_path / "ops"
+    private = _site(ops, "site-private-y")
+    selected = private
+    if via_alias:
+        selected = ops / "site-foo"
+        selected.symlink_to(private, target_is_directory=True)
+    (ops / ".mysite").symlink_to(selected, target_is_directory=True)
+
+    with pytest.raises(sd.SiteDiscoveryError, match="reserved for private companions"):
+        sd.resolve_site_selection({"OPS_ROOT": str(ops)})
+
+
+def test_alias_to_prefixed_private_companion_is_excluded(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    private = _site(ops, "site-private-y")
+    (ops / "site-foo").symlink_to(private, target_is_directory=True)
+    site = _site(ops, "site-public-a")
+
+    selection = sd.resolve_site_selection({"OPS_ROOT": str(ops)})
+
+    assert selection.path == site
+
+
+def test_reserved_alias_to_public_overlay_is_excluded(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    site = _site(ops, "site-public-a")
+    (ops / "site-private-alias").symlink_to(site, target_is_directory=True)
+
+    selection = sd.resolve_site_selection({"OPS_ROOT": str(ops)})
+
+    assert selection.path == site
+
+
+def test_public_and_legacy_overlays_remain_ambiguous(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    public = _site(ops, "site-public-a")
+    legacy = _site(ops, "site-a")
+
+    with pytest.raises(sd.SiteDiscoveryError, match="Ambiguous site overlay") as error:
+        sd.resolve_site_selection({"OPS_ROOT": str(ops)})
+
+    assert str(public) in str(error.value)
+    assert str(legacy) in str(error.value)
+    assert "site-private* is reserved for private companions" in str(error.value)
+    assert "site-public-<operator>" in str(error.value)
+    assert "ANSIBLE_CONFIG, STAYTURGID_SITE_DIR, or OPS_ROOT/.mysite" in str(error.value)
+
+
+@pytest.mark.parametrize("configured_name", ["site-z", "site-private-a", "site-private-b"])
+def test_two_private_companions_and_configured_path_are_excluded(tmp_path: Path, configured_name: str) -> None:
+    ops = tmp_path / "ops"
+    _site(ops, "site-private-a")
+    _site(ops, "site-private-b")
+    if configured_name == "site-z":
+        _site(ops, configured_name)
+    site = _site(ops, "site-public-a")
+
+    selection = sd.resolve_site_selection({"OPS_ROOT": str(ops), "STAYTURGID_PRIVATE_DIR": configured_name})
+
+    assert selection.path == site
+
+
+def test_explicit_alias_to_prefixed_private_companion_is_rejected(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    private = _site(ops, "site-private-y")
+    alias = ops / "site-foo"
+    alias.symlink_to(private, target_is_directory=True)
+
+    with pytest.raises(sd.SiteDiscoveryError, match="reserved for private companions"):
+        sd.reject_private_companion_overlay(alias, {"OPS_ROOT": str(ops)})
+
+
+def test_explicit_configured_private_companion_is_rejected(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    private = _site(ops, "site-z")
+
+    with pytest.raises(sd.SiteDiscoveryError, match="reserved for the private companion"):
+        sd.reject_private_companion_overlay(private, {"OPS_ROOT": str(ops), "STAYTURGID_PRIVATE_DIR": "site-z"})

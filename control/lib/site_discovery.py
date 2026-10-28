@@ -3,7 +3,8 @@
 All product entry points use this module for the implicit portion of site
 selection.  Explicit ``ANSIBLE_CONFIG`` and ``STAYTURGID_SITE_DIR`` handling
 stays with the caller, but the ``OPS_ROOT/.mysite`` and ``site-*`` fallback
-contract is defined here once.
+contract is defined here once. Automatic acceptance will be restricted to
+``site-public-*`` once the rename is universal.
 """
 
 from __future__ import annotations
@@ -16,6 +17,11 @@ from pathlib import Path
 from typing import TextIO
 
 DEFAULT_PRIVATE_COMPANION_NAME = "site-private"
+RESERVED_PRIVATE_NAME = DEFAULT_PRIVATE_COMPANION_NAME
+PRIVATE_PREFIX = "site-private-"
+PRIVATE_RESERVATION_HINT = (
+    "site-private* is reserved for private companions; use site-public-<operator> for an overlay."
+)
 
 
 class SiteDiscoveryError(RuntimeError):
@@ -72,6 +78,12 @@ def ensure_private_companion(environ: Mapping[str, str] | None = None) -> Path:
     return path
 
 
+def is_reserved_private_name(name: str) -> bool:
+    """The legacy literal, or any ``site-private-<suffix>`` (empty suffix included)."""
+
+    return name == RESERVED_PRIVATE_NAME or name.startswith(PRIVATE_PREFIX)
+
+
 def reject_private_companion_overlay(
     path: Path,
     environ: Mapping[str, str] | None = None,
@@ -80,9 +92,10 @@ def reject_private_companion_overlay(
 
     resolved = path.expanduser().resolve()
     private_dir = private_companion_path(environ).resolve()
-    if resolved.name == DEFAULT_PRIVATE_COMPANION_NAME or resolved == private_dir:
+    if is_reserved_private_name(resolved.name) or resolved == private_dir:
         raise SiteDiscoveryError(
-            f"Selected site overlay {resolved} is reserved for the private companion, not a site overlay."
+            f"Selected site overlay {resolved} is reserved for the private companion. "
+            f"{PRIVATE_RESERVATION_HINT} Set ANSIBLE_CONFIG, STAYTURGID_SITE_DIR, or OPS_ROOT/.mysite."
         )
 
 
@@ -94,7 +107,7 @@ def resolve_site_selection(
     """Resolve ``.mysite`` or exactly one qualifying ``site-*`` checkout.
 
     The private companion is ensured first and excluded both by its configured
-    path and by the reserved literal name ``site-private``.
+    path and by reserved ``site-private`` and ``site-private-*`` names.
     """
 
     env = os.environ if environ is None else environ
@@ -120,16 +133,17 @@ def resolve_site_selection(
 
     candidates: list[Path] = []
     for candidate in sorted(root.glob("site-*")):
-        if candidate.name == DEFAULT_PRIVATE_COMPANION_NAME or not candidate.is_dir():
+        if is_reserved_private_name(candidate.name) or not candidate.is_dir():
             continue
         try:
-            if candidate.resolve() == private_dir:
+            resolved = candidate.resolve()
+            if is_reserved_private_name(resolved.name) or resolved == private_dir:
                 continue
         except OSError:
             continue
         if require_ansible_config and not (candidate / "ansible.cfg").is_file():
             continue
-        candidates.append(candidate.resolve())
+        candidates.append(resolved)
 
     if len(candidates) == 1:
         return SiteSelection(path=candidates[0], source="site-* discovery")
@@ -138,11 +152,12 @@ def resolve_site_selection(
     if not candidates:
         raise SiteDiscoveryError(
             f"No site overlay found: {root} contains no qualifying site-* checkout{qualifier} "
-            f"(site-private is reserved). Set {knobs}."
+            f"({PRIVATE_RESERVATION_HINT}). Set {knobs}."
         )
     listing = ", ".join(str(candidate) for candidate in candidates)
     raise SiteDiscoveryError(
-        f"Ambiguous site overlay: multiple qualifying site-* checkouts under {root} ({listing}). Set {knobs}."
+        f"Ambiguous site overlay: multiple qualifying site-* checkouts under {root} ({listing}). "
+        f"{PRIVATE_RESERVATION_HINT} Set {knobs}."
     )
 
 
