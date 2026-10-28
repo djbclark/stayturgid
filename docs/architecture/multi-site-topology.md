@@ -328,13 +328,16 @@ configuration via `control/lib/ansible_context.py`.
    placeholder). A `.mysite` that resolves to a `site-private*` directory is
    rejected — it is a private companion, not an overlay (§4.11).
 4. **Discovery** — `OPS_ROOT` (default `${OPS_ROOT:-~/ops}`) is scanned for `site-*`
-   checkouts containing an `ansible.cfg`, excluding every `site-private` /
-   `site-private-*` name (a symlink's resolved target included) and the
-   configured private-companion path. Exactly one match is used; zero or
-   multiple matches fail with instructions to set an explicit selector or fix
-   `.mysite`. During migration a legacy `site-<name>` candidate is still
-   accepted; once `site-public-*` is universal, automatic acceptance narrows to
-   that prefix (§4.11 item 7).
+   checkout directories, excluding every `site-private` / `site-private-*` name (a
+   symlink's resolved target included) and the configured private-companion path.
+   Ansible-facing consumers additionally require an `ansible.cfg`
+   (`require_ansible_config=True`, `control/lib/ansible_context.py`); the other
+   entry points accept any `site-*` directory, so a checkout with no
+   `ansible.cfg` (a second site's tree, a partial clone) still counts as a
+   candidate. Exactly one match is used; zero or multiple matches fail with
+   instructions to set an explicit selector or fix `.mysite`. During migration a
+   legacy `site-<name>` candidate is still accepted; once `site-public-*` is
+   universal, automatic acceptance narrows to that prefix (§4.11 item 7).
 
 Every command that resolves a site overlay prints the selected directory and
 precedence source. Resolution also ensures the private-companion directory
@@ -487,8 +490,10 @@ rule is the target and the EXISTING sentence is what happens if nobody changes t
 
 7. **Overlay discovery.** EXISTING: discovery scans a sorted `site-*` glob, excludes _equality_
    with the reserved private-companion name and the one configured private path, requires an
-   `ansible.cfg`, and accepts exactly one candidate — sorting never breaks a tie. An explicit
-   selection is rejected by the same equality check, so a second private companion can pass it.
+   `ansible.cfg` only in the Ansible consumer (`require_ansible_config=True`; every other caller
+   accepts any `site-*` directory), and accepts exactly one candidate — sorting never breaks a
+   tie. An explicit selection is rejected by the same equality check, so a second private
+   companion can pass it.
    PROPOSED: reject every basename that starts with `site-private-` (including a symlink's
    resolved target) and keep rejecting the legacy reserved name and the configured private path
    during migration; accept an automatic candidate only when it starts with `site-public-` and has
