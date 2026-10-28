@@ -324,12 +324,17 @@ configuration via `control/lib/ansible_context.py`.
    must exist or resolution fails.
 3. **`OPS_ROOT/.mysite`** — if present and resolves to a directory (symlink or
    real dir), use it as the site overlay. Local convenience only; never put
-   `.mysite` in GitHub URLs (prose keeps the `site-<name>` placeholder).
+   `.mysite` in GitHub URLs (prose keeps the `site-public-<operator>`
+   placeholder). A `.mysite` that resolves to a `site-private*` directory is
+   rejected — it is a private companion, not an overlay (§4.11).
 4. **Discovery** — `OPS_ROOT` (default `${OPS_ROOT:-~/ops}`) is scanned for `site-*`
-   checkouts containing an `ansible.cfg`, excluding both the literal
-   `site-private` name and the configured private-companion path. Exactly one
-   match is used; zero or multiple matches fail with instructions to set an
-   explicit selector or fix `.mysite`.
+   checkouts containing an `ansible.cfg`, excluding every `site-private` /
+   `site-private-*` name (a symlink's resolved target included) and the
+   configured private-companion path. Exactly one match is used; zero or
+   multiple matches fail with instructions to set an explicit selector or fix
+   `.mysite`. During migration a legacy `site-<name>` candidate is still
+   accepted; once `site-public-*` is universal, automatic acceptance narrows to
+   that prefix (§4.11 item 7).
 
 Every command that resolves a site overlay prints the selected directory and
 precedence source. Resolution also ensures the private-companion directory
@@ -374,29 +379,170 @@ Until Phase 1–2 ship, new operators still edit a forked `hosts.yml` in-tree:
 **Generic (do not fork):** collections, taxonomy `group_vars`, Termux/native-agent
 scripts, `site.yml` playbook graph.
 
-### 4.10 The third repo: `${OPS_ROOT:-~/ops}/site-private`
+### 4.10 The site repo family: `site-public-<operator>` and `site-private-<operator>`
 
-Every operator running this stack has **three** sibling checkouts under
-`${OPS_ROOT:-~/ops}/`, not two:
+A machine running this stack has **one upstream checkout and any number of site pairs** under
+`${OPS_ROOT:-~/ops}/`:
 
-| Repo                              | Visibility                         | Purpose                                                                                                    |
-| --------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `${OPS_ROOT:-~/ops}/stayturgid`   | Always public                      | This repo — code, fleet conventions, durable rules, session history                                        |
-| `${OPS_ROOT:-~/ops}/site-<name>`  | Operator's choice (public/private) | One operator's live site overlay (§4 above)                                                                |
-| `${OPS_ROOT:-~/ops}/site-private` | **Always private**                 | Private/generic companion — default path, configurable with `STAYTURGID_PRIVATE_DIR`; never a site overlay |
+| Checkout                                     | Visibility    | Purpose                                                                         |
+| -------------------------------------------- | ------------- | ------------------------------------------------------------------------------- |
+| `${OPS_ROOT:-~/ops}/stayturgid`              | Always public | Upstream — code, fleet conventions, durable rules, session history              |
+| `${OPS_ROOT:-~/ops}/site-public-<operator>`  | Public        | One site's publishable overlay: inventory, host identities, published practices |
+| `${OPS_ROOT:-~/ops}/site-private-<operator>` | Private       | That same site's private companion: private notes, memory, machine-local state  |
 
-There is **no single canonical policy document**. Each repo's `AGENTS.md` owns
-**that repo's slice** and points at the other two (filesystem path + absolute
-GitHub URL). Start with this repo's
-[AGENTS.md — Memory & documentation policy](../../AGENTS.md#memory--documentation-policy-this-repos-slice);
-optional site practice lives in `site-<name>`'s `AGENTS.md`; private extras in
-`site-private`'s `AGENTS.md`. Links to a given operator's private repos will
-404 for other readers — expected.
+`<operator>` is the site owner's GitHub login, and the **same suffix names both halves of a
+pair**: strip `site-public-` or `site-private-` to recover it. The remote is
+`https://github.com/<operator>/<name>.git`. Visibility permits private context, not credentials:
+a public checkout may hold sops ciphertext, never a plaintext value or a private key.
 
-In short for stayturgid itself: durable product lessons belong here (see
-[docs/notes/lessons-learned.md](../notes/lessons-learned.md)), not in
-tool-private `~` stores. `site-private` must **not** be treated as
-`site-<name>` during overlay discovery.
+**N public and N private checkouts may coexist** — several operators on one machine, or one
+administrator running several sites. Two consequences follow, and both are requirements rather
+than advice:
+
+1. **Select a site explicitly.** A tool identifies a site by its suffix and is told which one to
+   use; it never picks a checkout by directory order, glob order or "the only one present".
+2. **Every consumer of a private companion names it.** A private checkout is never inferred from
+   a public one by convention alone (see §4.11, Ansible).
+
+Two independent pairs under **one** GitHub login are not expressible in this shape: the suffix
+would collide. One login runs several fleets inside its own pair (separate inventories or
+groups); an independent site gets its own login, or a site-id dimension that this convention does
+not yet define. Coexistence is not trust isolation — see §7.
+
+#### 4.10.1 What goes in each
+
+Ownership follows the repo whose `AGENTS.md` claims it; the table states the intent, and each
+repo's `AGENTS.md` remains authoritative for its own slice. There is **no single canonical policy
+document** — that is deliberate. Each repo's
+[AGENTS.md — Memory & documentation policy](../../AGENTS.md#memory--documentation-policy-this-repos-slice)
+owns its own slice and points at its siblings (filesystem path + absolute GitHub URL). Links to a
+given operator's private repos will 404 for other readers — expected.
+
+| Checkout                  | Use for                                                                                                                                           | Never put here                                                                                                                                                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stayturgid`              | Generic collections, playbooks, device software, taxonomy defaults, tests, example inventory; durable product facts and rules in `docs/`          | Production inventory, operator credentials, site-specific defaults, personal workflow memory, another project's facts                                                                     |
+| `site-public-<operator>`  | That site's publishable inventory, host identities, allocation registries, machine tooling, shell configuration, home instructions, service roles | Plaintext secrets or private-only context; another operator's inventory or context                                                                                                        |
+| `site-private-<operator>` | Private cross-project notes, summarized memory, agent support files, machine-local ignored configuration and runtime state                        | Product code or rules; publishable procedures; secret values or private keys; a general duplicate of public tooling; verbatim chat/session transcripts where the owning repo forbids them |
+
+A private checkout is **not** a site overlay: overlay discovery must exclude every one of them
+(§4.11, Overlay discovery). A directory being private does not make another operator's context
+yours to copy into it.
+
+### 4.11 Selection and precedence
+
+No single rule makes one checkout win every mechanism, so each mechanism states its own rule.
+Below, **EXISTING** marks behaviour in the code or configuration today, and **PROPOSED** marks a
+rule this document asks for and a consumer must implement. Where the two differ, the PROPOSED
+rule is the target and the EXISTING sentence is what happens if nobody changes the code.
+
+#### 4.11.1 Precedence, mechanism by mechanism
+
+1. **Agent instruction files.** EXISTING: `~/AGENTS.md` and `~/CLAUDE.md` are symlinks to one
+   site's `home-agents.md`; that is host policy, and each repo's own `AGENTS.md` covers its slice.
+   `CLAUDE.md -> AGENTS.md` is the standing per-repo rule (a fork keeps its upstream's layout).
+   A second site's `AGENTS.md` is _not_ loaded, and nothing merges sibling instruction files.
+   PROPOSED: keep exactly one explicitly chosen `site-public-<operator>` as the host instruction
+   target (`~/AGENTS.md`, `~/CLAUDE.md`); when working in another pair, read that pair's
+   `AGENTS.md` explicitly. Apply repo rules to their own repo and host rules to host operations,
+   and stop and ask when two honestly conflict rather than silently preferring one.
+
+2. **Scripts on `PATH`.** EXISTING: first executable on the effective `PATH` wins, which shell
+   functions and cached lookup can override — inspect with `type -a NAME`. `~/.local/bin` holds
+   links into site and toolchain sources alongside installed copies, and a role installs into one
+   shared destination, so a later apply can replace a name regardless of its source checkout.
+   PROPOSED: one declared owner per shared command name; an operator-qualified name or an
+   absolute checkout path when two sites ship competing implementations; every site-sensitive
+   script takes its public and private inputs explicitly instead of hard-coding a sibling path.
+
+3. **launchd jobs.** EXISTING: jobs are addressed by domain and label, so two checkouts cannot
+   both own one label — the last apply wins, and there is no conflict guard. A plist's own
+   `EnvironmentVariables.PATH` outranks the launchd user path. PROPOSED: one owner per
+   domain/label, distinct namespaces when several sites run the same job, a refused installation
+   on conflict, and an explicit executable path (never a site chosen via inherited `PATH`).
+   Ownership checks cover the job's child commands and shared state paths, not only its first
+   executable.
+
+4. **Justfiles and task recipes.** EXISTING: `~/s/justfile` is the source-link farm and fixes its
+   tool checkout explicitly; it is not a site dispatcher. A site may delegate to upstream with
+   `STAYTURGID_ROOT`, and a deploy recipe honours an inherited `ANSIBLE_CONFIG`. PROPOSED:
+   invoke the intended justfile explicitly; allow sibling delegation only when the recipe names
+   both its upstream/tool checkout and its selected site inputs, and have a site wrapper refuse an
+   inherited selector that points at a different pair before it changes anything.
+
+5. **Ansible, inventory and private vars.** EXISTING: resolution is `ANSIBLE_CONFIG` →
+   `STAYTURGID_SITE_DIR/ansible.cfg` → `${OPS_ROOT:-~/ops}/.mysite/ansible.cfg` → exactly one
+   qualifying checkout; an invalid explicit selection is fatal. Inventory sources keep declared
+   order and later ones override earlier ones. `STAYTURGID_PRIVATE_DIR` selects one private
+   directory, ensures it exists and excludes it from overlay discovery, and **does not load that
+   repo's vars**; its default is the legacy fixed name. PROPOSED: bind every invocation to a
+   selected public suffix and its matching private suffix, reject a mismatched pair, and load
+   private vars only through explicitly named inventory/vars files with documented per-play
+   ordering — never by scanning companions.
+
+6. **Memory and docs.** EXISTING: policy is distributed. Product facts upstream, publishable site
+   facts in that site's public overlay, private workflow facts in its private companion,
+   project-specific facts with the project. Home memory uses explicit links. PROPOSED: every
+   memory write carries its owning operator or project and targets that declared store; a write
+   into another operator's repo is rejected rather than falling back to the machine default.
+
+7. **Overlay discovery.** EXISTING: discovery scans a sorted `site-*` glob, excludes _equality_
+   with the reserved private-companion name and the one configured private path, requires an
+   `ansible.cfg`, and accepts exactly one candidate — sorting never breaks a tie. An explicit
+   selection is rejected by the same equality check, so a second private companion can pass it.
+   PROPOSED: reject every basename that starts with `site-private-` (including a symlink's
+   resolved target) and keep rejecting the legacy reserved name and the configured private path
+   during migration; accept an automatic candidate only when it starts with `site-public-` and has
+   a non-empty suffix; fail on zero or on several, and validate explicit destinations with the
+   same predicate. Each public suffix is its own site. During migration a legacy `site-<name>`
+   candidate that is neither reserved nor private is still accepted, so renaming the directory and
+   changing discovery need not land in one commit; that acceptance is dropped once
+   `site-public-*` is universal.
+
+8. **Secrets.** EXISTING: live reads go through the secret broker (`sudo-secretspec`), which
+   resolves its own vault rather than a companion chosen by name; sops ciphertext may be
+   committed, plaintext values and private keys may not; a NixOS consumer points at its age key
+   outside every repo with owner-only permissions. PROPOSED: bind retrieval to the selected
+   operator and consumer, configure any extra age-key location outside every checkout, and fail
+   when the selected identity and the secret consumer disagree — never infer a vault or key from
+   checkout order.
+
+#### 4.11.2 Migrating an existing machine
+
+Renaming a checkout is a maintenance operation, not a file move. Do it in this order, one checkout
+at a time, and do not treat a rename as permission to enable a job that was deliberately stopped:
+
+| Step | Operation                                                                                                                                                         | Proof                                                                       |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 1    | Move the local checkout to its canonical directory.                                                                                                               | `git -C "$NEW" rev-parse --show-toplevel` names the new root.               |
+| 2    | Point `origin` at the canonical name (the GitHub rename may come later), recording the old URL.                                                                   | `git -C "$NEW" remote get-url origin` matches.                              |
+| 3    | Retarget symlinks (home instructions, `~/s` farm, command links), shell tool-path references and `.mysite`. Rebuild the farm only after its tool path is updated. | `readlink -f "$LINK"` names the intended owner.                             |
+| 4    | Update job templates and checkout-sensitive child scripts; reload only the labels that were enabled.                                                              | `launchctl print "gui/$(id -u)/$LABEL"` shows the intended executable.      |
+| 5    | Update the farm's `tool` expression and any recipe that names a sibling.                                                                                          | `just --justfile "$JUSTFILE" --evaluate "$VAR"` resolves the intended path. |
+| 6    | Pin `OPS_ROOT`, `ANSIBLE_CONFIG` or `STAYTURGID_SITE_DIR`, and `STAYTURGID_PRIVATE_DIR` in each consumer.                                                         | The resolver probe below prints the selected config, path-only.             |
+| 7    | Retarget instruction links and each repo's policy cross-references together.                                                                                      | `readlink -f` on each instruction link.                                     |
+| 8    | Rename the GitHub repository last, preserving visibility.                                                                                                         | `git ls-remote "$EXPECTED" HEAD` succeeds.                                  |
+
+The path-only resolver probe for step 6 (both directories must already exist; it proves the
+binding, not the contents):
+
+```bash
+python3 -B -c '
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from control.lib.ansible_context import resolve_ansible_context
+from control.lib.site_discovery import private_companion_path
+public, private = (Path(p).resolve() for p in sys.argv[2:])
+assert public.is_dir() and private.is_dir()
+assert private_companion_path().resolve() == private
+context = resolve_ansible_context(Path(sys.argv[1]))
+assert context.site_dir.resolve() == public
+print(context.config)
+' "$UPSTREAM" "$PUBLIC" "$PRIVATE"
+```
+
+Keep the old links and the mapping until every live consumer has moved: the GitHub redirect keeps
+fetches working, which is exactly what hides a forgotten launchd job or a stale `PATH` entry.
 
 ---
 

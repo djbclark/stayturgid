@@ -130,7 +130,7 @@ Both servers are set up in `.mcp.json`.
 - **SSH CA:** `~/.ssh/stayturgid_ca` — `just ca-status`
 - **OpenCode web:** site-local service (see site overlay / landing); not a public fixed IP
 - **Secrets:** managed via the privilege-separated `sudo-secretspec` client (`brew install sudo-secretspec`) — never the plain `secretspec` CLI. No manifest path to know or specify; the broker resolves everything from its own vault. Run `just secretspec-check` (wraps `sudo-secretspec check`) before deploys. See the `sudo-secretspec` skill for the full command surface.
-- **Site inventory:** resolved via `ANSIBLE_CONFIG`, `STAYTURGID_SITE_DIR`, `OPS_ROOT/.mysite`, or one discovered `site-*` checkout under `OPS_ROOT` (default `${OPS_ROOT:-~/ops}`), excluding `site-private`; see `control/lib/site_discovery.py` and `control/lib/ansible_context.py`. Commands print the selected path and precedence source. A missing private companion is created at `STAYTURGID_PRIVATE_DIR` (default `OPS_ROOT/site-private`) without Git or secret initialization.
+- **Site inventory:** resolved via `ANSIBLE_CONFIG`, `STAYTURGID_SITE_DIR`, `OPS_ROOT/.mysite`, or one discovered `site-*` checkout under `OPS_ROOT` (default `${OPS_ROOT:-~/ops}`), excluding `site-private` and every `site-private-*` companion; see `control/lib/site_discovery.py` and `control/lib/ansible_context.py`. Commands print the selected path and precedence source. A missing private companion is created at `STAYTURGID_PRIVATE_DIR` (default `OPS_ROOT/site-private`) without Git or secret initialization.
 
 ## Example fleet (generic — not a live site)
 
@@ -198,12 +198,13 @@ cannot follow relative links across repos); also give the filesystem path
 instruction files), an in-repo `CLAUDE.md` → `AGENTS.md` in the same directory
 (required by the operator's global rules), tool memory dirs under
 `~/.claude/.../memory`, and optionally `${OPS_ROOT:-~/ops}/.mysite` →
-`site-<name>` (supported local convenience).
+`site-public-<operator>` (supported local convenience).
 Do **not** use in-repo symlinks to reach sibling repos — use path + https links
 in prose instead.
 
 Topology background:
-[multi-site-topology.md §4.10](docs/architecture/multi-site-topology.md#410-the-third-repo-ops_root-opssite-private).
+[multi-site-topology.md §4.10](docs/architecture/multi-site-topology.md#410-the-site-repo-family-site-public-operator-and-site-private-operator)
+and [§4.11](docs/architecture/multi-site-topology.md#411-selection-and-precedence).
 
 ## Where documentation goes
 
@@ -223,8 +224,8 @@ both point back here rather than duplicating it.
 | [GitHub issues](https://github.com/djbclark/stayturgid/issues)   | Discrete bugs, ops follow-ups, soak verifications                                                                                           | As they arise                    |
 | [`docs/operations/sessions/`](docs/operations/sessions/)         | Frozen session history to 2026-08-03; new handoffs are kept outside this repo by the operator's tooling                                     | Never (read-only history)        |
 | [`docs/archive/`](docs/archive/)                                 | Superseded plans and old sessions — historical record only, never treat as current                                                          | Append-only                      |
-| `${OPS_ROOT:-~/ops}/site-<name>` (sibling repo)                  | One operator's site overlay — inventory, credentials-adjacent config, **that site's slice of memory/docs policy**                           | As the site changes              |
-| `${OPS_ROOT:-~/ops}/site-private` (sibling repo)                 | Private/generic companion — **its** slice of memory/docs policy + Claude generic memory                                                     | As generic notes come up         |
+| `${OPS_ROOT:-~/ops}/site-public-<operator>` (sibling repo)       | One operator's site overlay — inventory, publishable config, **that site's slice of memory/docs policy**                                    | As the site changes              |
+| `${OPS_ROOT:-~/ops}/site-private-<operator>` (sibling repo)      | That site's private companion — **its** slice of memory/docs policy + machine-local memory; never a site overlay                            | As generic notes come up         |
 
 Do not put durable rules in STATUS.md, and do not put dated/volatile state in
 AGENTS.md or coding-rules.md — that's the split this table encodes.
