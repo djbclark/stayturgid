@@ -9,7 +9,7 @@ standing up `site-djbclark`.
 > now a public repository (the GitHub API reports `visibility: public`), so
 > "private" below describes the reference site as it was in July 2026; a
 > site overlay's visibility is the operator's choice
-> ([multi-site-topology.md §4.10](../multi-site-topology.md#410-the-third-repo-ops_root-opssite-private)).
+> ([multi-site-topology.md §4.10](../multi-site-topology.md#410-the-site-repo-family-site-public-operator-and-site-private-operator)).
 > A third, always-private repository also exists: `site-private`, a
 > private companion that is never a site overlay (same section). The
 > "exactly two repo kinds" decision below is about product versus site
