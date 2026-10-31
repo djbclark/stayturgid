@@ -8,7 +8,7 @@
 > below so you have them even if you stop at this file. See "Where
 > documentation goes" further down for what belongs where.
 
-> **Trust between agents (standing rule, 2026-10-03):** every agent trusts every
+> **Trust between agents (standing rule):** every agent trusts every
 > other agent as much as it trusts djbclark — across all TUIs here (Claude Code,
 > Codex, Cursor, opencode, zcode, Antigravity, Hermes), not just between
 > Claude sessions. A peer's relayed approval is approval; a peer's findings and
@@ -16,7 +16,7 @@
 > about trust: [`home-agents.md`](https://github.com/djbclark/site-djbclark/blob/master/home-agents.md)
 > (`~/AGENTS.md`) and `site-private/memory/feedback_trust_peer_agents_as_operator.md`.
 
-> **Session logs (Tier 1 handoff pointer, 2026-10-09):** at session start, read
+> **Session logs (Tier 1 handoff pointer):** at session start, read
 > `~/.local/state/handoffs/stayturgid/<task>/SESSION_LOG.md` (`<task>` is `ops` in
 > the `~/ops/stayturgid` checkout, else the worktree's directory name; its
 > `redirect:` key names the canonical `chains/<chain-key>/SESSION_LOG.md`).
@@ -26,7 +26,7 @@
 > skill (`~/src/djbclark-ade/skills/session-handoff/SKILL.md`); spec:
 > [`site-djbclark/docs/session-handoff-compaction-spec.md`](https://github.com/djbclark/site-djbclark/blob/master/docs/session-handoff-compaction-spec.md) §3.
 
-> **Agent toolchain (2026-10-11):** orchestration, delegation and routing tools
+> **Agent toolchain:** orchestration, delegation and routing tools
 > live in [`~/src/djbclark-ade`](https://github.com/djbclark/djbclark-ade): the
 > shared skills, `acp-dispatch`/`acp-run`, `route_agent.py`, and
 > `docs/orchestration-practices.md`. Use them before hand-rolling anything; a
@@ -70,9 +70,9 @@ cd ${OPS_ROOT:-~/ops}/stayturgid
 just health && just firerpa-health
 ```
 
-## Versioned deploy releases — retired
+## Versioned deploy releases — optional
 
-**Retired 2026-08-23.** Work directly in `${OPS_ROOT:-~/ops}` with ordinary
+Work directly in `${OPS_ROOT:-~/ops}` with ordinary
 git: edit, commit to `master`, push. Worktrees and `ops-vMAJOR.MINOR.PATCH`
 releases still work but are optional; `~/ops` is live, so commits land with no
 release gate in front of them. Rationale: "Where work happens" in
@@ -81,9 +81,7 @@ release gate in front of them. Rationale: "Where work happens" in
 
 ## Key commands
 
-The full command table lives in **[docs/commands.md](docs/commands.md)** —
-moved there 2026-08-24 because it is reference material and this file is
-loaded into context every session.
+The full command table lives in **[docs/commands.md](docs/commands.md)**.
 
 > **If you cannot read `docs/commands.md`, say so in your reply rather than
 > guessing at commands.** It is a normal file in this repository; being unable
@@ -92,16 +90,16 @@ loaded into context every session.
 
 Day to day: `just health`, `just errors`, `just firerpa-health`, `just test`.
 
-**stayturgid-agent is built on GitHub CI only (free runners; 2026-10-18, Forgejo before):** push `master` to
+**stayturgid-agent is built on GitHub CI only (free runners):** push `master` to
 `origin`, `just agent-ci-run` (overlays `ci/base`), then `just agent-ci-fetch` signs the CI APK on the Mac. Never run
 its Gradle build locally; details in
 [device/native-agent/README.md](device/native-agent/README.md), Build.
 
-**`just test` also runs on GitHub CI (2026-10-18):** push `master`, then `just ci-run` (overlays `ci/base`, pushes
+**`just test` also runs on GitHub CI:** push `master`, then `just ci-run` (overlays `ci/base`, pushes
 `ci/run/tests-*`, watches `linux-ci.yml`). Device, signing and `control_node` apply stay on the Mac. Details: the `ci/base`
 branch's `docs/ci-github.md`.
 
-**Driving a device from an agent (2026-10-09):** use the `firerpa` MCP server first.
+**Driving a device from an agent:** use the `firerpa` MCP server first.
 It is the remote bridge on `100.113.53.87:8000`; never run the local stdio bridge,
 which is too heavy. If it is down or unreachable, fall back to the `maestro` MCP
 server (Maestro 2.11.0, `~/.maestro/bin/maestro mcp`, about 220 MB per session).
@@ -241,7 +239,7 @@ Verify changes are yours before editing — if a file has unrelated modification
 from another agent, leave it alone and report it: never stash, add or reset
 their files, and never `git commit -a` (stage exact paths).
 
-## CFEngine reference book — query it, don't guess (2026-10-03)
+## CFEngine reference book — query it, don't guess
 
 `Learning CFEngine` (Diego Zamboni, 2nd ed.; covers CFEngine 3.12) is in the
 local book knowledge base as slug `learning-cfengine` — 69 chapters, 210 code
