@@ -417,17 +417,19 @@
   note: "Generic agent; the per-host target list comes from the rendered devices.conf."
 
 - concern: fleet-health
-  title: "Fleet health, access and Fire help monitors, stats and logging library"
+  title: "Fleet health, access, Fire help and power-unplug monitors, stats and logging library"
   paths:
     - control/bin/fleet_health_monitor.py
     - control/bin/check_fleet_health.py
     - control/bin/access_monitor.py
+    - control/bin/power_unplug_alert.py
     - control/bin/fire_help_monitor.py
     - control/lib/fleet_health.py
     - control/lib/stats.py
     - control/lib/site_logging.py
     - ansible/roles/control_node/templates/fleet-health.plist.j2
     - ansible/roles/control_node/templates/access-monitor.plist.j2
+    - ansible/roles/control_node/templates/power-unplug-alert.plist.j2
     - ansible/roles/control_node/templates/fire-help.plist.j2
   disposition: core+site-data
   note: "Probes and status model upstream; schedules and alert destinations are site data; fleet_health.py still has many AutoJs6 references."
