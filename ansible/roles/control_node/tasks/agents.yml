@@ -172,6 +172,13 @@
     mode: "0644"
   register: health_plist
 
+- name: Render power-unplug-alert launchd agent
+  ansible.builtin.template:
+    src: power-unplug-alert.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.power-unplug-alert.plist"
+    mode: "0644"
+  register: power_unplug_alert_plist
+
 - name: Render fire-help launchd agent
   ansible.builtin.template:
     src: fire-help.plist.j2
@@ -399,6 +406,7 @@
         + (['com.stayturgid.access-monitor'] if monitor_plist.changed else [])
         + (['com.stayturgid.fleet-health'] if health_plist.changed else [])
         + (['com.stayturgid.fire-help'] if fire_help_plist.changed else [])
+        + (['com.stayturgid.power-unplug-alert'] if power_unplug_alert_plist.changed else [])
         + (['com.stayturgid.update-monitor'] if update_monitor_plist is defined and update_monitor_plist.changed else [])
         + (['com.stayturgid.prefetch-pins'] if prefetch_pins_plist is defined and prefetch_pins_plist.changed else [])
         + (['com.stayturgid.termux-pkg-nightly']
