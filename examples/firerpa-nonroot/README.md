@@ -174,7 +174,7 @@ sets fixed values in `.env`:
 ```dotenv
 FIRERPA_VERSION=10.12
 # Full SHA of a stayturgid commit whose patcher lists this release. Branch names move.
-# STAYTURGID_REF=<sha>
+STAYTURGID_REF=3b6b618a4457e90c78f9181274ad6e7ab810c5c8
 UPSTREAM_SOURCE_REF=e91a88f5e75793ca22a1349855ab0096e7d06ab3
 # Each pin replaces the published-checksum check, or adds one where none exists.
 SERVER_SHA256=<sha256 of lamda-server-<arch>.tar.gz>
