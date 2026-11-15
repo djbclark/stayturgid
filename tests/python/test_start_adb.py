@@ -292,6 +292,8 @@ def reauth(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(start_adb, "_boot_log", phone.log.append)
     monkeypatch.setattr(start_adb, "_run_repair_pass", phone.repair_pass)
+    # The wifi reassert is a separate adb shell; these tests cover re-auth only.
+    monkeypatch.setattr(start_adb, "_reassert_wireless_debugging", lambda: None)
     return phone
 
 
@@ -370,6 +372,71 @@ def test_reauth_failed_pass_is_left_to_the_timer(reauth, monkeypatch):
     assert len(reauth.passes) == 1
     assert os.path.exists(reauth.gate.adb_auth_marker())
     assert any("rc=1" in line for line in reauth.log)
+
+
+def test_reauth_sleep_reasserts_wifi_on_the_idle_cadence(reauth, monkeypatch):
+    calls = []
+    monkeypatch.setattr(start_adb, "_reassert_wireless_debugging", lambda: calls.append(reauth.clock))
+
+    start_adb._sleep_watching_adb_auth(900)
+
+    assert len(calls) == 900 / start_adb.ADB_REAUTH_IDLE_SEC
+    assert reauth.adb_calls == []
+
+
+def test_reauth_sleep_does_not_reassert_wifi_while_auth_is_pending(reauth, monkeypatch):
+    calls = []
+    monkeypatch.setattr(start_adb, "_reassert_wireless_debugging", lambda: calls.append(1))
+    reauth.revoke()
+
+    start_adb._sleep_watching_adb_auth(900)
+
+    assert calls == []
+
+
+def test_reassert_wireless_debugging_puts_only_when_off(monkeypatch):
+    calls = []
+    logs = []
+
+    def capture(cmd, timeout=30):
+        calls.append(cmd[-1])
+        if cmd[-1].startswith("settings get"):
+            return (0, "0\r\n") if calls.count("settings get global adb_wifi_enabled") == 1 else (0, "1\n")
+        return 0, ""
+
+    monkeypatch.setattr(start_adb, "_capture", capture)
+    monkeypatch.setattr(start_adb, "_boot_log", logs.append)
+    monkeypatch.setattr(start_adb, "_adb_auth_marker_text", lambda: None)
+
+    start_adb._reassert_wireless_debugging()
+
+    assert calls == [
+        "settings get global adb_wifi_enabled",
+        "settings put global adb_wifi_enabled 1",
+        "settings get global adb_wifi_enabled",
+    ]
+    assert logs == ["wireless debugging was off after a wifi change -> re-enabled adb_wifi_enabled"]
+
+
+def test_reassert_wireless_debugging_leaves_an_already_on_toggle(monkeypatch):
+    calls = []
+    monkeypatch.setattr(start_adb, "_capture", lambda cmd, timeout=30: calls.append(cmd[-1]) or (0, "1\n"))
+    monkeypatch.setattr(start_adb, "_boot_log", lambda msg: calls.append("log"))
+    monkeypatch.setattr(start_adb, "_adb_auth_marker_text", lambda: None)
+
+    start_adb._reassert_wireless_debugging()
+
+    assert calls == ["settings get global adb_wifi_enabled"]
+
+
+def test_reassert_wireless_debugging_stands_down_while_auth_dialog_is_pending(monkeypatch):
+    calls = []
+    monkeypatch.setattr(start_adb, "_capture", lambda cmd, timeout=30: calls.append(cmd) or (0, "0\n"))
+    monkeypatch.setattr(start_adb, "_adb_auth_marker_text", lambda: "unauthorized")
+
+    start_adb._reassert_wireless_debugging()
+
+    assert calls == []
 
 
 def test_run_repair_pass_is_the_ordinary_entry(monkeypatch, tmp_path):

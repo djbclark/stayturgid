@@ -171,7 +171,7 @@ def test_check_adb_prompt_reads_a_device_clock_window(monkeypatch):
     sent = fake_auth_phone(monkeypatch, NORMAL_LOGCAT, dialog=False)
     ac.check_adb_prompt("serial", window_s=300)
     assert sent[0][:4] == ["adb", "-s", "serial", "shell"]
-    assert sent[0][4] == 'logcat -d -v epoch -t "$(( $(date +%s) - 300 )).0"'
+    assert sent[0][4] == 'logcat -d -v epoch -s adbd:V -t "$(( $(date +%s) - 300 )).0"'
 
 
 def test_check_adb_prompt_offers_hint_by_default(monkeypatch, capsys):

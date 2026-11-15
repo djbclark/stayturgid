@@ -112,11 +112,31 @@ object ComonitorProbes {
         return if (app == TAILSCALE_PACKAGE && lockdown == "0") "up" else "down"
     }
 
+    /**
+     * AutoJs6 was uninstalled fleet-wide. [autojsInstalled] false is retired, not down. Null means
+     * the package check failed: fall through to the settings list, which is the old reading.
+     */
+    fun a11yListed(autojsInstalled: Boolean?, enabledServices: String?): String {
+        if (autojsInstalled == false) return "retired"
+        if (enabledServices.isNullOrBlank() || enabledServices == "null") return "down"
+        return if (
+            enabledServices.contains(A11Y_AUTOJS6) || enabledServices.contains("org.autojs.autojs6")
+        ) {
+            "up"
+        } else {
+            "down"
+        }
+    }
+
+    private var autojsInstalledCache: Boolean? = null
+
     private fun probeA11yListed(): String {
-        val list = settingsGet("secure", "enabled_accessibility_services")
-        if (list.isNullOrBlank() || list == "null") return "down"
-        return if (list.contains(A11Y_AUTOJS6) || list.contains("org.autojs.autojs6")) "up"
-        else "down"
+        val installed =
+            autojsInstalledCache
+                ?: shellOut(arrayOf("pm", "path", "org.autojs.autojs6"), 4)?.let { path ->
+                    path.contains("package:").also { autojsInstalledCache = it }
+                }
+        return a11yListed(installed, settingsGet("secure", "enabled_accessibility_services"))
     }
 
     private fun probePort5555(): String {

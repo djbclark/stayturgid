@@ -624,6 +624,35 @@ def _repair_on_reauth(marker: str, now: float) -> bool:
     return True
 
 
+def _reassert_wireless_debugging() -> None:
+    """Turn wireless debugging back on if Android cleared it.
+
+    AdbDebuggingManager logs ``Detected wifi network change. Disabling
+    adbwifi.`` on a roam, including one that stays on the same LAN (t2e,
+    about hourly). The repair pass puts the setting back, but only at the
+    end of the interval, so the toggle sat off for up to 15 minutes. One
+    ``settings put`` when the value is not already 1, and never while an
+    auth dialog is pending: a burst of writes is what stacks that prompt.
+    A shell that does not answer is left to the repair pass.
+    """
+    if _adb_auth_marker_text() is not None:
+        return
+    get = "settings get global adb_wifi_enabled"
+    rc, out = _capture(["adb", "-s", "localhost:5555", "shell", get], timeout=8)
+    if rc != 0:
+        return
+    wifi = out.strip().replace("\r", "")
+    if wifi in ("1", "true", "", "null"):
+        return
+    put = "settings put global adb_wifi_enabled 1"
+    rc, _out = _capture(["adb", "-s", "localhost:5555", "shell", put], timeout=8)
+    if rc != 0:
+        return
+    rc, out = _capture(["adb", "-s", "localhost:5555", "shell", get], timeout=8)
+    if rc == 0 and out.strip().replace("\r", "") in ("1", "true"):
+        _boot_log("wireless debugging was off after a wifi change -> re-enabled adb_wifi_enabled")
+
+
 def _sleep_watching_adb_auth(interval: float) -> None:
     """Sleep *interval*, cutting it short only for one repair pass on re-authorisation."""
     deadline = time.monotonic() + interval
@@ -639,6 +668,11 @@ def _sleep_watching_adb_auth(interval: float) -> None:
                 _repair_on_reauth(marker, time.time())
             except Exception as exc:
                 _boot_log(f"adb re-authorisation check failed: {type(exc).__name__}: {exc}")
+        else:
+            try:
+                _reassert_wireless_debugging()
+            except Exception as exc:
+                _boot_log(f"wireless debugging reassert failed: {type(exc).__name__}: {exc}")
         time.sleep(min(left, step))
 
 

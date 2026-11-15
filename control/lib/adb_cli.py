@@ -54,6 +54,7 @@ def run(
     text: bool = True,
     timeout: int = 120,
     input_text: str | None = None,
+    errors: str | None = None,
 ) -> subprocess.CompletedProcess:
     return subprocess.run(
         cmd,
@@ -62,6 +63,7 @@ def run(
         text=text,
         timeout=timeout,
         input=input_text,
+        errors=errors,
     )
 
 
@@ -146,9 +148,18 @@ def adb_prompt_pending_in(logcat_text: str) -> bool:
 
 
 def _recent_logcat(serial: str, window_s: int) -> str | None:
-    """Last window_s seconds of logcat by the device's own clock, or None if unreadable."""
-    script = 'logcat -d -v epoch -t "$(( $(date +%%s) - %d )).0"' % window_s
-    result = adb(serial, "shell", script, check=False, timeout=30)
+    """Last window_s seconds of adbd logcat, or None if unreadable.
+
+    The stuck-prompt marker is an adbd text line. A full 10-minute dump is
+    multi-megabyte and not valid UTF-8 (t2e 2026-11-15: UnicodeDecodeError
+    near 3 MB, and the same read timing out at 30s), which failed the whole
+    debugging-dialog check. ``adbd:V`` keeps every priority of that one tag.
+    """
+    script = 'logcat -d -v epoch -s adbd:V -t "$(( $(date +%%s) - %d )).0"' % window_s
+    try:
+        result = adb(serial, "shell", script, check=False, timeout=15, errors="replace")
+    except subprocess.TimeoutExpired:
+        return None
     return (result.stdout or "") if result.returncode == 0 else None
 
 

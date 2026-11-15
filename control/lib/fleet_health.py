@@ -197,7 +197,20 @@ _tasker_monitor() {
   # No recognisable dump (shell5555 down, adb missing) is unknown, never stopped.
   case "$svc" in *"ACTIVITY MANAGER SERVICES"*) ;; *) echo unknown; return ;; esac
   case "$svc" in
-    *"net.dinglisch.android.taskerm/.MonitorService"*|*"net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MonitorService"*) echo running ;;
+    *"net.dinglisch.android.taskerm/.MonitorService"*|*"net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MonitorService"*)
+      # The first app= line under MonitorService. A denied shell
+      # start-foreground-service leaves app=null and no process, so the
+      # broadcast is still dropped (t2e, 2026-11-15). A dump with no app=
+      # line keeps the old reading.
+      app_line=$(printf '%s\n' "$svc" | awk '
+        index($0, "net.dinglisch.android.taskerm/.MonitorService") || index($0, "net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MonitorService") {hit=1; next}
+        hit && index($0, "app=") {print; exit}
+      ')
+      case "$app_line" in
+        *"app=null"*) echo stopped ;;
+        *) echo running ;;
+      esac
+      ;;
     *) echo stopped ;;
   esac
 }
@@ -262,7 +275,12 @@ _age() {
     + r"""
 }
 echo "repair_age=$(_age '\[repair\]')"
-echo "watchdog_age=$(_age '\[watchdog\]')"
+# The legacy AutoJs6 watchdog no longer writes a [watchdog] line; watchdog.log
+# is the repair mirror. "missing" showed up on every health line as if the
+# log were gone (t2e, 2026-11-15).
+_wd_age=$(_age '\[watchdog\]')
+if [ "$_wd_age" = missing ]; then _wd_age=retired; fi
+echo "watchdog_age=$_wd_age"
 # Native agent (OPTIONS K1): agent.log STATUS + age.
 _agent_age() {
   last=$(grep -ah '\[agent\] STATUS' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
@@ -326,6 +344,9 @@ if [ -z "$autojs6_installed" ]; then
 fi
 if [ -z "$autojs6_installed" ]; then
   echo "autojs6_a11y=retired"
+  # parse_kv keeps the last a11y=. The newest STATUS is often the native
+  # agent's, which still says a11y=down for an app that is not installed.
+  echo "a11y=retired"
 else
   case "$a11y_list" in
     *org.autojs.autojs6/*) echo "autojs6_a11y=ok" ;;
@@ -626,7 +647,9 @@ age_of() {
         + r"""
 }
 echo "repair_age=$(age_of '[repair]')"
-echo "watchdog_age=$(age_of '[watchdog]')"
+_wd_age=$(age_of '[watchdog]')
+if [ "$_wd_age" = missing ]; then _wd_age=retired; fi
+echo "watchdog_age=$_wd_age"
 # agent.ts= prefer explicit ts= field on [agent] STATUS lines
 agent_last=$(grep -ah '\[agent\] STATUS' /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1)
 agent_ts=$(echo "$agent_last" | sed -n 's/.*ts=\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]\).*/\1/p')
@@ -669,8 +692,10 @@ echo "a11y_list=$list"
 # (2026-07-25, issue #43) and is not expected to return — check live install
 # state first so its absence reads as the retired, healthy state instead of
 # perpetual "missing" noise.
+autojs_retired=0
 if [ -z "$(pm path org.autojs.autojs6 2>/dev/null)" ]; then
   echo "autojs6_a11y=retired"
+  autojs_retired=1
 else
   case "$list" in
     *org.autojs.autojs6/*) echo "autojs6_a11y=ok" ;;
@@ -682,7 +707,11 @@ st=$(grep -ah 'STATUS port=' $LOGS 2>/dev/null | tail -1)
 echo "status_line=$st"
 echo "$st" | grep -oE 'port=[^ ]+' || echo "port=unknown"
 echo "$st" | grep -oE 'shizuku=[^ ]+' || echo "shizuku=unknown"
-echo "$st" | grep -oE 'a11y=[^ ]+' || echo "a11y=unknown"
+if [ "$autojs_retired" = 1 ]; then
+  echo "a11y=retired"
+else
+  echo "$st" | grep -oE 'a11y=[^ ]+' || echo "a11y=unknown"
+fi
 auth=$(grep -ah 'STATUS port=.*shizuku_auth=' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | grep -oE 'shizuku_auth=[^ ]+')
 echo "${auth:-shizuku_auth=unknown}"
 echo "shell5555=skip"
