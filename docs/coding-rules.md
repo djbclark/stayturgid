@@ -88,13 +88,8 @@ retries, state transitions, structured output, and error classification.
 
 ### Exceptions require a concrete reason
 
-- **AutoJs6 JavaScript:** the AutoJs6 watchdog runtime was retired fleet-wide
-  by the K1 native-agent cutover (2026-07-22 — see `docs/STATUS.md`) and its
-  code deleted entirely (#162, 2026-07-31; see
-  `docs/architecture/components/autojs6.md` for historical reference). Do not
-  add new fleet-facing AutoJs6 automation. Any future JS-based automation for
-  other purposes should still keep platform calls narrow and cover portable
-  logic with Node-compatible tests where possible.
+- **JavaScript:** keep platform calls narrow and cover portable logic with
+  Node-compatible tests where possible.
 - **Ansible:** use for declared fleet/control-node desired state and idempotent
   deployment within the boundaries in [ADR 001](architecture/adr/001-ansible-boundary.md).
 - **Shell:** acceptable for a small, clearer wrapper or direct pipeline. Do not put
@@ -127,12 +122,10 @@ but raw diagnostic detail must remain available.
 - **On-device filesystem paths must be ASCII-only** (English letters, digits, `/`,
   `_`, `-`, `.`). No CJK or other non-ASCII code points in path segments we create
   or deploy to.
-- Historical (AutoJs6, retired and deleted in #162): its canonical project
-  path was `/sdcard/stayturgid/autojs6`, and it defaulted to a non-ASCII
-  locale sample directory on Chinese builds (`/sdcard/脚本/stayturgid`,
-  U+811A U+672C "Scripts") — a stale copy there caused the p7a
-  `SyntaxError: Invalid quantifier` failure (2026-07-19), the origin of the
-  ASCII-only rule below.
+- A retired on-device project defaulted to a non-ASCII locale sample directory
+  on Chinese builds (`/sdcard/脚本/stayturgid`, U+811A U+672C "Scripts"). A stale
+  copy there caused the p7a `SyntaxError: Invalid quantifier` failure
+  (2026-07-19), the origin of the ASCII-only rule below.
 - Repo-relative paths and identifiers used as paths in code (inventory
   targets, deploy destinations) must also stay ASCII. Prose docs may use
   Unicode punctuation (em dash, etc.); path **literals** must not.
@@ -172,8 +165,8 @@ update the appropriate durable recovery layers so the same condition can recover
 without the one-shot intervention:
 
 - Termux supervisor/repair
-- Native agent heartbeat/repair (`device/native-agent/`) — replaces the
-  retired AutoJs6 watchdog/co-monitor as of the K1 cutover (2026-07-22)
+- Native agent heartbeat/repair (`device/native-agent/`) — the on-device
+  repair owner as of the K1 cutover (2026-07-22)
 - Mac launchd health/heal
 - Ansible deployment and validation
 - Catastrophic recovery where applicable

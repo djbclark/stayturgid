@@ -70,5 +70,5 @@ bun run dev
 ```
 
 4. **Connect the Senses:** Provide Aurora with API access to OpenObserve, Netdata, and Grafana so it has permission to autonomously query the data when an incident occurs.
-5. **Configure the Triggers:** Set up webhooks in OpenObserve and Netdata. When their ML engines detect a statistical anomaly (e.g., a sudden spike in AutoJs6 UI crashes on the `s24` host), they ping Aurora.
+5. **Configure the Triggers:** Set up webhooks in OpenObserve and Netdata. When their ML engines detect a statistical anomaly (e.g., a sudden spike in UI crashes on the `s24` host), they ping Aurora.
 6. **The Autonomous Handoff:** Aurora will wake up, read the anomaly, query the logs to find the exact stack trace, query the metrics to see if the device was overheating, and output a human-readable Root Cause Analysis with a recommendation to run your `just heal-firerpa` script.

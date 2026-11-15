@@ -23,7 +23,7 @@ Severity: **H** = broken behavior in production paths, **M** = incorrect/harmful
 
 ### H1. `stayturgid-repair.sh` — functions called before they are defined (lock-contention branch)
 
-`termux/stayturgid-repair.sh:24-44` — the `flock -n 9` failure branch calls `sshd_up` (line 26) and `sshd_listening` (line 28), but both functions are defined _below_ it (lines 48–55). Bash resolves functions at call time, so whenever two invocations overlap (exactly the case this branch exists for — the 5-min boot loop, the repair bridge, and AutoJs6 RUN_COMMAND can all fire concurrently), the duplicate caller gets `sshd_up: command not found` on stderr and always reports `sshd=unknown`. The STATUS line consumed by the AutoJs6 watchdog is therefore wrong in precisely the concurrent case that commit `e5d89de` ("serialize invocations") was meant to fix.
+`termux/stayturgid-repair.sh:24-44` — the `flock -n 9` failure branch calls `sshd_up` (line 26) and `sshd_listening` (line 28), but both functions are defined _below_ it (lines 48–55). Bash resolves functions at call time, so whenever two invocations overlap (exactly the case this branch exists for — the 5-min boot loop, the repair bridge, and RUN_COMMAND can all fire concurrently), the duplicate caller gets `sshd_up: command not found` on stderr and always reports `sshd=unknown`. The STATUS line consumed by the watchdog is therefore wrong in precisely the concurrent case that commit `e5d89de` ("serialize invocations") was meant to fix.
 **Fix:** move the function definitions above the `exec 9>` / `flock` block.
 **Verified:** a local reproduction of the same structure (flock branch above the function definitions) prints `sshd_up: command not found`, `sshd_listening: command not found` and reports `sshd=unknown` — exactly the predicted failure.
 
@@ -31,8 +31,8 @@ Severity: **H** = broken behavior in production paths, **M** = incorrect/harmful
 
 Two occurrences:
 
-- `device/termux/boot/start-repair-bridge.sh:9` — the guard `! pgrep -f repair-bridge.sh` runs inside a process whose cmdline is `bash …/.device/termux/boot/start-repair-bridge.sh`. The pattern `repair-bridge.sh` is a substring of `start-repair-bridge.sh`, so pgrep always matches the boot script itself and the `nohup ~/repair-bridge.sh &` line **never executes**. The fast-repair bridge is effectively never started at boot; the `/sdcard/stayturgid_repair_now` trigger-file fallback in `device/autojs6/lib/termux.js` silently does nothing until someone starts the bridge by hand.
-- `control/tools/autojs6/setup_autojs6.py:67` — same bug over SSH: the remote command string (`bash -c '… pgrep -f repair-bridge.sh >/dev/null || nohup ~/repair-bridge.sh …'`) itself contains the pattern, so pgrep matches the shell running the check, the `||` short-circuits, and the script prints "repair-bridge.sh started (or already running)" without starting anything.
+- `device/termux/boot/start-repair-bridge.sh:9` — the guard `! pgrep -f repair-bridge.sh` runs inside a process whose cmdline is `bash …/.device/termux/boot/start-repair-bridge.sh`. The pattern `repair-bridge.sh` is a substring of `start-repair-bridge.sh`, so pgrep always matches the boot script itself and the `nohup ~/repair-bridge.sh &` line **never executes**. The fast-repair bridge is effectively never started at boot; the `/sdcard/stayturgid_repair_now` trigger-file fallback in `device//lib/termux.js` silently does nothing until someone starts the bridge by hand.
+- `control/tools//setup.py:67` — same bug over SSH: the remote command string (`bash -c '… pgrep -f repair-bridge.sh >/dev/null || nohup ~/repair-bridge.sh …'`) itself contains the pattern, so pgrep matches the shell running the check, the `||` short-circuits, and the script prints "repair-bridge.sh started (or already running)" without starting anything.
 
 **Fix:** anchor the pattern so it can't match wrappers, e.g. `pgrep -f '[r]epair-bridge\.sh$'` won't help against the path suffix — instead match the exact invocation: `pgrep -f "bash $HOME/repair-bridge.sh"` or use a pidfile written by `repair-bridge.sh` itself. (Note `control/bin/deploy_fleet.py` and `control/bin/tests/run.sh device --heal` avoid this class of bug by using `bash -s` heredocs — the pattern isn't in any cmdline — so those checks are fine.)
 **Verified on the live S24 (read-only):** `pgrep -laf repair-bridge` run over SSH matched **its own remote shell** (`bash -c echo …; pgrep -laf repair-bridge; …`) in addition to the real bridge — confirming Termux's procps pgrep matches the caller's cmdline. The bridge _is_ currently running on the S24 (pid 23005, presumably started by hand or a pre-guard deploy), but after the next reboot the boot guard will self-match and never restart it. Caution for future testing: **macOS/BSD pgrep does not exhibit this self-match** (verified locally), so Mac-side dry-runs of these guards pass while the on-device behavior fails.
@@ -79,11 +79,11 @@ Module skips `pkg update` / `full-upgrade` in check mode; install no longer re-r
 
 ### M7. ~~Watchdog notifications use random IDs — unbounded pileup during outages~~ **Fixed**
 
-`device/autojs6/lib/notify.js` — stable `idFor(key)` per alert type; repeat counts persist in `notify_state.json` with `(Nx)` suffix; `clear(key)` on recovery.
+`device//lib/notify.js` — stable `idFor(key)` per alert type; repeat counts persist in `notify_state.json` with `(Nx)` suffix; `clear(key)` on recovery.
 
 ### M8. Watchdog log grows without bound and is re-read in full every 500 ms
 
-`/sdcard/stayturgid_watchdog.log` is appended by the repair script, the boot loop, and every AutoJs6 cycle, and is never rotated (unlike the Mac logs, which are trimmed to 1000 lines). `device/autojs6/lib/termux.js:29-46` polls `log.latestRepairTimestampMs()` every 500 ms for up to 12 s, and each call (`device/autojs6/lib/log.js:52-65`) reads the entire file over FUSE and splits it. Months of operation make every watchdog cycle progressively slower and more battery-hungry. Trim the log (e.g. keep last 500 lines when >1000) in `log.append` or in the repair script, and/or read only the tail.
+`/sdcard/stayturgid_watchdog.log` is appended by the repair script, the boot loop, and every cycle, and is never rotated (unlike the Mac logs, which are trimmed to 1000 lines). `device//lib/termux.js:29-46` polls `log.latestRepairTimestampMs()` every 500 ms for up to 12 s, and each call (`device//lib/log.js:52-65`) reads the entire file over FUSE and splits it. Months of operation make every watchdog cycle progressively slower and more battery-hungry. Trim the log (e.g. keep last 500 lines when >1000) in `log.append` or in the repair script, and/or read only the tail.
 
 ### M9. `adb-reconnect.sh` posts a macOS notification every 60 seconds while a device is away
 
@@ -96,7 +96,7 @@ Minor, same file: line 63 caches whatever address just connected — including t
 
 ### M11. Shizuku JSON patch can drop other apps' authorizations on transient read failure
 
-`control/tools/autojs6/grant-shizuku.sh:50` and `control/tools/obtainium/enable-shizuku-installer.sh:64` — `CURRENT="$(sh_shell "cat $SHIZUKU_JSON" … || true)"`; any transient failure (5555 not connected in the Termux-side adb server, adbd hiccup) yields an empty string, which the Python patcher treats as "fresh config" and rewrites `shizuku.json` containing _only_ the one app being granted — revoking every other authorized app. Distinguish "file empty/missing" from "read failed" (check the `cat` exit code before defaulting) and abort on read failure.
+`control/tools//grant-shizuku.sh:50` and `control/tools/obtainium/enable-shizuku-installer.sh:64` — `CURRENT="$(sh_shell "cat $SHIZUKU_JSON" … || true)"`; any transient failure (5555 not connected in the Termux-side adb server, adbd hiccup) yields an empty string, which the Python patcher treats as "fresh config" and rewrites `shizuku.json` containing _only_ the one app being granted — revoking every other authorized app. Distinguish "file empty/missing" from "read failed" (check the `cat` exit code before defaulting) and abort on read failure.
 
 ---
 
@@ -112,23 +112,23 @@ Minor, same file: line 63 caches whatever address just connected — including t
 
 ### L3. Blind-coordinate and first-match UI fallbacks
 
-- `device/autojs6/lib/shizuku.js:50-55` — if the Shizuku manager didn't actually open (slow device, lock screen), `click(profile.shizukuStartCoords…)` taps blind coordinates on whatever is foreground.
-- `device/autojs6/lib/shizuku.js:79-84` — if the "Wireless debugging" entry isn't found, the code clicks the _first_ `android.widget.Switch` on the Developer-options screen if unchecked; on some OEM screens that's not the wireless-debugging toggle. Consider verifying the current activity/window title before either fallback.
+- `device//lib/shizuku.js:50-55` — if the Shizuku manager didn't actually open (slow device, lock screen), `click(profile.shizukuStartCoords…)` taps blind coordinates on whatever is foreground.
+- `device//lib/shizuku.js:79-84` — if the "Wireless debugging" entry isn't found, the code clicks the _first_ `android.widget.Switch` on the Developer-options screen if unchecked; on some OEM screens that's not the wireless-debugging toggle. Consider verifying the current activity/window title before either fallback.
 - `control/tools/obtainium/enable-shizuku-installer.sh:95,132,147` and `control/tools/obtainium/apply-updates.sh:25-27,45` — hardcoded tap coordinates are resolution-specific to these two phones; fine for a personal fleet, but the fallbacks fire silently. At least log which path was taken (the scripts mostly do — good).
 
 ### L4. `config.detectDeviceProfile()` silently defaults unknown hardware to the p7a profile
 
-`device/autojs6/lib/config.js:36` — an unrecognized device inherits p7a's `tailscaleIp` and tap coordinates, so `isTunUp`'s self-ping and the catastrophic tap fallback act on wrong data. Log a warning line when defaulting.
+`device//lib/config.js:36` — an unrecognized device inherits p7a's `tailscaleIp` and tap coordinates, so `isTunUp`'s self-ping and the catastrophic tap fallback act on wrong data. Log a warning line when defaulting.
 
 ### L5. `boot-launcher.js` declares `"auto";`
 
-`device/autojs6/scripts/boot-launcher.js:5` — the launcher only enumerates engines and execs `main.js`; it doesn't need accessibility. Because `start-adb.sh` re-launches it every 5 minutes, `"auto"` can repeatedly bounce the user to Accessibility settings whenever the service is off. `main.js`/`guard.enforce()` already handles the a11y requirement (and `main.js:14-15` double-calls `auto.waitFor()` — `guard.enforce()` already waits; harmless but redundant).
+`device//scripts/boot-launcher.js:5` — the launcher only enumerates engines and execs `main.js`; it doesn't need accessibility. Because `start-adb.sh` re-launches it every 5 minutes, `"auto"` can repeatedly bounce the user to Accessibility settings whenever the service is off. `main.js`/`guard.enforce()` already handles the a11y requirement (and `main.js:14-15` double-calls `auto.waitFor()` — `guard.enforce()` already waits; harmless but redundant).
 
 ### L6. `test-tailscale-down-once.js` sleeps 2 ms, not 2 s
 
-`device/autojs6/scripts/test-tailscale-down-once.js` — `sleep(2)` after `tailscale.relaunch()`; AutoJs6 `sleep()` takes milliseconds. Should be `sleep(2000)`.
+`device//scripts/test-tailscale-down-once.js` — `sleep(2)` after `tailscale.relaunch()`; `sleep()` takes milliseconds. Should be `sleep(2000)`.
 
-### L7. `setup_autojs6.py` inconsistencies
+### L7. `setup.py` inconsistencies
 
 - Line 64 (`scp … repair-bridge.sh`) is unindented and, unlike its siblings, has no `2>/dev/null ||` fallback — under `set -e` a failure aborts setup halfway (after the repair script but before boot hooks).
 - Line 81 recomputes `SCRIPT_DIR` already set at line 7.
@@ -152,7 +152,7 @@ Ansible already attempts all hosts unless `serial` / `any_errors_fatal` is set (
 
 ### L12. `Date.parse("YYYY-MM-DD HH:MM:SST…")` local-time assumption
 
-`device/autojs6/lib/log.js:60` — staleness detection parses timestamps written in device-local time with `Date.parse(m[1].replace(" ", "T"))`. Whether a no-offset ISO string parses as local or UTC varies by JS engine vintage (ES5 said UTC; ES2016+ says local). Your on-device stale-loop test passing implies Rhino/AutoJs6 does local here, but an AutoJs6 upgrade could silently shift this by the UTC offset (making stale detection either always-stale or never-stale). Constructing the Date from the captured components (or comparing formatted strings) removes the ambiguity.
+`device//lib/log.js:60` — staleness detection parses timestamps written in device-local time with `Date.parse(m[1].replace(" ", "T"))`. Whether a no-offset ISO string parses as local or UTC varies by JS engine vintage (ES5 said UTC; ES2016+ says local). Your on-device stale-loop test passing implies Rhino/ does local here, but an upgrade could silently shift this by the UTC offset (making stale detection either always-stale or never-stale). Constructing the Date from the captured components (or comparing formatted strings) removes the ambiguity.
 
 ### L13. Docs nits
 
@@ -164,7 +164,7 @@ Ansible already attempts all hosts unless `serial` / `any_errors_fatal` is set (
 
 ## What looks good
 
-- The layered repair architecture (Termux 5-min loop → repair bridge → AutoJs6 UI repair) is cleanly separated, and each layer degrades gracefully when the next one is missing.
+- The layered repair architecture (Termux 5-min loop → repair bridge → UI repair) is cleanly separated, and each layer degrades gracefully when the next one is missing.
 - `flock`-based serialization of the repair script (modulo H1) and the sticky `setprop service.adb.tcp.port 5555` are the right primitives.
 - `control/bin/access-monitor.sh` is a model citizen: consecutive-failure debounce, single alert per outage, recovery notification, log trimming. Several other scripts should copy it (see M9).
 - `control/lib/resolve_adb.py` centralizes adb target resolution for Mac CLI and shell callers; `stayturgid_root.py`'s marker-directory walk is robust.

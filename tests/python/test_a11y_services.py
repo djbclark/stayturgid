@@ -9,16 +9,10 @@ import a11y_services as a11y
 
 
 def test_parse_services():
-    cur = "com.other.app/.Service:%s" % a11y.AUTOJS6_A11Y
+    cur = "com.other.app/.Service:com.example.app/.ExampleService"
     parsed = a11y.parse_services(cur)
     assert "com.other.app/.Service" in parsed
-    assert a11y.AUTOJS6_A11Y in parsed
-
-
-def test_has_autojs6():
-    assert a11y.has_autojs6("foo:bar:%s:baz" % a11y.AUTOJS6_A11Y)
-    assert not a11y.has_autojs6("")
-    assert not a11y.has_autojs6(None)
+    assert "com.example.app/.ExampleService" in parsed
 
 
 def test_normalize_value():

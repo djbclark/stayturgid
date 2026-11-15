@@ -38,7 +38,7 @@ class _Dev:
     device_label: str = "label"
     ansible_port: int = 8022
     ansible_user: str = "termux"
-    stayturgid_automation_mode: str = "autojs6"
+    stayturgid_automation_mode: str = "native"
 
 
 @dataclass(frozen=True)

@@ -2,8 +2,7 @@
 
 ## Unreleased (galaxy.yml still says 1.5.0; recorded 2026-10-09 from git history)
 
-- Remove `autojs6_project_deploy` and `autojs6_deploy_util` with the rest of
-  AutoJs6 (87bf130, 2026-07-31, #162).
+- Remove the legacy project-deploy module and its util (87bf130, 2026-07-31, #162).
 - Add `native_agent_config` module (a9e07ce, 2026-07-26).
 - Add `shizuku_start` module and `bootstrap_apks` role (2026-07-13).
 - Add `android_app_privileges` module and `app_privileges` role (d3b285d,
@@ -11,8 +10,7 @@
 
 ## 1.5.0 (2026-07-09)
 
-- Add `autojs6_project_deploy` module + `autojs6_deploy_util` (Fire OS adb path;
-  shared with `control/tools/autojs6/deploy.py`).
+- Add the legacy project-deploy module and its util (Fire OS adb path; removed in #162).
 
 ## 1.4.1 (2026-07-08)
 

@@ -1,14 +1,14 @@
 # ADR 003: Shizuku catastrophic recovery architecture
 
-**Status:** Accepted (2026-07-11); the AutoJs6 watchdog this describes was
+**Status:** Accepted (2026-07-11); the watchdog this describes was
 retired fleet-wide in the K1 cutover (2026-07-22) and its code deleted
 entirely (#162, 2026-07-31) — kept as historical design rationale only, not
 a description of anything currently in the repo.  
-**Context:** AutoJs6 watchdog Shizuku recovery when port 5555 is down
+**Context:** watchdog Shizuku recovery when port 5555 is down
 
 ## Decision
 
-The Shizuku catastrophic recovery path (`device/autojs6/lib/shizuku.js`) uses a **shell-first, UI-last** strategy:
+The Shizuku catastrophic recovery path (`device//lib/shizuku.js`) uses a **shell-first, UI-last** strategy:
 
 1. **`serverRunning()`** — quick check; if Shizuku server is alive, proceed to wireless repair.
 2. **`tryShellWirelessRepair()`** — shell-based wireless debugging enable + `adb connect 127.0.0.1:5555`.

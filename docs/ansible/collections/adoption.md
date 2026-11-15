@@ -74,18 +74,18 @@ checksummed `bootstrap_apks` lock.
 
 Companion roles ship in each collection:
 
-| Collection role FQCN                       | Purpose                                                                                                                                                                                                             |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stayturgid.termux.termux_userland`        | Termux bootstrap over SSH                                                                                                                                                                                           |
-| `stayturgid.android_common.bootstrap_apks` | Install the locked bootstrap APKs over ADB (exact tag, version and checksum)                                                                                                                                        |
-| `stayturgid.android_common.ensure_apps`    | Per-app ensure that dispatches each spec to the Play or APK module                                                                                                                                                  |
-| `stayturgid.android_common.app_privileges` | Battery-unrestricted, unused-app restrictions off, runtime grants for fleet apps                                                                                                                                    |
-| `stayturgid.android_common.tailscale_vpn`  | Always-on VPN secure settings                                                                                                                                                                                       |
-| `stayturgid.fleet.shizuku_config`          | Shizuku headless configuration                                                                                                                                                                                      |
-| `stayturgid.firerpa.firerpa`               | FIRERPA server install and configuration (when `firerpa_enabled`)                                                                                                                                                   |
-| `stayturgid.play.play_store`               | Optional apkeep/gplaycli sideload, gated by `stayturgid_app_stores_enabled` (default false)                                                                                                                         |
-| `stayturgid.fleet.post_ui`                 | Post-deploy UI tasks (screen-unlock gate for app-stores; the `android_ui` module it used to call was deleted in #162 — its only dispatch entry, the AutoJs6 Shizuku drawer task, was already removed independently) |
-| `stayturgid.fleet.validate`                | Post-deploy repair/a11y smoke (role; wired by `validate.yml`)                                                                                                                                                       |
+| Collection role FQCN                       | Purpose                                                                                                               |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `stayturgid.termux.termux_userland`        | Termux bootstrap over SSH                                                                                             |
+| `stayturgid.android_common.bootstrap_apks` | Install the locked bootstrap APKs over ADB (exact tag, version and checksum)                                          |
+| `stayturgid.android_common.ensure_apps`    | Per-app ensure that dispatches each spec to the Play or APK module                                                    |
+| `stayturgid.android_common.app_privileges` | Battery-unrestricted, unused-app restrictions off, runtime grants for fleet apps                                      |
+| `stayturgid.android_common.tailscale_vpn`  | Always-on VPN secure settings                                                                                         |
+| `stayturgid.fleet.shizuku_config`          | Shizuku headless configuration                                                                                        |
+| `stayturgid.firerpa.firerpa`               | FIRERPA server install and configuration (when `firerpa_enabled`)                                                     |
+| `stayturgid.play.play_store`               | Optional apkeep/gplaycli sideload, gated by `stayturgid_app_stores_enabled` (default false)                           |
+| `stayturgid.fleet.post_ui`                 | Post-deploy UI tasks (screen-unlock gate for app-stores; the `android_ui` module it used to call was deleted in #162) |
+| `stayturgid.fleet.validate`                | Post-deploy repair/a11y smoke (role; wired by `validate.yml`)                                                         |
 
 ## Backward-compatible FQCNs
 

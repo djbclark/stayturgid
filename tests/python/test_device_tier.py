@@ -114,27 +114,6 @@ def test_evaluate_battery_unknown_fails():
     assert k["stock-android-device: termux-api battery readable"] == "fail"
 
 
-def test_evaluate_watchdog_liveness():
-    k = kinds(dt.evaluate("oneui-device", dt.parse_report(HEALTHY)))
-    assert k["oneui-device: AutoJs6 watchdog alive (<30 min)"] == "ok"
-    rep_stale = dt.parse_report(HEALTHY.replace("watchdog=fresh", "watchdog=stale:4000s"))
-    k = kinds(dt.evaluate("oneui-device", rep_stale))
-    assert k["oneui-device: AutoJs6 watchdog alive (<30 min)"] == "todo"
-    rep_both_bad = dt.parse_report(
-        HEALTHY.replace("watchdog=fresh", "watchdog=stale:4000s").replace("repairlog=fresh", "repairlog=stale")
-    )
-    k = kinds(dt.evaluate("oneui-device", rep_both_bad))
-    assert k["oneui-device: AutoJs6 watchdog alive (<30 min)"] == "fail"
-    rep_missing = dt.parse_report(HEALTHY.replace("watchdog=fresh", "watchdog=missing"))
-    k = kinds(dt.evaluate("oneui-device", rep_missing))
-    assert k["oneui-device: AutoJs6 watchdog alive (<30 min)"] == "todo"
-    rep_missing_stale_repair = dt.parse_report(
-        HEALTHY.replace("watchdog=fresh", "watchdog=missing").replace("repairlog=fresh", "repairlog=stale")
-    )
-    k = kinds(dt.evaluate("oneui-device", rep_missing_stale_repair))
-    assert k["oneui-device: AutoJs6 watchdog alive (<30 min)"] == "fail"
-
-
 def test_evaluate_fire_split_storage_todos():
     # Fire OS: no localhost:5555 loopback; Termux can't confirm watchdog/appops.
     # When the Mac-side adb probe hasn't upgraded the report, both are TODO.
@@ -147,7 +126,6 @@ def test_evaluate_fire_split_storage_todos():
     )
     k = kinds(dt.evaluate("fireos-device", dt.parse_report(fire_missing)))
     assert k["fireos-device: privileged shell on localhost:5555"] == "ok"
-    assert k["fireos-device: AutoJs6 watchdog alive (<30 min)"] == "todo"
     assert k["fireos-device: Termux:API WRITE_SETTINGS granted (battery flash)"] == "todo"
     assert k["fireos-device: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "todo"
     assert k["fireos-device: Tailscale always-on VPN enabled"] == "todo"
@@ -155,7 +133,6 @@ def test_evaluate_fire_split_storage_todos():
     # When the Mac adb probe upgraded them to fresh/allow, they pass as ok.
     fire_ok = HEALTHY + "localhost_shell=skip\n"
     k2 = kinds(dt.evaluate("fireos-device", dt.parse_report(fire_ok)))
-    assert k2["fireos-device: AutoJs6 watchdog alive (<30 min)"] == "ok"
     assert k2["fireos-device: Termux:API WRITE_SETTINGS granted (battery flash)"] == "ok"
     assert k2["fireos-device: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "ok"
     assert k2["fireos-device: Tailscale always-on VPN enabled"] == "ok"

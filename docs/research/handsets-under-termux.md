@@ -94,7 +94,7 @@ Spike **A** shipped and switched on:
 | `device/termux/py/stayturgid_handsets.py`            | Wire client + Session                                               |
 | Ansible deploy `hs.jar` → `~/.stayturgid/lib/hs.jar` | `termux_userland`                                                   |
 | Bench s24 (n=8)                                      | `dump_active` p50 **243 ms** vs raw dump p50 **2979 ms** (~**12×**) |
-| `stayturgid_enable_autojs6.py`                       | Handsets-primary; probe `operational=true`                          |
+| `stayturgid_enable.py`                               | Handsets-primary; probe `operational=true`                          |
 | `stayturgid_configure_aurora.py`                     | Handsets-primary; dump fallback                                     |
 | `stayturgid_import_catalog.py`                       | Handsets-primary; dump fallback                                     |
 | Disable                                              | `STAYTURGID_HANDSETS=0` or `STAYTURGID_NO_LOCAL_ADB=1` (hd8)        |
@@ -111,5 +111,5 @@ On Fire, Termux↔Shizuku binder often times out — peer ADB is the Handsets st
 ## Non-goals
 
 - Running Mac `hs` under Termux proot/QEMU.
-- Replacing AutoJs6 a11y watchdog with Handsets.
+- Replacing a11y watchdog with Handsets.
 - Concurrent Handsets + uiautomator2 (still exclusive UiAutomation).

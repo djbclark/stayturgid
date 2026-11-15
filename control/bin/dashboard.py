@@ -190,8 +190,6 @@ _SVC_LABELS = {
     "bootloop": "bootloop",
     "shell5555": "sh 5555",
     "shizuku": "shizuku",
-    "a11y": "a11y",
-    "autojs6_a11y": "autojs6",
     "cfengine": "cfengine",
     "port": "port",
 }
@@ -242,21 +240,9 @@ def _issue_tags(issues: list[str]) -> Markup:
 
 
 HUMAN_ACTIONS = {
-    "autojs6_a11y_missing": (
-        "Open Android Settings → Accessibility → Downloaded apps → AutoJs6 "
-        "→ toggle ON. If already ON, toggle OFF then ON again. "
-        "This must be done on the device screen — Android blocks programmatic enable on 16+."
-    ),
-    "autojs6_a11y_stale": (
-        "AutoJs6 is still listed as ON in Accessibility but the watchdog is not "
-        "cycling — sticky/malfunctioning a11y (enabled but not bound). "
-        "On the device: Settings → Accessibility → AutoJs6 → turn OFF then ON, "
-        "then open AutoJs6 → run main.js. Do not only flip the switch once if it "
-        "already shows ON."
-    ),
     "a11y_failed": (
-        "Accessibility repair failed. Open Android Settings → Accessibility → "
-        "Downloaded apps → AutoJs6 → toggle ON. If already ON, toggle OFF then ON again."
+        "An accessibility probe reported FAILED. Open Android Settings → Accessibility "
+        "and check the enabled services on the device screen."
     ),
     "a11y_profile_drift": (
         "Expected accessibility services are missing from this device. "
@@ -283,16 +269,11 @@ HUMAN_ACTIONS = {
     ),
     "shizuku_auth_unanswered": ISSUE_HINTS["shizuku_auth_unanswered"] + ".",
     "watchdog_stale": (
-        "AutoJs6 watchdog has not cycled in over 30 minutes. "
+        "The repair mirror has not cycled in over 30 minutes. "
         "The self-heal monitor attempts to restart it via ADB. "
-        "If persistent, the AutoJs6 JavaScript task may be stuck — "
-        "force-stop the AutoJs6 app in Android Settings, then run: "
-        "hosts=<host> just verify-heal"
+        "If persistent, run: hosts=<host> just verify-heal"
     ),
-    "watchdog_missing": (
-        "No AutoJs6 watchdog log entries found. The AutoJs6 app may not "
-        "be running. Run: hosts=<host> just verify-heal to attempt restart."
-    ),
+    "watchdog_missing": ("No repair-mirror log entries found. Run: hosts=<host> just verify-heal to attempt restart."),
     "bootloop_down": (
         "The Termux boot loop (start-adb.sh) was not detected at probe time. "
         "This is often a false positive (probe timing gap). If persistent, "
@@ -435,7 +416,7 @@ def _safe_int(s: str | None) -> int | None:
 
 
 def _build_services(h: dict) -> list[dict]:
-    svc_order = ["sshd", "bootloop", "shell5555", "shizuku", "a11y", "autojs6_a11y", "cfengine", "port"]
+    svc_order = ["sshd", "bootloop", "shell5555", "shizuku", "cfengine", "port"]
     out: list[dict] = []
     for key in svc_order:
         val = h.get(key)

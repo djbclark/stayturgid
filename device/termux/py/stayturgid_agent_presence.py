@@ -68,7 +68,6 @@ IDLE_PKGS = {
     "com.termux",
     "com.tailscale.ipn",
     "moe.shizuku.privileged.api",
-    "org.autojs.autojs6",
 }
 PKG_RE = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+$")
 

@@ -13,7 +13,7 @@ Steps 6–8 are open as Track F items (F1–F3) in [../options.md](../../options
 live on s24 + p7a. FIRERPA's `getUiAutomation(0)` suppression was fixed with a
 hash-guarded DEX patch to `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`; the lifecycle
 starts the signed JAR, waits for validation/listeners, atomically swaps the patched
-JAR, and restarts only its UI helpers. AutoJs6, AutoInput, and Octoclip remain bound.
+JAR, and restarts only its UI helpers. , AutoInput, and Octoclip remain bound.
 After reboot the Python supervisor prefers localhost ADB; authorized Shizuku `rish`
 can restart adbd, after which FIRERPA is launched through persistent UID-2000 ADB.
 
@@ -135,7 +135,7 @@ responds, and no stayturgid services are disrupted.
 2. **Record baseline** — snapshot what's running on s24 before changes:
 
    ```
-   ssh s24 'ps -A | grep -E "termux|autojs|shizuku|adb" > /tmp/before-firerpa.txt'
+   ssh s24 'ps -A | grep -E "termux||shizuku|adb" > /tmp/before-firerpa.txt'
    make health  # must say OK
    ```
 
@@ -172,7 +172,7 @@ responds, and no stayturgid services are disrupted.
 
    ```
    make health          # must say OK
-   ssh s24 'ps -A | grep -E "termux|autojs|shizuku|adb" > /tmp/after-firerpa.txt'
+   ssh s24 'ps -A | grep -E "termux||shizuku|adb" > /tmp/after-firerpa.txt'
    diff /tmp/before-firerpa.txt /tmp/after-firerpa.txt  # should be empty or FIRERPA-only diff
    ```
 
@@ -327,7 +327,7 @@ Ansible, coexisting with all existing services.
 
 6. **Verify existing services unaffected:**
    ```
-   ssh s24 'pgrep -a autojs6'          # watchdog still running
+   ssh s24 'pgrep -a '          # watchdog still running
    ssh s24 'pgrep -a "termux"'          # Termux services still running
    ssh s24 'ss -tlnp | grep 8022'       # SSH still on 8022
    ```
@@ -336,7 +336,7 @@ Ansible, coexisting with all existing services.
 
 - [ ] `curl localhost:65000` returns FIRERPA device info JSON
 - [ ] `make health` says OK
-- [ ] AutoJs6 watchdog still running
+- [ ] watchdog still running
 - [ ] Termux SSH still on port 8022
 - [ ] Disk usage delta < 200 MB (server binary + config)
 - [ ] No process crashes in `logcat -d -s FIRERPA`
@@ -396,7 +396,7 @@ running FIRERPA, all stayturgid services intact.
    ssh hd8 'curl -s http://localhost:65000/api/v1/device | head -c 200'
    make health
    # Manually verify tablet still works:
-   # - AutoJs6 watchdog running?
+   # -  watchdog running?
    # - Screen still accessible via scrcpy?
    # - Termux boot scripts still starting?
    ```
@@ -415,7 +415,7 @@ running FIRERPA, all stayturgid services intact.
 - [ ] All 3 devices: `curl localhost:65000` returns device info
 - [ ] `make health` says OK for all 3
 - [ ] p7a disk still has > 10 GB free after install
-- [ ] hd8: AutoJs6 watchdog running, screen accessible, Termux boot OK
+- [ ] hd8: watchdog running, screen accessible, Termux boot OK
 - [ ] No device has FIRERPA conflicting with existing services
 
 **ROLLBACK 4:**
@@ -514,8 +514,8 @@ MCP server using the standard Model Context Protocol.
    | `stayturgid_lease_status`     | Check who holds the screen lease        |
    | `stayturgid_lease_acquire`    | Acquire screen lease for automation     |
    | `stayturgid_lease_release`    | Release screen lease                    |
-   | `stayturgid_watchdog_status`  | Check AutoJs6 watchdog health           |
-   | `stayturgid_watchdog_restart` | Restart AutoJs6 watchdog                |
+   | `stayturgid_watchdog_status`  | Check watchdog health                   |
+   | `stayturgid_watchdog_restart` | Restart watchdog                        |
    | `stayturgid_fleet_info`       | Get device inventory info               |
 
 2. **Write extension** (`extensions/stayturgid_bridge.py`):

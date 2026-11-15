@@ -9,15 +9,16 @@
 **Repos (at original write):** `stayturgid` master **`9c7067b`** (pushed)  
 **Site overlay:** `site-djbclark` master **`40655bd`** (Vector fragments; pushed)  
 **Live status (longer):** [native-agent-status-2026-07-22.md](../plans/native-agent-status-2026-07-22.md)  
-**Original plan:** [autojs6-to-native-apk-plan.md](../plans/autojs6-to-native-apk-plan.md)  
+**Original plan:** -to-native-apk-plan.md  
 **OPTIONS:** **K1**
 
 ---
 
 ## One sentence
 
-We built and dual-ran a Kotlin/Shizuku **native-agent** that can replace AutoJs6’s
-co-monitor / shell catastrophic path over time; **AutoJs6 is still installed**;
+We built and dual-ran a Kotlin/Shizuku **native-agent** that can replace the
+previous co-monitor and shell catastrophic path over time; the previous runtime
+stayed installed during dual-run;
 telemetry is file-durable; **OpenObserve ingest is blocked on Mac auth** until you fix Vector’s password.
 
 ---
@@ -51,13 +52,13 @@ telemetry is file-durable; **OpenObserve ingest is blocked on Mac auth** until y
 
 ### Fleet rollout (verified at handoff write time)
 
-| Host    | Reachability                      | Agent | UserService                    | `agent.log` STATUS    | AutoJs6                                                   |
+| Host    | Reachability                      | Agent | UserService                    | `agent.log` STATUS    |                                                           |
 | ------- | --------------------------------- | ----- | ------------------------------ | --------------------- | --------------------------------------------------------- |
 | **s24** | `100.123.218.30:5555`             | 0.3.1 | **up**                         | **writing**           | dual-run (leave installed)                                |
 | **p7a** | `100.65.230.108:5555` / LAN       | 0.3.1 | **up**                         | **writing** (~20 min) | dual-run                                                  |
 | **hd8** | USB `GN43T503430603PS` (+ TS adb) | 0.3.1 | **up** (as of handoff recheck) | **writing**           | dual-run; **maintenance** flag may still skip soft-health |
 
-**Do not rebuild AutoJs6** unless you change AutoJs6 itself. Dual-run is intentional until Phase 4.
+**Do not rebuild the retired runtime** unless that runtime itself changes. Dual-run is intentional until Phase 4.
 
 ---
 
@@ -66,7 +67,7 @@ telemetry is file-durable; **OpenObserve ingest is blocked on Mac auth** until y
 ```text
 Termux stayturgid_repair / start_adb.py     ← primary 5-min heal (unchanged)
         │
-        ├── AutoJs6  → watchdog.log + a11y UI last resort
+        ├──   → watchdog.log + a11y UI last resort
         └── native-agent → agent.log + inject + shell catastrophic
                  │
 Mac fleet_health_monitor (~5 min)
@@ -141,9 +142,9 @@ ls ~/.config/stayturgid/state/fleet-health/hd8.maintenance
 
 ### 4. Do **not** do yet
 
-- Do **not** uninstall AutoJs6.
+- Do **not** uninstall .
 - Do **not** treat OpenObserve as authoritative until reingest succeeds.
-- Do **not** need a new AutoJs6 APK build for this workstream.
+- Do **not** need a new APK build for this workstream.
 
 ---
 
@@ -155,7 +156,7 @@ ls ~/.config/stayturgid/state/fleet-health/hd8.maintenance
 2. Confirm OO stream `soft_health` has s24/p7a (and hd8) rows.
 3. If hd8 UserService dies again: Fire Shizuku packaging + binder handoff (see status doc).
 
-### Phase 3.5 / B (before AutoJs6 cutover)
+### Phase 3.5 / B (before cutover)
 
 Tracked in status doc § Remaining steps B:
 
@@ -163,7 +164,7 @@ Tracked in status doc § Remaining steps B:
 2. Release signing (drop `.debug`)
 3. Obtainium catalog entry
 4. Ansible install + grant + battery flags
-5. Forced `CLOSED_NO_SHELL` soak without AutoJs6 a11y
+5. Forced `CLOSED_NO_SHELL` soak without a11y
 6. Fire: durable Shizuku after reboot (uncompressed native libs in **official** Shizuku release build — debug-repack was a stopgap)
 7. Dashboard card for `agent_age`
 8. Optional healing-registry `native_agent` mechanism
@@ -215,7 +216,7 @@ just site-sync --dir ${OPS_ROOT:-~/ops}/site-djbclark --mode apply --force-gener
 ## Success criteria (unchanged)
 
 - [ ] All fleet hosts: release agent, fresh `agent.log`
-- [ ] CLOSED_NO_SHELL recovery without AutoJs6 (pilot ≥1 week)
+- [ ] CLOSED_NO_SHELL recovery without (pilot ≥1 week)
 - [ ] Deploy/boot/health do not require AJ6
 - [ ] OO soft_health SQL usable for week-scale soaks
 - [ ] Rollback recipe tested (reinstall AJ6)

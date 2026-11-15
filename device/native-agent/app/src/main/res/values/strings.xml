@@ -15,7 +15,7 @@
     <string name="main_start">Start host service</string>
     <string name="main_stop">Stop host service</string>
     <string name="main_request_shizuku">Request Shizuku permission</string>
-    <string name="main_hint">End-state: replace AutoJs6 (OPTIONS K1). Phase 1 is UserService + pingAwake only; AutoJs6 stays installed.</string>
+    <string name="main_hint">Shizuku UserService host. Phase 1 is UserService and pingAwake.</string>
 
     <!-- Peer-start activation UX (issue #61) -->
     <string name="notification_action_channel_name">Peer-start setup</string>

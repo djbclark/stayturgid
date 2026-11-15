@@ -534,14 +534,9 @@ do not interpret opening the Shizuku app alone as authorization.
 
 ### Making native-agent changes
 
-The AutoJs6 JS watchdog (`device/autojs6/`, `control/tools/autojs6/*`) was
-retired fleet-wide during the K1 cutover (2026-07-22) and its code deleted
-entirely in the #162 cleanup — see
-[docs/architecture/components/autojs6.md](architecture/components/autojs6.md)
-for historical reference only. Current on-device automation is the Kotlin
-`device/native-agent/` APK — see that directory's own README and
-`just agent-assemble` / `just agent-rollout <host>` for the build/deploy
-loop, and `just kt-test` for its unit tests.
+Current on-device automation is the Kotlin `device/native-agent/` APK — see
+that directory's own README and `just agent-assemble` / `just agent-rollout <host>`
+for the build/deploy loop, and `just kt-test` for its unit tests.
 
 ### Testing shell scripts off-device (added 2026-07-06)
 

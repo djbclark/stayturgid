@@ -18,11 +18,11 @@ This document integrates the **Mobile-First Observability Stack** design with th
 - **Network & Management:** Managed using Tailscale VPN and orchestrated from a Mac control node using Ansible playbooks, a central `justfile`, and launchd services.
 - **On-Device Daemons:**
   - **Primary (Termux):** Runs a 5-minute background loop (`stayturgid_repair.py`) initiated by `start_adb.py` to handle routine self-healing (SSHD, Shizuku servers, ADB port `5555`).
-  - **Secondary (AutoJs6):** Runs a 20-minute accessibility watchdog (`main.js` + `watchdog.js` / `comonitor.js`) to provide UI-based catastrophic recovery (Accessibility-based Shizuku Start button tapping) and local alerting.
+  - **Secondary ():** Runs a 20-minute accessibility watchdog (`main.js` + `watchdog.js` / `comonitor.js`) to provide UI-based catastrophic recovery (Accessibility-based Shizuku Start button tapping) and local alerting.
 - **Log System & Issues:**
   - Currently, logging uses unstructured plain text files located on-device under `/sdcard/stayturgid/logs/watchdog.log` and `/data/data/com.termux/files/home/.stayturgid/logs/`.
   - The Mac control node periodically runs a daemon (`fleet_health_monitor.py`) which SSHs/ADBs into the devices, grep-scrapes logs, and parses the tail using regular expressions and indices.
-  - **Recent Bug:** The log parsing logic in the AutoJs6 watchdog was searching for `indexOf("[repair] STATUS")`. However, the Python repair daemon logged status lines as `[repair] INFO: STATUS port=open...`. This format mismatch caused the watchdog to fail to find fresh status lines, fall back to stale status history, and repeatedly trigger redundant, foreground-stealing repair intents.
+  - **Recent Bug:** The log parsing logic in the watchdog was searching for `indexOf("[repair] STATUS")`. However, the Python repair daemon logged status lines as `[repair] INFO: STATUS port=open...`. This format mismatch caused the watchdog to fail to find fresh status lines, fall back to stale status history, and repeatedly trigger redundant, foreground-stealing repair intents.
 
 ---
 
@@ -325,7 +325,7 @@ am broadcast --user 0 -a com.termux.RUN_COMMAND \
 ### Step-by-Step Implementation Plan
 
 1. **Step 1: Refactor Codebase Log Structures to JSONL**
-   - Update logging methods in `device/autojs6/lib/log.js` to log JSON structures rather than plain text strings.
+   - Update logging methods in `device//lib/log.js` to log JSON structures rather than plain text strings.
    - Update the log function in `device/termux/py/stayturgid_repair.py` to write JSON-structured lines to `repair.log`.
    - Keep a backwards-compatible parser in the health check systems that can parse both JSON format and legacy plain-text lines during roll-out.
 

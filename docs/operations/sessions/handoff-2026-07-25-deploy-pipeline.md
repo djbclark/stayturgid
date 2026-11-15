@@ -22,8 +22,8 @@ This doc is the short version for picking work back up.
    result with a nonzero `rc` key unless `failed: False` is explicit. Fixed.
 2. `obtainium/roles/obtainium_apps/tasks/main.yml` — `operator/Obtainium`
    placeholder → real `djbclark/Obtainium` fork (was 404ing every run).
-3. `fleet/roles/post_ui/tasks/main.yml` — deleted the AutoJs6-drawer task
-   (dead: AutoJs6 was uninstalled fleet-wide in the K1 cutover).
+3. `fleet/roles/post_ui/tasks/main.yml` — deleted the -drawer task
+   (dead: was uninstalled fleet-wide in the K1 cutover).
 4. `android_apk.py` — `adb install` had **no timeout at all** (this
    ansible-core's `run_command()` doesn't support one). Confirmed live: hung
    a deploy 90+ minutes with zero error before being diagnosed and killed.
@@ -63,7 +63,7 @@ didn't regress normal failure handling.
   timeout fix (#4 above) was narrow; the same unguarded-`run_command`
   pattern exists throughout `android_common`'s other adb-invoking helpers
   (`adb_shell.py`, `adb_resolve.py`, `shizuku_start.py`, `shizuku_grant.py`,
-  `autojs6_deploy_util.py`). Full call-site inventory is in the issue body.
+  `deploy_util.py`). Full call-site inventory is in the issue body.
   Same explicit next steps: web search, then second-opinion prompt.
 
 ## Recommended next steps, in order
@@ -76,7 +76,7 @@ didn't regress normal failure handling.
    implementing, per this session's established pattern.
 4. Return to the K1 verification next-steps list (unchanged, still open):
    watchdog reboot-proof, Tasker investigation, `CLOSED_NO_SHELL` soak
-   re-run, Fire-OS adbd-restart decision, AutoJs6 self-heal/health-probe
+   re-run, Fire-OS adbd-restart decision, self-heal/health-probe
    cleanup. Full list in the parent session doc.
 
 ## Verification commands

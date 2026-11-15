@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# @heals: A11Y-AUTOJS6 AGENT-FRESH NATIVE-AGENT-RUNNING REPAIRLOG-FRESH ET-CONFIG
+# @heals: AGENT-FRESH NATIVE-AGENT-RUNNING REPAIRLOG-FRESH ET-CONFIG
 # @heals: HD8-DOZE-WHITELIST HD8-GSF-PINNED HD8-GMS-PINNED
 # @heals: SSHD-RUNNING
 """Dedicated Mac fleet soft-health monitor (launchd every 5 min).
 
-Scrapes watchdog/repair/a11y/sshd/bootloop/shell5555 when a device is
+Scrapes watchdog/repair/sshd/bootloop/shell5555 when a device is
 reachable. Logs to ~/.config/stayturgid/logs/fleet-health.log and notifies
 after CONSECUTIVE_LIMIT consecutive soft failures (~10 min).
 
@@ -15,9 +15,14 @@ mechanism post-cutover), restarts the Kotlin HostService via
 When SSH fails but adb works, fires the Tasker SSHD_RECOVER broadcast
 (rate-limited), the keyguard-proof recovery path.
 
-Legacy watchdog and AutoJs6 accessibility fields remain in telemetry while
-fleet-state verification is incomplete, but they do not create health issues
-or trigger repair.
+When adbd has a wedged "Allow debugging?" prompt (logcat:
+``prompt currently pending, skipping``) but neither the USB nor the
+wireless debugging dialog is on screen, issues a detached
+``setprop ctl.restart adbd`` via ``adb_cli.check_adb_prompt`` and never
+while the dialog is showing (rate-limited).
+
+A missing ``[watchdog]`` line is telemetry only. It does not create a health
+issue or trigger repair. watchdog.log is the repair mirror.
 
 Reachability-only outages stay in access_monitor.py (separate agent).
 Disable with STAYTURGID_SKIP_HEALTH=1; skip restarts with
@@ -486,7 +491,7 @@ def _scrape_device_errors(name: str, ts_ip: str) -> None:
 def _device_log_epoch(line: str) -> float | None:
     """Return the timestamp embedded in a device log line, when present.
 
-    Supports Termux-style ``YYYY-MM-DD HH:MM:SS`` and AutoJs6 syslog-style
+    Supports Termux-style ``YYYY-MM-DD HH:MM:SS`` and syslog-style
     ``Mon DD HH:MM:SS`` (year assumed current; roll back one year if future).
     """
     try:
@@ -495,7 +500,7 @@ def _device_log_epoch(line: str) -> float | None:
     except (ValueError, OverflowError):
         pass
     try:
-        # "Jul 19 20:19:46 ..." — AutoJs6 log.append prefix (year not in line).
+        # "Jul 19 20:19:46 ..." — syslog prefix (year not in line).
         # Bind year explicitly to avoid Python 3.15 ambiguous-day-without-year.
         now = datetime.datetime.now()
         partial = line[:15].strip()
@@ -547,8 +552,6 @@ def _record_soft_health_snapshot(
         shizuku=report.get("shizuku") or "unknown",
         tailscale=report.get("tailscale") or "unknown",
         tailscale_policy=report.get("tailscale_policy") or "unknown",
-        a11y=report.get("a11y") or "unknown",
-        autojs6_a11y=report.get("autojs6_a11y") or "unknown",
         sshd=report.get("sshd") or "unknown",
         shell5555=report.get("shell5555") or "unknown",
         bootloop=report.get("bootloop") or "unknown",
@@ -741,6 +744,7 @@ def maybe_nag_tasker_recover(name: str, report: dict, target: str | None) -> Non
                 _fleet_log(INFO, "%s: tasker SSHD_RECOVER broadcast error: %s" % (name, e))
     except Exception as e:
         _fleet_log(WARNING, "%s: tasker SSHD_RECOVER check failed: %s" % (name, e))
+
 
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     state_file = os.path.join(STATE_DIR, name)

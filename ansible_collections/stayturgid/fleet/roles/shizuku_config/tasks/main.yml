@@ -191,12 +191,3 @@
   failed_when: false
   delegate_to: localhost
   when: not (stayturgid_no_local_adb | default(false) | bool)
-
-- name: Uninstall retired AutoJs6 (Phase 4 Cutover)
-  ansible.builtin.shell: |
-    {{ stayturgid_adb_bin | default('adb') }} -s \
-      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
-      shell pm uninstall org.autojs.autojs6
-  changed_when: false
-  failed_when: false
-  delegate_to: localhost

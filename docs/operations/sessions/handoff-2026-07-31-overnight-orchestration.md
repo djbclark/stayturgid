@@ -78,7 +78,7 @@ dialog-dismiss-automation race (PR #173), HeartbeatWriter MediaStore
 exhaustion cleanup (#34, no code fix needed), Shizuku `BootRetryWorker`
 permanent-give-up bug — root cause of issue #43's whole soak (Shizuku PR #7),
 native-agent logcat buffer resize + resource leak (PR #174, v0.9.1→v0.9.2),
-stale `automation_mode=autojs6` (site-djbclark PR #53), Shizuku `.gitignore`
+stale `automation_mode=` (site-djbclark PR #53), Shizuku `.gitignore`
 gap (Shizuku PR #8), Termux ResultReturner-toast root cause (stayturgid
 PR #176), Shizuku Build-App workflow re-tag idempotency (Shizuku PR #9),
 guided setup screen + 2 real bugs found in review (stayturgid PR #177, v0.9.3→0.9.4),

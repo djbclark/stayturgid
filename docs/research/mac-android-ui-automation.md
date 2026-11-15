@@ -23,7 +23,7 @@ Companion research: [ui-automation.md](ui-automation.md) (tool bake-off),
 
 | Priority      | Tool                                               | When                                                                       |
 | ------------- | -------------------------------------------------- | -------------------------------------------------------------------------- |
-| **1**         | **Handsets** (`hs` + on-device jar)                | Primary Mac driver — fast hierarchy, works with AutoJs6 a11y               |
+| **1**         | **Handsets** (`hs` + on-device jar)                | Primary Mac driver — fast hierarchy, works with a11y                       |
 | **2**         | Raw `uiautomator dump` + regex + `adb shell input` | Fallback when Handsets missing; on-device Termux scripts                   |
 | **3**         | uiautomator2                                       | One-off debug only — **never** alongside Handsets (exclusive UiAutomation) |
 | Avoid as core | Maestro / Appium                                   | Fine for human YAML flows; heavy for dynamic agent scripts                 |

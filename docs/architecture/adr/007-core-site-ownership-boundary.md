@@ -9,7 +9,7 @@ A private concern-level matrix was produced on 2026-07-24 and kept in the
 private companion repository. On 2026-07-26 the operator shelved its seven
 open decisions
 ([handoff](../../operations/sessions/handoff-2026-07-26-ops-separation-shelved.md)).
-Since then AutoJs6, the Obtainium and F-Droid collections, the UI-TARS/VLM
+Since then , the Obtainium and F-Droid collections, the UI-TARS/VLM
 sidecar, the GUI audit and the versioned release regime have been removed or
 retired, and the native agent, USB Shizuku heal, FIRERPA MCP server, update
 monitor and on-device telemetry have been added. This ADR records the public,
@@ -105,7 +105,7 @@ The 2026-07-24 matrix left seven decisions open. Their status from source on
 | D3  | Retain or retire CFEngine?                                            | Open, but the source leans to retain: CFEngine is in `must_cover` for two desired states, gained `cf_run.py`, a version pin and a pinned Homebrew formula, and has fixes through 2026-10. No parity report. |
 | D4  | UI-TARS/VLM sidecar: site or private?                                 | Moot. The subsystem was deleted on 2026-07-26.                                                                                                                                                              |
 | D5  | Generic default app catalogs or site choices?                         | Narrowed. Obtainium, F-Droid and Aurora were removed and `ensure_apps` defaults to empty. Still open: whether the bootstrap APK lock and `fleet_app_profiles.json` are product defaults or site data.       |
-| D6  | Keep public research history for provenance?                          | Open. `docs/research` still holds 42 tracked files, including the retired AutoJs6 project.                                                                                                                  |
+| D6  | Keep public research history for provenance?                          | Open. `docs/research` still holds 42 tracked files, including the retired project.                                                                                                                          |
 | D7  | Peer-help: generic protocol or site-only feature?                     | Leaning core. ADR 006 makes peer-start a native-agent capability with site-supplied `peer.json`. The Termux-era peer scripts and ForceCommand path still ship.                                              |
 
 ## Findings from the refresh that need a follow-up
@@ -121,7 +121,7 @@ The 2026-07-24 matrix left seven decisions open. Their status from source on
    personal review helpers.
 5. `tests/healing_registry.json` still lists the deleted
    `obtainium_app.py` module as an `ansible_deploy` path, and still has the
-   desired states `A11Y-AUTOJS6` and `AUTOJS6-PROFILE`.
+   desired states `A11Y-` and `-PROFILE`.
 6. ADR 006 says the Termux pull model (`stayturgid_peer_bootstrap.py`) was
    dropped, but `termux_userland` still deploys it.
 7. `ops-release.json` has no code caller. The on-device

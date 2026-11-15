@@ -15,16 +15,16 @@ FIRERPA/lamda is an **all-in-one Android device control platform** — a persist
 
 **Key finding:** FIRERPA and stayturgid are **complementary, not competing**. They solve different layers of the same problem:
 
-| Layer                        | FIRERPA                                            | stayturgid                       |
-| ---------------------------- | -------------------------------------------------- | -------------------------------- |
-| **On-device capabilities**   | 160+ APIs, Frida, MITM, VPN, OCR, virtual displays | SSH + Termux + AutoJs6 watchdogs |
-| **Fleet orchestration**      | StarLink Hub (proprietary-ish)                     | Ansible + peer ADB mesh          |
-| **Configuration management** | INI file + API reload                              | Ansible playbooks + roles        |
-| **Device inventory**         | mDNS/UDP broadcast                                 | peers.json + devices.conf        |
-| **Human UX**                 | WebRTC remote desktop (browser)                    | scrcpy + Handsets                |
-| **AI integration**           | Native MCP server + agent command                  | Hermes (external)                |
-| **Multi-OS support**         | Android only                                       | Android + Mac + Linux            |
-| **Deployment**               | APK/Magisk/ROM                                     | SSH + Ansible                    |
+| Layer                        | FIRERPA                                            | stayturgid                |
+| ---------------------------- | -------------------------------------------------- | ------------------------- |
+| **On-device capabilities**   | 160+ APIs, Frida, MITM, VPN, OCR, virtual displays | SSH + Termux + watchdogs  |
+| **Fleet orchestration**      | StarLink Hub (proprietary-ish)                     | Ansible + peer ADB mesh   |
+| **Configuration management** | INI file + API reload                              | Ansible playbooks + roles |
+| **Device inventory**         | mDNS/UDP broadcast                                 | peers.json + devices.conf |
+| **Human UX**                 | WebRTC remote desktop (browser)                    | scrcpy + Handsets         |
+| **AI integration**           | Native MCP server + agent command                  | Hermes (external)         |
+| **Multi-OS support**         | Android only                                       | Android + Mac + Linux     |
+| **Deployment**               | APK/Magisk/ROM                                     | SSH + Ansible             |
 
 **Recommendation:** Do NOT replace stayturgid with FIRERPA. Instead, **integrate FIRERPA as an optional on-device capability** deployed via Ansible, giving stayturgid-managed devices access to FIRERPA's rich API surface when needed.
 
@@ -37,8 +37,8 @@ FIRERPA/lamda is an **all-in-one Android device control platform** — a persist
 | **ADB management**      | Built-in ADB (no Dev Options needed) + wireless | Fleet mesh ADB keys + `localhost:5555` | stayturgid (mesh-wide)              |
 | **SSH access**          | Built-in SSH server on device                   | Termux sshd via Ansible                | Comparable                          |
 | **Screen control**      | WebRTC/H.264 browser remote desktop             | scrcpy via Mac Handsets or Termux      | FIRERPA (browser, no client)        |
-| **UI automation**       | Full selector-based API (40+ methods)           | AutoJs6 + uiautomator2 scripts         | FIRERPA (richer, more stable)       |
-| **Touch input**         | Multi-touch recording/replay/programmatic       | `adb shell input` / AutoJs6 gestures   | FIRERPA (much richer)               |
+| **UI automation**       | Full selector-based API (40+ methods)           | + uiautomator2 scripts                 | FIRERPA (richer, more stable)       |
+| **Touch input**         | Multi-touch recording/replay/programmatic       | `adb shell input` / gestures           | FIRERPA (much richer)               |
 | **App management**      | Launch, install, uninstall, permissions, ops    | `adb install` / Ansible tasks          | FIRERPA (more granular)             |
 | **Device status**       | Battery, CPU, disk, memory, network I/O         | `make health` + fleet_health_monitor   | stayturgid (fleet-wide aggregation) |
 | **Screen lock/session** | API exclusive lock                              | Screen leases via DSCL                 | stayturgid (cross-device awareness) |
@@ -70,7 +70,7 @@ FIRERPA/lamda is an **all-in-one Android device control platform** — a persist
 | Feature                      | What it does                                                                            | Why it matters                                                 |
 | ---------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | **OCR/Image matching**       | PaddleOCR, EasyOCR, custom HTTP backends. On-device SIFT template matching.             | Automate apps without accessibility nodes (games, custom UI).  |
-| **Visual layout inspection** | Highlights UI elements, Tab traversal, coordinates/RGB, XML export in WebUI.            | Debug AutoJs6 scripts. Validate selectors.                     |
+| **Visual layout inspection** | Highlights UI elements, Tab traversal, coordinates/RGB, XML export in WebUI.            | Debug scripts. Validate selectors.                             |
 | **Multi-touch recording**    | Record, replay, programmatic construction, binary persistence. Pressure + multi-finger. | Complex gesture automation (pinch, zoom, multi-finger swipes). |
 | **SELinux control**          | `allow()`, `disallow()`, `permissive()`, `create_domain()`.                             | System-level policy manipulation for advanced debugging.       |
 | **OpenVPN/frp client**       | Built-in VPN with auto-connect. frp for NAT traversal.                                  | Alternative to Tailscale for specific use cases.               |
@@ -98,10 +98,10 @@ FIRERPA/lamda is an **all-in-one Android device control platform** — a persist
 | **Device health monitoring**      | `fleet_health_monitor.py`, `access_monitor.py`, watchdog loops. Fleet-wide health aggregation. | FIRERPA has device status APIs but no fleet-wide monitoring daemon.                                       |
 | **Screen leases**                 | DSCL-based cross-device lease tracking. Prevents agent/human contention.                       | FIRERPA has API exclusive lock (single device) but no cross-device awareness.                             |
 | **Peer ADB mesh**                 | hd8↔s24, Mac→device, device→device ADB routing through Tailscale.                              | FIRERPA has frp/OpenVPN but not the same mesh model.                                                      |
-| **AutoJs6 watchdogs**             | Self-healing AutoJs6 engine monitoring with termux-api notifications.                          | FIRERPA has its own automation but not the AutoJs6 ecosystem.                                             |
+| ** watchdogs**                    | Self-healing engine monitoring with termux-api notifications.                                  | FIRERPA has its own automation but not the ecosystem.                                                     |
 | **Obtainium integration**         | APK catalog management with version tracking.                                                  | FIRERPA has its own APK distribution but not a general-purpose catalog.                                   |
 | **Fire OS / Fire tablet support** | Specific handling of Fire OS quirks, boot scripts, battery optimization.                       | FIRERPA supports Android 6+ but has no Fire-specific adaptations documented.                              |
-| **Termux boot lifecycle**         | `start-adb.sh`, `start-autojs6-watchdog.sh`, self-healing loops.                               | FIRERPA has its own autostart but doesn't manage Termux services.                                         |
+| **Termux boot lifecycle**         | `start-adb.sh`, `start--watchdog.sh`, self-healing loops.                                      | FIRERPA has its own autostart but doesn't manage Termux services.                                         |
 | **Mac control node**              | Ansible controller, VLM testing, screen control inversion.                                     | FIRERPA has no Mac component.                                                                             |
 
 **stayturgid's unique value is fleet orchestration, multi-OS support, and the Ansible deployment model.** These are precisely the things FIRERPA cannot provide.
@@ -122,7 +122,7 @@ FIRERPA/lamda is an **all-in-one Android device control platform** — a persist
 | **Mac support**               | FIRERPA is Android-only. We manage Macs. Dead end.                                                                    |
 | **Fire OS**                   | No documented Fire tablet support. Our Fire-specific boot scripts and battery optimization have no FIRERPA equivalent |
 | **Screen leases**             | No cross-device lease system. Agent contention management would need to be rebuilt                                    |
-| **Custom automation**         | AutoJs6 scripts, termux-api notifications, watchdog loops — all custom to our stack                                   |
+| **Custom automation**         | scripts, termux-api notifications, watchdog loops — all custom to our stack                                           |
 | **Licensing**                 | MIT license ✓ — no legal barrier, but architectural barrier is decisive                                               |
 
 **Bottom line:** Switching would mean rebuilding fleet orchestration, losing Mac support, losing Fire OS adaptations, and depending on a third-party project for core infrastructure. The on-device API is tempting but doesn't justify the loss.
@@ -158,7 +158,7 @@ roles/
 | **WebRTC remote desktop**     | FIRERPA's browser-based remote desktop replaces scrcpy for tablet-control-phone                                        | Solves the incubator proposal without Termux:X11 compilation |
 | **MITM on demand**            | Ansible playbook that enables FIRERPA MITM, captures traffic, disables                                                 | Debug network issues on any fleet device                     |
 | **Frida on demand**           | Ansible playbook that injects persistent Frida scripts                                                                 | Dynamic analysis without manual setup                        |
-| **OCR/Image as fallback**     | Use FIRERPA's OCR when AutoJs6 selectors fail on non-standard UI                                                       | Better automation coverage                                   |
+| **OCR/Image as fallback**     | Use FIRERPA's OCR when selectors fail on non-standard UI                                                               | Better automation coverage                                   |
 | **Health enrichment**         | FIRERPA's device status API feeds into fleet_health_monitor                                                            | Richer health data (CPU, memory, network I/O)                |
 
 ### Deployment options for FIRERPA on fleet devices
@@ -259,7 +259,7 @@ stayturgid model:
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Do we overlap?                      | ~40% on basic device operations (ADB, SSH, screen, apps)                                                                                                                                       |
 | What does FIRERPA do that we don't? | MCP/AI agent, MITM, Frida, virtual displays, WebRTC desktop, OCR, multi-touch, SELinux, VPN/proxy, 160+ APIs                                                                                   |
-| What do we do that FIRERPA doesn't? | Fleet orchestration, Ansible, multi-OS, health monitoring, screen leases, peer ADB mesh, Fire OS support, AutoJs6 watchdogs                                                                    |
+| What do we do that FIRERPA doesn't? | Fleet orchestration, Ansible, multi-OS, health monitoring, screen leases, peer ADB mesh, Fire OS support, watchdogs                                                                            |
 | Should we switch?                   | **No.** Would lose fleet orchestration, Mac support, and Fire OS adaptations.                                                                                                                  |
 | Should we integrate?                | **Yes.** Deploy FIRERPA via Ansible as an optional on-device capability. Use its MCP server for AI integration. Use its WebRTC desktop for tablet-control-phone. Use its MITM/Frida on demand. |
 | Effort?                             | ~9 days for full integration, with immediate value from spike.                                                                                                                                 |

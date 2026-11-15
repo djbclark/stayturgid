@@ -2,7 +2,7 @@
 
 # Best Practices: Text-Based Configuration for Android Apps
 
-This document is based on the experience of adding fleet/headless text-based configuration support to AutoJs6 ([SuperMonster003/AutoJs6#553](https://github.com/SuperMonster003/AutoJs6/issues/553)). The goal is to turn fragile GUI automation into a single, repeatable, reviewable JSON (or similar) file that can be pushed to a device and applied without tapping through screens.
+This document is based on the experience of adding fleet/headless text-based configuration support to (SuperMonster003/#553). The goal is to turn fragile GUI automation into a single, repeatable, reviewable JSON (or similar) file that can be pushed to a device and applied without tapping through screens.
 
 ---
 
@@ -19,9 +19,9 @@ For a fleet of Android devices (phones, tablets, Fire TV sticks), the same confi
 
 ---
 
-## 2. The pattern we used in AutoJs6
+## 2. The pattern we used in
 
-The AutoJs6 implementation introduced three main pieces:
+The implementation introduced three main pieces:
 
 1. **A centralized applier** (`FleetProfileApplier`) — reads a JSON profile and applies every setting through the app's internal preference APIs, exactly the same way the GUI does.
 2. **An exported entry point** (`FleetProfileActivity`) — an `android:exported="true"` activity that accepts an `Intent` with a profile path or URI, applies it, and reports success/failure.
@@ -75,7 +75,7 @@ Call this from:
 
 ### 4.2 Use the existing preference/storage layer
 
-In AutoJs6 this meant calling `Pref.getDefaultPrefInstance().putString(...)` and similar helpers rather than writing to `SharedPreferences` directly. Using the app's abstraction layer ensures notifications, migrations, and side effects happen correctly.
+In this meant calling `Pref.getDefaultPrefInstance().putString(...)` and similar helpers rather than writing to `SharedPreferences` directly. Using the app's abstraction layer ensures notifications, migrations, and side effects happen correctly.
 
 ### 4.3 Register the entry point in the manifest
 
@@ -116,7 +116,7 @@ If a profile can enable accessibility services, grant permissions, or toggle wir
 
 ### 5.1 Fix the build first
 
-Before adding any new public API, make sure the upstream project compiles cleanly. In the AutoJs6 branch we had to fix pre-existing issues (`LogBottomSheet` Kotlin access, missing color resources) before the feature could even be verified. If the upstream build is broken, the maintainers will not merge the PR.
+Before adding any new public API, make sure the upstream project compiles cleanly. In the branch we had to fix pre-existing issues (`LogBottomSheet` Kotlin access, missing color resources) before the feature could even be verified. If the upstream build is broken, the maintainers will not merge the PR.
 
 ### 5.2 Build a test APK and run it
 
@@ -131,7 +131,7 @@ A debug build proves the feature links and runs. Use the test build to:
 Create a GitHub release on your fork (not the upstream repo) with a clear, fork-specific naming convention. For example:
 
 ```
-autojs6-v6.7.0-fleet-profile-553-debug-arm64-v8a.apk
+-v6.7.0-fleet-profile-553-debug-arm64-v8a.apk
 ```
 
 This avoids confusion with official upstream releases and makes it easy for testers to find the exact build.
@@ -141,8 +141,8 @@ This avoids confusion with official upstream releases and makes it easy for test
 Provide the `adb` or `am start` command that applies the profile. Do not make testers reverse-engineer the intent extras.
 
 ```bash
-adb shell am start -n org.autojs.autojs6/.core.pref.fleet.FleetProfileActivity \
-    -e path /sdcard/stayturgid/autojs6/fleet_profile.json
+adb shell am start -n /.core.pref.fleet.FleetProfileActivity \
+    -e path /sdcard/stayturgid//fleet_profile.json
 ```
 
 ---
@@ -175,13 +175,13 @@ The following apps are part of the stayturgid stack and currently rely on GUI au
 
 ### 7.1 Shizuku (the `thedjchi` fork)
 
-|                 |                                                                                                                                                                                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Package         | `moe.shizuku.privileged.api`                                                                                                                                                                                                          |
-| Current pain    | `tapStartButton()` in `device/autojs6/lib/shizuku.js` opens the Shizuku manager and taps the **Start** button by text matching or blind coordinates. It needs an unlocked screen and can fail when the UI language or layout changes. |
-| What to ask for | A broadcast receiver or a service command that starts the Shizuku server directly when the app is already authorized, e.g. `am startservice -n moe.shizuku.privileged.api/.ServerService`.                                            |
-| Upstream status | The `thedjchi` fork is maintained on GitHub. The change is small and security-sensitive, so it should be paired with a manifest permission or a `android:permission` on the receiver.                                                 |
-| Impact          | High — removes the most fragile, screen-on dependency in the whole catastrophic-repair path.                                                                                                                                          |
+|                 |                                                                                                                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Package         | `moe.shizuku.privileged.api`                                                                                                                                                                                                   |
+| Current pain    | `tapStartButton()` in `device//lib/shizuku.js` opens the Shizuku manager and taps the **Start** button by text matching or blind coordinates. It needs an unlocked screen and can fail when the UI language or layout changes. |
+| What to ask for | A broadcast receiver or a service command that starts the Shizuku server directly when the app is already authorized, e.g. `am startservice -n moe.shizuku.privileged.api/.ServerService`.                                     |
+| Upstream status | The `thedjchi` fork is maintained on GitHub. The change is small and security-sensitive, so it should be paired with a manifest permission or a `android:permission` on the receiver.                                          |
+| Impact          | High — removes the most fragile, screen-on dependency in the whole catastrophic-repair path.                                                                                                                                   |
 
 ### 7.2 Obtainium
 
@@ -215,22 +215,22 @@ The following apps are part of the stayturgid stack and currently rely on GUI au
 
 ### 7.5 Tailscale
 
-|                 |                                                                                                                                                                                                       |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Package         | `com.tailscale.ipn`                                                                                                                                                                                   |
-| Current pain    | `device/autojs6/lib/tailscale.js` already relaunches Tailscale via `am start` to recover a dead tun0, but there is no programmatic way to force a re-auth or choose a tailnet without opening the UI. |
-| What to ask for | Documented intents for `start`, `stop`, and `status`, plus a way to seed the login server and auth key via a file (already partially supported on some platforms).                                    |
-| Upstream status | Open source on GitHub. Tailscale already has rich platform support; Android intents are the main gap.                                                                                                 |
-| Impact          | Medium — would make tailnet onboarding and recovery more reliable.                                                                                                                                    |
+|                 |                                                                                                                                                                                                |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package         | `com.tailscale.ipn`                                                                                                                                                                            |
+| Current pain    | `device//lib/tailscale.js` already relaunches Tailscale via `am start` to recover a dead tun0, but there is no programmatic way to force a re-auth or choose a tailnet without opening the UI. |
+| What to ask for | Documented intents for `start`, `stop`, and `status`, plus a way to seed the login server and auth key via a file (already partially supported on some platforms).                             |
+| Upstream status | Open source on GitHub. Tailscale already has rich platform support; Android intents are the main gap.                                                                                          |
+| Impact          | Medium — would make tailnet onboarding and recovery more reliable.                                                                                                                             |
 
-### 7.6 AutoJs6
+### 7.6
 
-|              |                                                                                                                                                                                                                                                                                                          |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Package      | `org.autojs.autojs6`                                                                                                                                                                                                                                                                                     |
-| Current pain | Before the fleet-profile feature, AutoJs6 required GUI automation to grant storage, Shizuku, notification, and battery permissions.                                                                                                                                                                      |
-| Status       | **Already addressed** by `FleetProfileActivity` + `FleetProfileApplier` in [djbclark/AutoJs6#feature/fleet-profile-553](https://github.com/djbclark/AutoJs6/tree/feature/fleet-profile-553). The upstream issue is [SuperMonster003/AutoJs6#553](https://github.com/SuperMonster003/AutoJs6/issues/553). |
-| Impact       | This is the proof of concept for the whole pattern described above.                                                                                                                                                                                                                                      |
+|              |                                                                                                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package      | ``                                                                                                                                                          |
+| Current pain | Before the fleet-profile feature, required GUI automation to grant storage, Shizuku, notification, and battery permissions.                                 |
+| Status       | **Already addressed** by `FleetProfileActivity` + `FleetProfileApplier` in djbclark/#feature/fleet-profile-553. The upstream issue is SuperMonster003/#553. |
+| Impact       | This is the proof of concept for the whole pattern described above.                                                                                         |
 
 ---
 
@@ -246,19 +246,19 @@ If you are going to upstream changes, tackle them in this order:
 
 ---
 
-## 9. Quick reference: AutoJs6 fleet profile invocation
+## 9. Quick reference: fleet profile invocation
 
 ```bash
 # Push profile
-adb push device/autojs6/fleet_profile.json /sdcard/stayturgid/autojs6/fleet_profile.json
+adb push device//fleet_profile.json /sdcard/stayturgid//fleet_profile.json
 
 # Apply
-adb shell am start -n org.autojs.autojs6/.core.pref.fleet.FleetProfileActivity \
-    -e path /sdcard/stayturgid/autojs6/fleet_profile.json
+adb shell am start -n /.core.pref.fleet.FleetProfileActivity \
+    -e path /sdcard/stayturgid//fleet_profile.json
 ```
 
 Test build binaries are published at:
-https://github.com/djbclark/AutoJs6/releases/tag/v6.7.0-fleet-profile-553-debug
+https://github.com/djbclark//releases/tag/v6.7.0-fleet-profile-553-debug
 
 ---
 

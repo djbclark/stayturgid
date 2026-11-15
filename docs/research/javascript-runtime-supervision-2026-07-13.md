@@ -5,13 +5,13 @@
 
 ## Scope and current architecture
 
-The operational JavaScript is the AutoJs6 project in
-`device/autojs6/` (deleted in #162, 2026-07-31 — AutoJs6 was retired
+The operational JavaScript is the project in
+`device//` (deleted in #162, 2026-07-31 — was retired
 fleet-wide and its code removed entirely; this research remains historical).
 It ran `main.js` inside an Android
 application process and uses Android accessibility, Shizuku, `shell()`,
-`app.startService()`, shared-storage APIs, and AutoJs6 timers. Termux is the primary
-repair/supervisor layer; AutoJs6 is the redundant co-monitor and catastrophic
+`app.startService()`, shared-storage APIs, and timers. Termux is the primary
+repair/supervisor layer; is the redundant co-monitor and catastrophic
 no-shell UI recovery path. The Mac control plane uses Python, Ansible, launchd, ADB,
 and FIRERPA.
 
@@ -24,17 +24,17 @@ Node.js process manager: the managed program must be a Node-compatible executabl
 that PM2 can spawn and signal.
 
 PM2 could supervise a genuine Node process launched in Termux. It cannot start or
-restart the AutoJs6 Android activity, grant or detect accessibility consent, invoke
-AutoJs6's Shizuku APIs, repair wireless ADB/Shizuku/SSH, replace Termux:Boot, or
+restart the Android activity, grant or detect accessibility consent, invoke
+'s Shizuku APIs, repair wireless ADB/Shizuku/SSH, replace Termux:Boot, or
 provide fleet-level health and Ansible desired state. Wrapping `main.js` in PM2
-would supervise a separate Node process, not the AutoJs6 engine and Android process;
+would supervise a separate Node process, not the engine and Android process;
 porting it to Node would remove the platform APIs required for catastrophic recovery.
 
 ## Alternatives
 
 | Option                                             | Fit                                                                                           | Decision                                                          |
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| PM2                                                | Good Node process restart/logging; no Android/AutoJs6 lifecycle control                       | Do not adopt for the watchdog                                     |
+| PM2                                                | Good Node process restart/logging; no Android/ lifecycle control                              | Do not adopt for the watchdog                                     |
 | Uptime Kuma                                        | External HTTP/TCP/ping/status-page monitoring and alerting; not process supervision or repair | Consider as a read-only dashboard integration                     |
 | Pulumi                                             | TypeScript/JavaScript infrastructure-as-code with desired state and stacks                    | Do not replace Ansible for Android fleet state                    |
 | Jest                                               | Node/JavaScript unit-test framework                                                           | Optional only if the Node test surface grows                      |
@@ -42,7 +42,7 @@ porting it to Node would remove the platform APIs required for catastrophic reco
 | Shipit                                             | SSH deployment task runner for Node applications                                              | Redundant with Ansible; no Android consent/state model            |
 | Flightplan                                         | Older Node SSH command/deployment library                                                     | Do not adopt; overlaps Ansible and has weaker maintenance signals |
 | `runit`/Termux:Boot                                | Already used for Termux services; appropriate for native on-device daemons                    | Keep                                                              |
-| `s6`/`supervisord`                                 | Adds another daemon/config layer and still cannot control AutoJs6                             | No                                                                |
+| `s6`/`supervisord`                                 | Adds another daemon/config layer and still cannot control                                     | No                                                                |
 | Android WorkManager/JobScheduler                   | Cannot satisfy accessibility/UI recovery and consent gates without an Android app change      | No                                                                |
 | TypeScript tools (`tsx`, `ts-node`, Taskfile/mise) | Developer ergonomics or command running, not Android supervision                              | Not relevant                                                      |
 
@@ -54,7 +54,7 @@ Uptime Kuma monitors externally observable services such as HTTP/HTTPS, TCP, pin
 DNS, JSON, and Docker, and offers history, notifications, and status pages. That
 maps well to the existing dashboard's public service checks and could provide a
 convenient independent view of the landing page, dashboard, SSH/FIRERPA health
-endpoints, and selected device ports. It cannot inspect AutoJs6 logs or repair a
+endpoints, and selected device ports. It cannot inspect logs or repair a
 phone. If adopted, run it on the Mac or a stable server and feed it read-only
 health endpoints; do not install it on the phones or make it the source of truth.
 
@@ -70,9 +70,9 @@ Pulumi out unless a separate cloud-infrastructure project appears.
 ### Jest — testing only
 
 Jest is a Node/JavaScript test framework, not a monitor or deployment system. The
-current AutoJs6 tests intentionally run portable logic under Node with a small fake
-AutoJs6 environment. Jest could replace that harness only after a measured migration
-benefit; it would not execute AutoJs6 APIs and would not improve device health.
+current tests intentionally run portable logic under Node with a small fake
+environment. Jest could replace that harness only after a measured migration
+benefit; it would not execute APIs and would not improve device health.
 
 ### `zx` — nicer JavaScript shell scripts, but conflicts with the project boundary
 
@@ -93,7 +93,7 @@ current ecosystem signals. Neither should be introduced into fleet deployment.
 
 ## Recommendation
 
-Do not replace AutoJs6's watchdog or the Termux/Python supervisor with PM2. The
+Do not replace 's watchdog or the Termux/Python supervisor with PM2. The
 existing layers have the privileges and recovery channels they need; PM2 would add
 installation, boot, logging, and failure surface without automating the hard Android
 work.
@@ -102,11 +102,11 @@ If a future feature introduces a genuine long-running Node service in Termux, us
 small additive S24-only pilot: one `ecosystem.config.cjs`, bounded restart/memory
 settings, explicit log paths, a fleet-health probe, Termux:Boot integration behind
 an explicit flag, resource measurements, and tested rollback. It must not own
-AutoJs6, wireless ADB, Shizuku, accessibility, or the Python repair path.
+, wireless ADB, Shizuku, accessibility, or the Python repair path.
 
-## AutoJs6 code quality: what would actually help
+## code quality: what would actually help
 
-The project currently has about 1,532 lines of AutoJs6 JavaScript in 20 files. The
+The project currently has about 1,532 lines of JavaScript in 20 files. The
 largest module is `comonitor.js` at 242 lines; most other modules are small adapters.
 This is not enough code to justify a new application framework, dependency-injection
 container, reactive runtime, or general-purpose state-management library. The Android
@@ -116,17 +116,17 @@ The practical quality stack should run on the Mac/CI only and never be bundled o
 phones:
 
 1. **ESLint with an ES5-compatible parser configuration.** Enable syntax checks,
-   `no-undef` with an explicit AutoJs6-global allowlist, `no-unused-vars`,
+   `no-undef` with an explicit -global allowlist, `no-unused-vars`,
    `eqeqeq`, `no-unreachable`, `no-shadow`, and a project rule against silently
    swallowing new errors. Keep platform adapter files separately configured where
    Java/Android globals are unavoidable.
 2. **JSDoc plus TypeScript `checkJs` for portable modules.** Start with `config.js`,
    `log.js`, and pure parsing/path helpers. Add a small checked declaration file for
-   AutoJs6 globals rather than pretending the entire Android API is Node. This gives
+   globals rather than pretending the entire Android API is Node. This gives
    parameter/return checking without converting the deployed source to TypeScript.
 3. **Keep the existing Node harness.** It is already a fast compatibility seam for
    `log`, `comonitor`, and boot-launcher behavior. Jest would add a test runner but
-   not AutoJs6 fidelity; migrate only if the test count or fixtures make the current
+   not fidelity; migrate only if the test count or fixtures make the current
    TAP-style harness painful.
 4. **Prefer “functional core, platform shell.”** Keep string parsing, path handling,
    status classification, retry policy, and state transitions pure and testable; keep
@@ -134,13 +134,13 @@ phones:
    This is a structural improvement that reduces risk without adding a runtime.
 5. **Use dependency-free runtime code by default.** Packages such as RxJS, fp-ts,
    Zod, or generic Android automation libraries would add compatibility and deploy
-   risks to the Rhino/AutoJs6 environment for little benefit at this size.
+   risks to the Rhino/ environment for little benefit at this size.
 
-AutoJs6 compatibility is the limiting constraint. Auto.js documentation describes
+compatibility is the limiting constraint. Auto.js documentation describes
 the legacy Rhino engine as ES5 plus limited ES6 support, while its newer Node/V8
 engine is a separate mode. The current project deliberately uses conservative
 CommonJS/ES5-style code, so modern TypeScript/ESM libraries cannot simply be dropped
-into `device/autojs6/` without proving the selected engine, packaging, and boot path.
+into `device//` without proving the selected engine, packaging, and boot path.
 
 ### Bounded implementation proposal and current status
 
@@ -154,7 +154,7 @@ The first A pilot is now implemented as a host-only lint layer—not a runtime r
 ```
 
 The repository now has a pinned host-only ESLint dependency and `eslint.config.cjs`.
-ESLint covers all AutoJs6 sources through `make check` and CI after `npm ci`. The
+ESLint covers all sources through `make check` and CI after `npm ci`. The
 first pass removed three real lint warnings (unused helper, shadowed variable, and
 unused constant), and the gate passes. Options B (JSDoc/checkJs), C (typed functional
 core), and D (full TypeScript build) are intentionally deferred for later. This
@@ -172,7 +172,7 @@ improves correctness and reviewability without putting packages on phones.
 - [Google `zx`](https://github.com/google/zx)
 - [Shipit CLI](https://www.npmjs.com/package/shipit-cli)
 - [Flightplan package](https://www.npmjs.com/package/flightplan)
-- [Auto.js engine documentation](https://www.autojs.cc/docs/en/guide/quickstart.html.htm)
+- Auto.js engine documentation
 - [TypeScript `checkJs` documentation](https://www.typescriptlang.org/tsconfig/checkJs.html)
 - [ESLint documentation](https://eslint.org/docs/latest/)
 - Local source checkout: `~/src/pm2` (shallow clone inspected 2026-07-13)

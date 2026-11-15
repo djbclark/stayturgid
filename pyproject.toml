@@ -37,4 +37,4 @@ ignore_missing_imports = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_unreachable = true
-exclude = ['^\.venv-test/', '^\.ansible/', '^device/autojs6/']
+exclude = ['^\.venv-test/', '^\.ansible/']

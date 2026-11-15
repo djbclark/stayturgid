@@ -6,7 +6,7 @@ Migration of the `stayturgid` Android phone fleet and macOS control node to a st
 
 ## User Review & Decision Summary
 
-- **Android Background Thread Mitigation:** Decoupled File-to-Collector Tailing Pattern. AutoJs6 and Termux write logs to local JSONL files, and the local OTel Collector (wake-locked) tails them.
+- **Android Background Thread Mitigation:** Decoupled File-to-Collector Tailing Pattern. and Termux write logs to local JSONL files, and the local OTel Collector (wake-locked) tails them.
 - **Service Hosting:** Vector (Homebrew) and OpenObserve (macOS native binary) running locally on the Mac, managed via Ansible and launchd.
 - **Email/Admin Username:** `djbclark@gmail.com`
 - **Default Ports:** Vector (`4318` for OTLP HTTP) and OpenObserve (`5080` for UI/API) are accepted.
@@ -42,9 +42,9 @@ We will install and configure Vector and OpenObserve natively on the Mac control
 
 We will transition all logging to structured JSON.
 
-#### [MODIFY] `device/autojs6/lib/log.js` (deleted in #162 — AutoJs6 code removed entirely)
+#### [MODIFY] `device//lib/log.js` (deleted in #162 — code removed entirely)
 
-- Roll a custom JSON formatter inside AutoJs6.
+- Roll a custom JSON formatter inside .
 - Format logs conforming to the payload schema and write synchronously to `/sdcard/stayturgid/logs/watchdog.jsonl` (or Fire OS equivalent).
 - Refactor status indicators (`latestRepairStatus` and `latestRepairTimestampMs`) to read state from the new local `state.json` file.
 
@@ -53,9 +53,9 @@ We will transition all logging to structured JSON.
 - Refactor the Python logging utilities (`log`) to format entries as JSON lines when writing to `repair.jsonl`.
 - Maintain backwards compatibility in `scrape_errors` to parse both JSON and legacy text logs.
 
-#### [NEW] `device/autojs6/run/state.json` (deleted in #162 — AutoJs6 code removed entirely)
+#### [NEW] `device//run/state.json` (deleted in #162 — code removed entirely)
 
-- Introduce a structured state file (Single Source of Truth) shared between Termux and AutoJs6 to avoid regex parsing of log files.
+- Introduce a structured state file (Single Source of Truth) shared between Termux and to avoid regex parsing of log files.
 
 ---
 
@@ -93,4 +93,4 @@ We will deploy the OTel Collector to tail the local log files.
    ```
 2. **Localhost Ingestion Check:** POST a mock OTLP log to the Mac's Vector port `4318` and verify it flows to OpenObserve.
 3. **Pilot Device Deploy:** Deploy to `s24` and verify logs are written to `.jsonl` files and immediately forwarded to OpenObserve.
-4. **Offline Durability Test:** Disconnect `s24` Tailscale. Generate logs in AutoJs6 and Termux. Verify files are updated. Reconnect Tailscale and confirm all buffered logs populate OpenObserve.
+4. **Offline Durability Test:** Disconnect `s24` Tailscale. Generate logs in and Termux. Verify files are updated. Reconnect Tailscale and confirm all buffered logs populate OpenObserve.

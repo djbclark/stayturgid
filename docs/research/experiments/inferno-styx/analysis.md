@@ -30,8 +30,8 @@ Constraints match stayturgid: no root, Shizuku elevation, Termux userland.
 | Elevated settings / appops         | Ansible `app_privileges`, Mac/Termux harden scripts, `rish` already default-installed    | No — Inferno wraps the same `rish`                                    |
 | Cross-device control               | SSH mesh (`id_ed25519_fleet`), `stayturgid_peer_help` / peer Handsets bootstrap, Mac adb | No — different UX, same reach                                         |
 | Unified “fleet as one FS”          | Not present                                                                              | **Yes — UX only**                                                     |
-| Background always-on control plane | Termux:Boot + sshd; AutoJs6 a11y watchdog (20 min cycle)                                 | Inferno would **add** a third always-on runtime                       |
-| Catastrophic no-shell heal         | AutoJs6 accessibility (mandatory)                                                        | Inferno **cannot** replace this — needs a live process + shell/`rish` |
+| Background always-on control plane | Termux:Boot + sshd; a11y watchdog (20 min cycle)                                         | Inferno would **add** a third always-on runtime                       |
+| Catastrophic no-shell heal         | accessibility (mandatory)                                                                | Inferno **cannot** replace this — needs a live process + shell/`rish` |
 | Fast UI hierarchy / taps           | Handsets wire + dump fallback                                                            | Inferno is not a UI driver                                            |
 
 **Bottom line:** Inferno would mostly re-skin privileged shell ops as path
@@ -52,7 +52,7 @@ Obtainium/Aurora UI, screen-control consent) sit outside Styx.
 
 - **Duplicate control plane** next to Ansible + SSH + peer ADB — more failure
   modes, Limbo skill tax, 32/64-bit `emu` build risk on Termux ARM64.
-- **Does not shrink AutoJs6 or Handsets** — those solve different layers.
+- **Does not shrink or Handsets** — those solve different layers.
 - **Fire OS:** same Shizuku binder timeouts Termux already hits; peer ADB remains
   the Handsets starter. Inferno on hd8 still needs a live elevated helper.
 - **ADR boundary:** declarative fleet state stays Ansible; runtime heal stays
@@ -69,8 +69,8 @@ UX** as a product goal. For reliability, battery, and deploy simplicity:
 
 | Component                  | When                                     | Relative cost                           |
 | -------------------------- | ---------------------------------------- | --------------------------------------- |
-| AutoJs6 accessibility      | Always (OEM a11y tax)                    | Medium — required for catastrophic path |
-| AutoJs6 `main.js` cycle    | Every **20 min** (+ tiny 60s keep-alive) | Low–medium — not continuous CPU         |
+| accessibility              | Always (OEM a11y tax)                    | Medium — required for catastrophic path |
+| `main.js` cycle            | Every **20 min** (+ tiny 60s keep-alive) | Low–medium — not continuous CPU         |
 | Termux `sshd`              | After boot / repair                      | Low idle                                |
 | Shizuku                    | When started (wireless/ADB)              | Low–medium while up                     |
 | Tailscale                  | Always-on VPN (fleet choice)             | Medium (network)                        |
@@ -88,7 +88,7 @@ Phones are daily drivers: stayturgid already avoids keep-awake apps and holds
 | `emu` + JIT + Styx listeners          | Always (to be useful as fleet FS) | **Medium–high RAM/CPU** vs sshd            |
 | `termux-wake-lock` / FGS (plan §6)    | Always (Android otherwise kills)  | **High battery** — fights deep sleep       |
 | Limbo → `rish` per write              | On each ctl op                    | Process spawn; fine if rare, bad if chatty |
-| Still need AutoJs6 a11y               | Always                            | **No savings** — cannot drop               |
+| Still need a11y                       | Always                            | **No savings** — cannot drop               |
 | Still need Handsets/SSH for UI & heal | Sessions                          | **No savings**                             |
 
 Moving “as much as possible” to Inferno **increases** steady-state drain:
@@ -102,12 +102,12 @@ and competes poorly with existing SSH one-shots.
 
 ### Rough guidance
 
-| Approach                       | Battery vs today                | Capability gain                   |
-| ------------------------------ | ------------------------------- | --------------------------------- |
-| Keep current hybrid            | Baseline                        | Production                        |
-| Inferno always-on + wake-lock  | **Worse**                       | Namespace UX                      |
-| Inferno session-only           | Similar / slightly worse spikes | Niche ctl demos                   |
-| Drop AutoJs6 “because Inferno” | Looks better on paper           | **Breaks** no-shell heal — reject |
+| Approach                      | Battery vs today                | Capability gain                   |
+| ----------------------------- | ------------------------------- | --------------------------------- |
+| Keep current hybrid           | Baseline                        | Production                        |
+| Inferno always-on + wake-lock | **Worse**                       | Namespace UX                      |
+| Inferno session-only          | Similar / slightly worse spikes | Niche ctl demos                   |
+| Drop “because Inferno”        | Looks better on paper           | **Breaks** no-shell heal — reject |
 
 ## Side-project scope (if picked later)
 
@@ -131,7 +131,7 @@ Do **not** wire into `deploy_fleet.py` / Ansible. Suggested sandbox:
 
 ## Non-goals
 
-- Replacing AutoJs6, Handsets, Ansible, or SSH mesh
+- Replacing , Handsets, Ansible, or SSH mesh
 - Always-on Inferno in Termux:Boot
 - Inferno as Obtainium/Aurora/UI driver
 - Root / custom ROM

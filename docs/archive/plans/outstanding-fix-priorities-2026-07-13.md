@@ -24,7 +24,7 @@ LLM, MCP, WebRTC, or MITM enhancements.
   authorization.
 - `control/landing/services.json` is Git-tracked but is modified hourly by service
   discovery, so the working tree does not stay clean.
-- P7A produced a real AutoJs6 error because `files.getParent()` is unavailable;
+- P7A produced a real error because `files.getParent()` is unavailable;
   the calls remain in the source.
 - Fleet health correctly recognizes recovered hosts but presents a large volume of
   historical errors alongside current state.
@@ -45,7 +45,7 @@ For every item:
   module documentation before editing.
 - Fetch and fast-forward from `origin/master` before edits.
 - Run fleet health first and report active `WARNING`/`ERROR` conditions.
-- Prefer Python for substantial logic. AutoJs6 runtime code is a justified JavaScript
+- Prefer Python for substantial logic. runtime code is a justified JavaScript
   exception; keep JavaScript changes narrow and testable.
 - Use S24 as the primary live test device. Use P7A or HD8 only when their different
   behavior is necessary.
@@ -55,7 +55,7 @@ For every item:
 - Keep changes scoped, test them in proportion to risk, commit, and push.
 - Do not stage, reset, or overwrite unrelated worktree changes.
 
-## Priority 1 — Fix the AutoJs6 parent-path failure (H10) — COMPLETE 2026-07-13
+## Priority 1 — Fix the parent-path failure (H10) — COMPLETE 2026-07-13
 
 ### Problem
 
@@ -67,8 +67,8 @@ trigger file write failed: TypeError: Cannot find function getParent
 
 The unsupported API remains in:
 
-- `device/autojs6/lib/termux.js`
-- `device/autojs6/lib/notify.js`
+- `device//lib/termux.js`
+- `device//lib/notify.js`
 
 This is important because the failing branch is intended to recreate missing state
 directories during self-heal.
@@ -76,7 +76,7 @@ directories during self-heal.
 ### Work
 
 1. Reproduce or unit-test the unavailable API behavior without changing a phone.
-2. Introduce one small, AutoJs6-compatible parent-path helper or use an existing
+2. Introduce one small, -compatible parent-path helper or use an existing
    supported project helper.
 3. Replace both calls; do not fix only the observed trigger-file site.
 4. Add regression coverage for a missing parent directory.
@@ -250,7 +250,7 @@ recovered output; `make check` and `make test` pass.
 
 ### Problem
 
-FIRERPA's trust model has been updated: the core `lamda` engine is recognized as a legitimate, open-source automation framework rather than untrusted malware, meaning the previous network isolation blocker (F4) has been dropped. We currently rely on custom shell scripts and AutoJs6 for fleet management, but FIRERPA provides a production-grade Python SDK with an `@mcp("tool")` architecture.
+FIRERPA's trust model has been updated: the core `lamda` engine is recognized as a legitimate, open-source automation framework rather than untrusted malware, meaning the previous network isolation blocker (F4) has been dropped. We currently rely on custom shell scripts and for fleet management, but FIRERPA provides a production-grade Python SDK with an `@mcp("tool")` architecture.
 
 ### Work
 
@@ -278,7 +278,7 @@ Do not let these displace the ordered fixes above:
 - shell-gpt escalation (54)
 - FIRERPA WebRTC, or MITM additions (F2-F3)
 - Tasker or `sshd -D` experiments (44/45) without their triggering symptom
-- AutoJs6 WorkManager work (43) before upstream support exists
+- WorkManager work (43) before upstream support exists
 
 ## Junior Developer Resume Prompt
 

@@ -2,7 +2,7 @@
 
 **Audience:** operator + next agent
 **Tracks:** [#43](https://github.com/djbclark/stayturgid/issues/43) (fleet-state verification), [#44](https://github.com/djbclark/stayturgid/issues/44) (OpenObserve auth, fixed same session), [#45](https://github.com/djbclark/stayturgid/issues/45) (release APK, referenced)
-**Repo commits this session:** `40e9fce` (#44 fix), `2c9d7c6` (AutoJs6 uninstall), `6925e2d` (a11y correction)
+**Repo commits this session:** `40e9fce` (#44 fix), `2c9d7c6` ( uninstall), `6925e2d` (a11y correction)
 
 ## Summary
 
@@ -10,19 +10,19 @@ Started from #43's claim that the 2026-07-22 K1 cutover's fleet-state was
 unverified. Live-checked all three devices (s24, hd8, p7a — all reachable
 over Tailscale + adb this session) rather than trusting the commit's claims.
 
-## 1. AutoJs6 removal — was claimed done, was actually false
+## 1. removal — was claimed done, was actually false
 
-`pm path org.autojs.autojs6` returned a real installed APK on **all three**
+`pm path ` returned a real installed APK on **all three**
 devices, including s24, the one device the 2026-07-22 cutover session
 claimed to have confirmed live. The Ansible uninstall task's
 `failed_when: false` meant this went undetected.
 
-**Fixed:** uninstalled via `adb shell pm uninstall org.autojs.autojs6` on
+**Fixed:** uninstalled via `adb shell pm uninstall ` on
 all three. `pm path` now empty everywhere. Agent core health unaffected
 (`shizuku=up sshd=up shell=yes`) immediately after removal on all three.
 
 Also checked and ruled out a live risk: `device/termux/cfengine/policy/stayturgid.cf`
-has `check_autojs6`/`check_a11y` bundles that would restart AutoJs6 if it
+has `check`/`check_a11y` bundles that would restart if it
 saw it not running — but nothing on the Mac side currently invokes that file
 via `cf-runagent` (confirmed via repo-wide grep), and the deployed
 `masterfiles/promises.cf` on-device is just CFEngine's stock example policy.
@@ -31,14 +31,14 @@ since it references a package that's now gone for good.
 
 ## 2. `a11y` probe — corrected a same-day mistake
 
-Right after uninstalling AutoJs6, `agent.log` briefly still showed
+Right after uninstalling , `agent.log` briefly still showed
 `a11y=up` on all three devices. I initially read this as "the native agent
 has its own accessibility service" and said so in `docs/STATUS.md`,
 `docs/options.md`, and a GitHub comment on #43. **That was wrong**, and I
 posted a correction to all three once I caught it.
 
 `ComonitorProbes.probeA11yListed()` (`device/native-agent/app/src/main/kotlin/org/stayturgid/agent/ComonitorProbes.kt:23,99`)
-only ever checks for AutoJs6's specific accessibility-service component
+only ever checks for 's specific accessibility-service component
 string. The `a11y=up` reading was a stale `enabled_accessibility_services`
 settings-db entry that hadn't been purged yet; within minutes it correctly
 settled to `a11y=down` on all three devices, where it will now stay
@@ -46,13 +46,13 @@ permanently — the native agent has no accessibility service of its own.
 
 **Follow-up not yet done:** `stayturgid_repair.py`'s self-heal loop
 (`device/termux/py/stayturgid_repair.py:914-951`, "detection only — user
-must enable manually") and `control/lib/fleet_health.py`'s `autojs6_a11y`
-probe are both still hardcoded to AutoJs6 and will keep
-logging/reporting `ACTION_REQUIRED: AutoJs6 accessibility disabled` /
-`autojs6_a11y=missing` fleet-wide, forever, now that AutoJs6 is
+must enable manually") and `control/lib/fleet_health.py`'s `a11y`
+probe are both still hardcoded to and will keep
+logging/reporting `ACTION_REQUIRED:  accessibility disabled` /
+`a11y=missing` fleet-wide, forever, now that is
 intentionally gone. Noise, not a functional break. Needs a follow-up patch
 to either remove this check entirely or repoint it at whatever (if
-anything) is meant to replace AutoJs6's a11y role.
+anything) is meant to replace 's a11y role.
 
 ## 3. Debug vs. release build — confirmed live
 
@@ -457,7 +457,7 @@ actions (those still get normal per-action judgment).
 4. Decide whether to pursue a Fire-OS-specific adbd-restart code path
    (likely needs root or a different mechanism entirely) or formally accept
    physical/USB recovery as the permanent fallback for that failure mode.
-5. Clean up the AutoJs6-specific self-heal/health-probe staleness (see
+5. Clean up the -specific self-heal/health-probe staleness (see
    section 2) — separate, smaller fix, not done this session.
 6. Root-cause hd8's `INSTALL_FAILED_VERSION_DOWNGRADE` on
    `moe.shizuku.privileged.api` (see "Continued: fleet-deploy-pipeline
@@ -485,9 +485,9 @@ fleet deploy. All four bugs below were found by actually re-running
    `operator/Obtainium` placeholder (never substituted) in
    `obtainium_apps/tasks/main.yml` — fixed to the real fork,
    `djbclark/Obtainium`.
-3. **Dead AutoJs6 post-UI task failed every deploy.** The
-   `enable_autojs6_drawer` task in `fleet/roles/post_ui/tasks/main.yml`
-   unconditionally tried to configure AutoJs6's Shizuku drawer — an app
+3. **Dead post-UI task failed every deploy.** The
+   `enable_drawer` task in `fleet/roles/post_ui/tasks/main.yml`
+   unconditionally tried to configure 's Shizuku drawer — an app
    that was uninstalled fleet-wide in this same session's earlier K1
    verification work (section 1 above). Removed the task entirely.
 4. **`adb install` hung a deploy for 90+ minutes with zero error.**

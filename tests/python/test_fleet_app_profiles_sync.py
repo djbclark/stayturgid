@@ -10,9 +10,9 @@ JSON_PATH = REPO / "control" / "lib" / "fleet_app_profiles.json"
 def test_fleet_app_profiles_json_is_valid():
     data = json.loads(JSON_PATH.read_text())
     assert isinstance(data, list)
-    assert len(data) >= 9
+    assert len(data) >= 8
     packages = {entry["package"] for entry in data}
-    assert "org.autojs.autojs6" in packages
+    assert "org.stayturgid.agent" in packages
     assert "com.termux" in packages
     assert "dev.imranr.obtainium" in packages
     assert "com.aurora.store" not in packages

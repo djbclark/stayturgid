@@ -14,14 +14,11 @@ import java.util.concurrent.TimeUnit
  * Prefer direct /proc and settings reads; shell is a last resort and must not be used for the
  * [ShizukuUserService.pingAwake] path.
  *
- * STATUS shape mirrors AutoJs6 comonitor so fleet scrapers can dual-read during dual-run (Phase 2).
- * Detection-only for a11y — never settings put.
+ * Never write settings from this process.
  */
 object ComonitorProbes {
     private const val TAG = "StayTurgidComo"
     private const val LOG_PATH = "/sdcard/stayturgid/logs/agent.log"
-    private const val A11Y_AUTOJS6 =
-        "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityService"
     private const val TAILSCALE_PACKAGE = "com.tailscale.ipn"
     private const val TAILSCALE_CONTROL_HOST = "controlplane.tailscale.com"
 
@@ -29,7 +26,6 @@ object ComonitorProbes {
         val port: String,
         val shizuku: String,
         val sshd: String,
-        val a11y: String,
         val shell: String,
         val wifi: String,
         val tailscale: String,
@@ -39,7 +35,7 @@ object ComonitorProbes {
         val sshdWedge: String = SshdWedge.SKIP,
     ) {
         fun line(ts: String): String =
-            "[agent] STATUS port=$port shizuku=$shizuku sshd=$sshd a11y=$a11y shell=$shell " +
+            "[agent] STATUS port=$port shizuku=$shizuku sshd=$sshd shell=$shell " +
                 "wifi=$wifi tailscale=$tailscale tailscale_policy=$tailscalePolicy " +
                 "sshd_wedge=$sshdWedge reason=$reason ts=$ts uid=${Process.myUid()}"
     }
@@ -59,7 +55,6 @@ object ComonitorProbes {
         val sshd = if (pgrepMatch("sshd")) "up" else "down"
         // We are running as Shizuku UserService → binder path is up.
         val shizuku = "up"
-        val a11y = probeA11yListed()
         val port5555 = probePort5555()
         val shell = if (port5555 == "open") "yes" else "no"
         val wifi = probeWifi()
@@ -70,7 +65,6 @@ object ComonitorProbes {
             port = port5555,
             shizuku = shizuku,
             sshd = sshd,
-            a11y = a11y,
             shell = shell,
             wifi = wifi,
             tailscale = tailscale,
@@ -110,33 +104,6 @@ object ComonitorProbes {
         val app = settingsGet("secure", "always_on_vpn_app")?.trim()
         val lockdown = settingsGet("secure", "always_on_vpn_lockdown")?.trim()
         return if (app == TAILSCALE_PACKAGE && lockdown == "0") "up" else "down"
-    }
-
-    /**
-     * AutoJs6 was uninstalled fleet-wide. [autojsInstalled] false is retired, not down. Null means
-     * the package check failed: fall through to the settings list, which is the old reading.
-     */
-    fun a11yListed(autojsInstalled: Boolean?, enabledServices: String?): String {
-        if (autojsInstalled == false) return "retired"
-        if (enabledServices.isNullOrBlank() || enabledServices == "null") return "down"
-        return if (
-            enabledServices.contains(A11Y_AUTOJS6) || enabledServices.contains("org.autojs.autojs6")
-        ) {
-            "up"
-        } else {
-            "down"
-        }
-    }
-
-    private var autojsInstalledCache: Boolean? = null
-
-    private fun probeA11yListed(): String {
-        val installed =
-            autojsInstalledCache
-                ?: shellOut(arrayOf("pm", "path", "org.autojs.autojs6"), 4)?.let { path ->
-                    path.contains("package:").also { autojsInstalledCache = it }
-                }
-        return a11yListed(installed, settingsGet("secure", "enabled_accessibility_services"))
     }
 
     private fun probePort5555(): String {

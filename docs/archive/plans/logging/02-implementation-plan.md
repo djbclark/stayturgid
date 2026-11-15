@@ -25,11 +25,11 @@ Transitioning `stayturgid` on-device logging to structured JSON lines (JSONL) an
 
 ## Proposed Changes
 
-### Component 1: AutoJs6 Logging & State Client (JS)
+### Component 1: Logging & State Client (JS)
 
-We will update the AutoJs6 client side to emit JSON lines, support `state.json`, and handle private/shared storage paths.
+We will update the client side to emit JSON lines, support `state.json`, and handle private/shared storage paths.
 
-#### [MODIFY] `device/autojs6/lib/log.js` (deleted in #162 — AutoJs6 code removed entirely)
+#### [MODIFY] `device//lib/log.js` (deleted in #162 — code removed entirely)
 
 - Modify `append(line)` to dual-write logs:
   - Text format to `watchdog.log` (calls `trimLogIfNeeded` to rotate at 1000 lines).
@@ -39,11 +39,11 @@ We will update the AutoJs6 client side to emit JSON lines, support `state.json`,
 
 ---
 
-### Component 2: AutoJs6 Accessibility Watchdog & Co-Monitor (JS)
+### Component 2: Accessibility Watchdog & Co-Monitor (JS)
 
-#### [MODIFY] `device/autojs6/lib/comonitor.js` (deleted in #162 — AutoJs6 code removed entirely)
+#### [MODIFY] `device//lib/comonitor.js` (deleted in #162 — code removed entirely)
 
-- At the end of `run()`, call `log.writeState("comonitor", statusObj)` to save AutoJs6-probed statuses to the shared state file.
+- At the end of `run()`, call `log.writeState("comonitor", statusObj)` to save -probed statuses to the shared state file.
 
 ---
 
@@ -77,11 +77,11 @@ We will adapt the error scraper to scan both JSON lines and legacy log formats d
 
 We will update tests to cover the new structured configurations and state properties.
 
-#### [MODIFY] `tests/js/log.test.js` (deleted in #162 — AutoJs6 code removed entirely)
+#### [MODIFY] `tests/js/log.test.js` (deleted in #162 — code removed entirely)
 
 - Add unit test cases to verify JSON log line parsing and `writeState()` file operations.
 
-#### [MODIFY] `tests/js/comonitor.test.js` (deleted in #162 — AutoJs6 code removed entirely)
+#### [MODIFY] `tests/js/comonitor.test.js` (deleted in #162 — code removed entirely)
 
 - Update mock `files` object to simulate `state.json` read/write capabilities.
 
@@ -110,5 +110,5 @@ We will update tests to cover the new structured configurations and state proper
 ### Manual Verification
 
 1. Verify `watchdog.jsonl` and `repair.jsonl` are populated on-device with valid JSON payloads.
-2. Verify `state.json` contains valid atomic updates from both the Python repair run and AutoJs6 comonitor run.
+2. Verify `state.json` contains valid atomic updates from both the Python repair run and comonitor run.
 3. Run `just health` and confirm the Mac control node correctly scrapes errors from both JSONL and legacy log files.

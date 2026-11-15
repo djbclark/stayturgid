@@ -99,18 +99,9 @@ stayturgid_boot_scripts:
 
 # Boot scripts removed from the deploy list — deleted from devices on next deploy.
 # When you remove a script from stayturgid_boot_scripts, add it here.
-stayturgid_retired_boot_scripts:
-  # AutoJs6 was fully uninstalled fleet-wide during the K1 native-agent
-  # cutover verification (2026-07-25, issue #43). These two boot scripts only
-  # ever launched/restarted AutoJs6's own boot-launcher.js — the source files
-  # (device/termux/boot/start-autojs6-*.sh) and stayturgid_bridges.py's
-  # autojs6 mode were removed for good in the #162 cleanup; kept in this list
-  # so any device that hasn't deployed since retains its cleanup on the next
-  # run.
-  - start-autojs6-bridge.sh
-  - start-autojs6-watchdog.sh
+stayturgid_retired_boot_scripts: []
 
-# Override examples (Termux-only, no AutoJs6):
+# Override example:
 # stayturgid_boot_scripts: [start-adb.sh]
 
 # Real shell only (boot wrappers). Logic entrypoints are stayturgid_py_scripts.
@@ -139,15 +130,7 @@ stayturgid_py_scripts:
 
 stayturgid_retired_py_scripts:
   - bridges.py
-  # AutoJs6 remnants cleanup (#162) -- both scripts' only reachable caller
-  # chain was itself already fully dead (see the issue for the trace).
   - stayturgid_grant_shizuku.py
-  - stayturgid_enable_autojs6.py
-  # AutoJs6 deprecation follow-up: the guard was still invoked every boot
-  # loop, but had been a permanent no-op since AutoJs6's uninstall (its own
-  # first check -- a stale "[watchdog] cycle start" log line -- can never
-  # be satisfied since AutoJs6 no longer writes that log at all).
-  - stayturgid_autojs6_guard.py
 
 
 # Restricted SSH ForceCommand wrapper (helpers only; see ssh_keys.yml F5).
@@ -197,7 +180,6 @@ stayturgid_retired_scripts:
   - agent-presence.sh
   - claude-presence.sh
   - repair-bridge.sh
-  - autojs6-bridge.sh
   - .stayturgid/bin/stayturgid-repair.sh
   - .stayturgid/bin/agent-presence.sh
   - .stayturgid/bin/claude-presence.sh

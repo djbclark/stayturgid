@@ -21,7 +21,7 @@ import time
 from contextlib import contextmanager
 from typing import Callable, Iterator
 
-# AutoJs6 drawer: label TextView ~x=342, Switch ~x=669 → ~327px; 200 is too tight.
+# Settings drawer: label TextView ~x=342, Switch ~x=669 → ~327px; 200 is too tight.
 _SWITCH_NEAR_PX = 400
 # Handsets ``hs ui`` rows look like ``-    Switch …`` or ``tap  Switch …``.
 _UI_SWITCH_RE = re.compile(
@@ -283,7 +283,7 @@ class HandsetsSession:
                 rest = m.group(3).lower()
                 checked = "checked" in rest
                 return checked, x, y
-            # Fallback: nearest Switch in a local window (AutoJs6 drawer).
+            # Fallback: nearest Switch in a local window (settings drawer).
             ly = int(mlab.group("y"))
             best = None  # (dy, checked, x, y)
             window = lines[max(0, i - 2) : i + 5]
@@ -306,7 +306,7 @@ class HandsetsSession:
 
     def switch_near_label(self, label: str, *, timeout_ms: int = 4000):
         """Return (checked: bool|None, ok: bool) for Switch near label text."""
-        # UI table first — reliable for AutoJs6 drawer Switch rows.
+        # UI table first — reliable for settings-drawer Switch rows.
         parsed = self._parse_switch_from_ui(label)
         if parsed is not None:
             return parsed[0], True

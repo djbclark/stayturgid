@@ -13,10 +13,10 @@ under the same ID rather than editing history here.
 `stayturgid.fleet.validate` (repair/sshd/a11y asserts + optional a11y drift merge);
 `preflight.yml` replaces `deploy_fleet.py` SSH preflight.
 
-### ~~61 — autojs6_project_deploy module (agent)~~ · Closed 2026-07-09
+### ~~61 — project_deploy module (agent)~~ · Closed 2026-07-09
 
-`stayturgid.android_common.autojs6_project_deploy` + shared util; wired in
-`autojs6_watchdog` for Fire adb path; `control/tools/autojs6/deploy.py` thin wrapper retained.
+`stayturgid.android_common.project_deploy` + shared util; wired in
+`watchdog` for Fire adb path; `control/tools//deploy.py` thin wrapper retained.
 
 ### ~~62 — Remove legacy path aliases and shim-only layout (agent)~~ · Closed 2026-07-10
 
@@ -27,18 +27,18 @@ Removed flat `ansible/playbooks/*.yml` shims (keep `site.yml` + `fleet/` +
 
 ## Track A — Operational
 
-### ~~H14 — Build & deploy AutoJs6 sticky-a11y rebind APK~~ · Done 2026-07-19 · Cross-ref: A11
+### ~~H14 — Build & deploy sticky-a11y rebind APK~~ · Done 2026-07-19 · Cross-ref: A11
 
-AutoJs6#1 merged; fleet debug17 arm64 installed on s24/p7a/hd8 (LeakCanary
+Upstream issue 1 merged; fleet debug17 arm64 installed on s24/p7a/hd8 (LeakCanary
 disabled). GitHub release asset upload may still be flaky (503).
 
 ## Track D — Reliability
 
-### ~~A11 — Sticky AutoJs6 a11y detect + notify~~ · Merged 2026-07-19 · stayturgid#29
+### ~~A11 — Sticky a11y detect + notify~~ · Merged 2026-07-19 · stayturgid#29
 
-Shipped on master (`199ea20`). Companion AutoJs6#1 + fleet debug APK builds 16–17
+Shipped on master (`199ea20`). Companion #1 + fleet debug APK builds 16–17
 (LeakCanary off on 17). Note: this predates the K1 native-agent cutover
-(2026-07-22) that retired the AutoJs6 watchdog fleet-wide — the sticky-a11y
+(2026-07-22) that retired the watchdog fleet-wide — the sticky-a11y
 detect/notify path it shipped no longer runs.
 
 ## Track T — Tooling
@@ -59,7 +59,7 @@ review findings), not here. Research:
 
 ## Track G — Python migration & logging (fully completed 2026-07-13)
 
-Shell → Python migration of `start-adb.sh`, `autojs6-bridge.sh`,
+Shell → Python migration of `start-adb.sh`, `-bridge.sh`,
 `repair-bridge.sh`, `ui_tars_env.sh`, `vlm_migrate_paths.sh`. All old shell
 files deleted, Ansible retired lists updated. Unified syslog logging
 (`control/lib/logging.py`) with severity levels, 30-day age-based rotation,
@@ -91,7 +91,7 @@ lint. `.typos.toml` carries approved project vocabulary. Hooks installed via
 (Note: the ID **H5** is reused — see the open Track A entry "H5 — Galaxy
 publish API token" in options.md, a different item with the same ID.)
 
-### ~~H6 — oneui-device AutoJs6 watchdog stale (Android 16)~~ · Closed 2026-07-13
+### ~~H6 — oneui-device watchdog stale (Android 16)~~ · Closed 2026-07-13
 
 Fixed a `boot-launcher.js` working-directory bug that broke every
 `require("./lib/...")` in the spawned `main.js`. Accessibility enablement
@@ -107,7 +107,7 @@ both phones; `~/.stayturgid/bin/rish -c 'id -u'` returns UID 2000.
 Dashboard marks `shizuku_down` actionable with an "open Shizuku and test rish"
 button.
 
-### ~~H10 — Fix unsupported AutoJs6 parent-path calls~~ · Complete 2026-07-13
+### ~~H10 — Fix unsupported parent-path calls~~ · Complete 2026-07-13
 
 Replaced unsupported `files.getParent()` calls with `config.ensureParentDir()`;
 deployed to S24 and P7A.
@@ -145,17 +145,17 @@ SSH/Tailscale hygiene.
 
 **Closed (2026-07-14):** F2 (FIRERPA WebRTC spike, confirmed working).
 **Closed (2026-07-09 night):** 60–61 validate role + preflight +
-`autojs6_project_deploy`; `just --list`/Makefile ops; `just health` stale LOST
+`project_deploy`; `just --list`/Makefile ops; `just health` stale LOST
 fix; docs sweep. 58–59 ADR 002 + `android_ui` / `post_ui` /
 `android_a11y_services`. Neo/Aurora parked.
 **Closed (2026-07-09 evening):** Aurora CPU thrash policy documented;
 screen-control hold rule.
 **Closed (2026-07-09):** 15b, H1, H3, 56, 46, 55, 27, 57, Portfolio 2 48–52/53,
-co-monitor + Mac AutoJs6 heal, Fire F1–F5, self-heal agent rule. (Note: these
+co-monitor + Mac heal, Fire F1–F5, self-heal agent rule. (Note: these
 H1/H3 IDs are from the 2026-07-09 ledger and are a different scope than the
 still-open Track H H1/H3 items in options.md — fireos-device deployment.)
 **Closed (2026-07-08):** drawer profile, a11y, PiP, Aurora order, #553.
 **Shipped (2026-07-13):** bootstrap APK automation (version-aware install +
-verify + Shizuku start, 7 APKs); `android_apk` resign param; AutoJs6
+verify + Shizuku start, 7 APKs); `android_apk` resign param;
 versionName fix; `shizuku_start` module (16 unit tests); T1 just migration
 (root justfile + 3 recipe groups, 84 discoverable recipes, Makefile retired).

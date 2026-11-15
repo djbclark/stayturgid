@@ -90,7 +90,7 @@ GMS **cannot** be fully frozen without root. Pinning is opt-in now.
 
 ## Not fleet scope
 
-stayturgid core stack (Termux, AutoJs6, Obtainium, Shizuku) does **not**
+stayturgid core stack (Termux, , Obtainium, Shizuku) does **not**
 require Google Play. This doc is for the operator's personal Google apps on hd8.
 
 ## References

@@ -15,26 +15,21 @@ CHECK=1 ansible-playbook ansible/playbooks/site.yml --tags validate  # skips ass
 
 ## What it checks
 
-| Step                                  | Source                                                              |
-| ------------------------------------- | ------------------------------------------------------------------- |
-| Repair layer healthy                  | `stayturgid_repair_check` (`port=open` or `skip`)                   |
-| Shizuku / sshd / a11y not `FAILED`    | Parsed STATUS fields                                                |
-| Legacy AutoJs6 a11y probe (warn-only) | `android_a11y_services` probe, only when AutoJs6 is still installed |
-| SSH echo                              | `echo termux_ssh_ok`                                                |
+| Step                               | Source                                            |
+| ---------------------------------- | ------------------------------------------------- |
+| Repair layer healthy               | `stayturgid_repair_check` (`port=open` or `skip`) |
+| Shizuku / sshd / a11y not `FAILED` | Parsed STATUS fields                              |
+| SSH echo                           | `echo termux_ssh_ok`                              |
 
 ## Variables (role defaults)
 
-| Var                                | Default | Meaning                                                                                |
-| ---------------------------------- | ------- | -------------------------------------------------------------------------------------- |
-| `stayturgid_validate_a11y_profile` | `true`  | Warn (never fail) when AutoJs6 is still installed but its accessibility service is off |
-
-There is no merge or restore variable: the probe is detection only. It is a
-leftover from the K1 cutover and does nothing on devices without AutoJs6.
+| Var                    | Default                                       | Meaning                              |
+| ---------------------- | --------------------------------------------- | ------------------------------------ |
+| `stayturgid_repo_root` | parent of the directory holding `ansible.cfg` | Repo root the repair check runs from |
 
 ## Check mode
 
-Repair check and asserts are skipped in check mode. The AutoJs6 a11y probe is
-skipped when `ansible_check_mode` is true.
+Repair check and asserts are skipped in check mode.
 
 ## Not in scope
 

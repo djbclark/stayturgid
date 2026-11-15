@@ -9,7 +9,7 @@
 
 Neo Store / F-Droid **are not** part of the default fleet deploy
 (`stayturgid_app_stores_enabled: false` in inventory group_vars). Core stack is
-Termux + AutoJs6 + Obtainium + Tailscale.
+Termux + + Obtainium + Tailscale.
 
 ## Re-enable
 

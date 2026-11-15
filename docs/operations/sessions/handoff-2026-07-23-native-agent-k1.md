@@ -3,34 +3,34 @@
 **Audience:** operator + next agent  
 **This session agent:** handoff only (not owning uncommitted worktree)  
 **Repo HEAD:** `stayturgid` master **`93e43b5`** (= `origin/master` at handoff write)  
-**K1 cutover commit:** **`195c5c7`** — `feat(native-agent): complete K1 rollout, remove autojs6_watchdog, update trust model`  
+**K1 cutover commit:** **`195c5c7`** — `feat(native-agent): complete K1 rollout, remove watchdog, update trust model`  
 **Earlier foundation:** through **`9c7067b`** / **`27425a2`** (scaffold, dual-run, soft_health → Vector, 2026-07-22 handoff)  
 **Site overlay:** `site-djbclark` has Vector soft_health fragments (**`40655bd`** era; re-sync if drifted)  
 **Supersedes:** [handoff-2026-07-22-native-agent-k1.md](../../archive/sessions/handoff-2026-07-22-native-agent-k1.md)  
 **Long status:** [native-agent-status-2026-07-22.md](../../archive/plans/native-agent-status-2026-07-22.md)  
-**Plan:** [autojs6-to-native-apk-plan.md](../../archive/plans/autojs6-to-native-apk-plan.md)  
+**Plan:** -to-native-apk-plan.md  
 **OPTIONS:** **K1 marked Phase 4 complete** (closed in `docs/options.md` as of `195c5c7`)
 
 ---
 
 ## One sentence
 
-**K1 code cutover is on master** (native-agent owns the watchdog path; `autojs6_watchdog` role removed); **live fleet is uneven** (s24 agent healthy; p7a/hd8 not adb-reachable at this handoff); **OpenObserve still not trustworthy** until Vector auth is fixed + reingest; **working tree has unrelated staged docs** — do not assume they belong to K1.
+**K1 code cutover is on master** (native-agent owns the watchdog path; `watchdog` role removed); **live fleet is uneven** (s24 agent healthy; p7a/hd8 not adb-reachable at this handoff); **OpenObserve still not trustworthy** until Vector auth is fixed + reingest; **working tree has unrelated staged docs** — do not assume they belong to K1.
 
 ---
 
 ## Where the code is (committed)
 
-| Topic             | State                                                                                                                  |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Native agent app  | `device/native-agent/` — release build path / signing material may exist locally under that tree                       |
-| Mac tools         | `control/tools/native-agent/` — rollout, grant, start, reingest                                                        |
-| Soft health       | `fleet_health` / `fleet_health_monitor` — `agent_stale`, `soft_health` events                                          |
-| Durable telemetry | `~/.config/stayturgid/stats/soft_health.jsonl` + `events.jsonl` (fsync)                                                |
-| Vector → OO       | site-sync fragments: file-tail `soft_health.jsonl` → stream **`soft_health`**                                          |
-| Ansible           | `autojs6_watchdog` role **deleted** in `195c5c7`; `shizuku_config` role **added**; bootstrap/obtainium wired for agent |
-| Healing registry  | Updated for agent vs AutoJs6 (see `tests/healing_registry.json` on master)                                             |
-| Dashboard         | Agent age card changes in `195c5c7` (`dashboard.py`, `_device_card.html`)                                              |
+| Topic             | State                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- |
+| Native agent app  | `device/native-agent/` — release build path / signing material may exist locally under that tree               |
+| Mac tools         | `control/tools/native-agent/` — rollout, grant, start, reingest                                                |
+| Soft health       | `fleet_health` / `fleet_health_monitor` — `agent_stale`, `soft_health` events                                  |
+| Durable telemetry | `~/.config/stayturgid/stats/soft_health.jsonl` + `events.jsonl` (fsync)                                        |
+| Vector → OO       | site-sync fragments: file-tail `soft_health.jsonl` → stream **`soft_health`**                                  |
+| Ansible           | `watchdog` role **deleted** in `195c5c7`; `shizuku_config` role **added**; bootstrap/obtainium wired for agent |
+| Healing registry  | Updated for agent vs (see `tests/healing_registry.json` on master)                                             |
+| Dashboard         | Agent age card changes in `195c5c7` (`dashboard.py`, `_device_card.html`)                                      |
 
 ### Important commits
 
@@ -52,7 +52,7 @@
 | **p7a**                       | **not found**  | unknown                  | unknown                                      |
 | **hd8** USB/TS                | **not found**  | unknown                  | unknown                                      |
 
-`just health` was **nonzero** at handoff (hd8 historical AutoJs6/Shizuku errors in scrapes; recipe exit 1). Treat fleet health as **not clean** until re-checked with all hosts online.
+`just health` was **nonzero** at handoff (hd8 historical /Shizuku errors in scrapes; recipe exit 1). Treat fleet health as **not clean** until re-checked with all hosts online.
 
 **soft_health.jsonl:** ~231 lines and growing (Mac SSOT still good).  
 **Vector:** running; recent log still shows **Unauthorized** on OO sinks — OO SQL still blocked until operator fixes password + reingest.
@@ -125,11 +125,11 @@ Not all Phase 3.5 items are “done just because cutover landed.” Still worth 
 | Release APK / Obtainium / Ansible idempotent install | Day-2 updates without ad-hoc rollout                           |
 | Battery unrestricted / unused-app off for agent      | Overnight FGS survival                                         |
 | Fire Shizuku official packaging (STORED `.so`)       | Avoid debug-repack stopgap                                     |
-| CLOSED_NO_SHELL soak without AutoJs6                 | Trust catastrophic path                                        |
+| CLOSED_NO_SHELL soak without                         | Trust catastrophic path                                        |
 | OO soft_health green for 7+ days                     | Pre-cutover/post-cutover evidence                              |
-| hd8 AutoJs6 residual errors                          | Health noise; AJ6 may still be partially present or logs stale |
+| hd8 residual errors                                  | Health noise; AJ6 may still be partially present or logs stale |
 
-If AutoJs6 was **uninstalled** fleet-wide in `195c5c7` ops, verify on each device (`pm path org.autojs.autojs6`). If still installed on a host, document dual-run exception.
+If was **uninstalled** fleet-wide in `195c5c7` ops, verify on each device (`pm path `). If still installed on a host, document dual-run exception.
 
 ---
 
@@ -148,7 +148,7 @@ If AutoJs6 was **uninstalled** fleet-wide in `195c5c7` ops, verify on each devic
 | -------- | --------------------------------------------------------------- |
 | A        | Operator OO password + reingest (blocks log SQL)                |
 | B        | Bring p7a/hd8 online; verify agent STATUS + soft_health samples |
-| C        | Confirm AutoJs6 gone (or intentional residual) on all hosts     |
+| C        | Confirm gone (or intentional residual) on all hosts             |
 | D        | Release/Obtainium/Ansible day-2 path                            |
 | E        | Fire Shizuku packaging fix in `~/src/Shizuku`                   |
 
@@ -177,7 +177,7 @@ just site-sync --dir ${OPS_ROOT:-~/ops}/site-djbclark --mode apply --force-gener
 
 ## Explicit non-goals unless asked
 
-- Re-opening full AutoJs6 as default watchdog
+- Re-opening full as default watchdog
 - Force-push / reset of foreign worktrees
 - Claiming K1 “ops complete” while OO 401 and half the fleet offline
 

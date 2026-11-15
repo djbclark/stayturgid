@@ -1,8 +1,8 @@
 """device.json must render valid JSON for every host in the live taxonomy.
 
 read_device_profile() in stayturgid_repair.py / stayturgid_shell.py had been
-reading this file with nothing writing it, so t2e — onboarded after the AutoJs6
-flow that used to template the older /sdcard/stayturgid_device.json path was
+reading this file with nothing writing it, so t2e — onboarded after the flow
+that used to template the older /sdcard/stayturgid_device.json path was
 retired — reported device_profile=MISSING on every repair cycle.
 """
 

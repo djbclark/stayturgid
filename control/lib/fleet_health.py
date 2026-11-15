@@ -275,9 +275,8 @@ _age() {
     + r"""
 }
 echo "repair_age=$(_age '\[repair\]')"
-# The legacy AutoJs6 watchdog no longer writes a [watchdog] line; watchdog.log
-# is the repair mirror. "missing" showed up on every health line as if the
-# log were gone (t2e, 2026-11-15).
+# watchdog.log is the repair mirror and has no [watchdog] line. "missing"
+# showed up on every health line as if the log were gone (t2e, 2026-11-15).
 _wd_age=$(_age '\[watchdog\]')
 if [ "$_wd_age" = missing ]; then _wd_age=retired; fi
 echo "watchdog_age=$_wd_age"
@@ -320,9 +319,7 @@ if [ -n "$status" ]; then
   echo "status_line=$status"
   echo "$status" | grep -oE 'port=[^ ]+' || true
   echo "$status" | grep -oE 'shizuku=[^ ]+' || true
-  echo "$status" | grep -oE 'a11y=[^ ]+' || echo "a11y=unknown"
 else
-  echo "a11y=unknown"
   echo "port=unknown"
   echo "shizuku=unknown"
 fi
@@ -334,26 +331,6 @@ if [ -z "$a11y_list" ] || [ "$a11y_list" = "null" ]; then
   a11y_list=$(settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r')
 fi
 echo "a11y_list=$a11y_list"
-# AutoJs6 was fully uninstalled fleet-wide during the K1 native-agent cutover
-# (2026-07-25, issue #43) and is not expected to return — check live install
-# state first so its absence reads as the retired, healthy state instead of
-# perpetual "missing" noise.
-autojs6_installed=$(adb -s localhost:5555 shell pm path org.autojs.autojs6 2>/dev/null </dev/null | tr -d '\r')
-if [ -z "$autojs6_installed" ]; then
-  autojs6_installed=$(pm path org.autojs.autojs6 2>/dev/null | tr -d '\r')
-fi
-if [ -z "$autojs6_installed" ]; then
-  echo "autojs6_a11y=retired"
-  # parse_kv keeps the last a11y=. The newest STATUS is often the native
-  # agent's, which still says a11y=down for an app that is not installed.
-  echo "a11y=retired"
-else
-  case "$a11y_list" in
-    *org.autojs.autojs6/*) echo "autojs6_a11y=ok" ;;
-    ""|null) echo "autojs6_a11y=unknown" ;;
-    *) echo "autojs6_a11y=missing" ;;
-  esac
-fi
 """
     + _TASKER_BODY
     + _FLEET_PROFILE_BODY
@@ -424,7 +401,7 @@ def _int_age(raw: str | None) -> int | None:
 def _normalize_status_fields(report: dict[str, Any]) -> None:
     if "status_line" not in report:
         return
-    for field in ("a11y", "port", "shizuku", "tailscale", "tailscale_policy", "shizuku_auth"):
+    for field in ("port", "shizuku", "tailscale", "tailscale_policy", "shizuku_auth"):
         if field in report:
             continue
         match = re.search(rf"{field}=([^\s]+)", report["status_line"])
@@ -572,8 +549,6 @@ def summarize(report: dict[str, Any], issues: list[str]) -> str:
         "shizuku=%s" % report.get("shizuku", "?"),
         "tailscale=%s" % report.get("tailscale", "?"),
         "tailscale_policy=%s" % report.get("tailscale_policy", "?"),
-        "a11y=%s" % report.get("a11y", "?"),
-        "autojs6_a11y=%s" % report.get("autojs6_a11y", "?"),
         "tasker_recover_age=%s" % report.get("tasker_recover_age", "?"),
         "tasker_recover_result=%s" % report.get("tasker_recover_result", "?"),
         "tasker_monitor=%s" % report.get("tasker_monitor", "?"),
@@ -688,30 +663,10 @@ else
 fi
 list=$(settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r')
 echo "a11y_list=$list"
-# AutoJs6 was fully uninstalled fleet-wide during the K1 native-agent cutover
-# (2026-07-25, issue #43) and is not expected to return — check live install
-# state first so its absence reads as the retired, healthy state instead of
-# perpetual "missing" noise.
-autojs_retired=0
-if [ -z "$(pm path org.autojs.autojs6 2>/dev/null)" ]; then
-  echo "autojs6_a11y=retired"
-  autojs_retired=1
-else
-  case "$list" in
-    *org.autojs.autojs6/*) echo "autojs6_a11y=ok" ;;
-    ""|null) echo "autojs6_a11y=unknown" ;;
-    *) echo "autojs6_a11y=missing" ;;
-  esac
-fi
 st=$(grep -ah 'STATUS port=' $LOGS 2>/dev/null | tail -1)
 echo "status_line=$st"
 echo "$st" | grep -oE 'port=[^ ]+' || echo "port=unknown"
 echo "$st" | grep -oE 'shizuku=[^ ]+' || echo "shizuku=unknown"
-if [ "$autojs_retired" = 1 ]; then
-  echo "a11y=retired"
-else
-  echo "$st" | grep -oE 'a11y=[^ ]+' || echo "a11y=unknown"
-fi
 auth=$(grep -ah 'STATUS port=.*shizuku_auth=' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | grep -oE 'shizuku_auth=[^ ]+')
 echo "${auth:-shizuku_auth=unknown}"
 echo "shell5555=skip"

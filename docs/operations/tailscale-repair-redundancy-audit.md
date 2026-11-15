@@ -90,7 +90,7 @@ the **effective first responder** today, not a dormant backup.
 4. **Stale variable.** `tailscale_activity` (`ansible/inventory/group_vars/all.yml`)
    is still rendered into `device.json` as `tailscaleActivity`, but nothing
    launches MainActivity any more (#64, #199). The same file's comment
-   "Tailscale health checks in AutoJs6 watchdog" refers to the retired AutoJs6
+   "Tailscale health checks in watchdog" refers to the retired
    path. Both are documentation-level clean-ups.
 
 ## 5. Recommended consolidation
@@ -213,7 +213,7 @@ alone.
    (`CatastrophicRepair.TAILSCALE_CONNECT_ACTION`). Behaviour unchanged;
    `tests/python/test_stayturgid_repair.py` covers the broadcast.
 2. `ansible/inventory/group_vars/all.yml`: the comment on
-   `stayturgid_tailscale_enabled` still said "AutoJs6 watchdog"; it now names
+   `stayturgid_tailscale_enabled` still said " watchdog"; it now names
    the Termux loop and notes that the agent ignores the flag (landed with the
    #289 commit).
 

@@ -24,12 +24,12 @@ read `docs/STATUS.md` for current state, not this file.
 
 - [x] `1dbfcc1` — restructure: `docs/archive/{plans,sessions}/` created;
       superseded plans (outstanding-fix-priorities-2026-07-13,
-      native-agent-status, autojs6-to-native-apk, ongao/ovgo/agent-ovgo,
+      native-agent-status, -to-native-apk, ongao/ovgo/agent-ovgo,
       just-migration, firerpa-integration, logging/) and old sessions
       (2026-07-12/13/14) archived; `operations/handoffs/` merged into
       `operations/sessions/` (07-23 K1 handoff is live there; 07-22 archived);
       `.cursor/rules/*.mdc` → `docs/rules/*.md` (content de-staled in the move:
-      make→just, dead ADR links, AutoJs6 watchdog → native agent); all inbound
+      make→just, dead ADR links, watchdog → native agent); all inbound
       references repo-wide updated.
 - [x] `1f1ec63` — hygiene scrub of session-2026-07-23-handoff.md (no raw dumps
       to public issues; operator contact removed; healer note repointed at
@@ -47,14 +47,14 @@ read `docs/STATUS.md` for current state, not this file.
       `docs/archive/options-closed-2026-07-23.md`, T2's cross-link fixed, ID
       collisions documented, 43/44/54 rescope notes added);
       `docs/rules/github-issues.md` added; AGENTS.md + coding-rules.md
-      updated (reading order, `~/stayturgid` path fix, AutoJs6→native-agent
+      updated (reading order, `~/stayturgid` path fix, →native-agent
       wording, GitHub-issues option in the error/warning policy);
       docs/README.md index refreshed.
 - [x] `cb4a958` **Code-side pointer fixes** — `check_fleet_health.py`'s stale
-      "see docs/handoff.md"/AutoJs6 hint; `fleet_health_monitor.py`'s
-      "dual-run" docstrings (AutoJs6 path relabeled legacy fallback,
+      "see docs/handoff.md"/ hint; `fleet_health_monitor.py`'s
+      "dual-run" docstrings ( path relabeled legacy fallback,
       native-agent path relabeled current mechanism); `healing_registry.json`
-      AGENT-FRESH description; `autojs6.md` header marked retired/reference
+      AGENT-FRESH description; `.md` header marked retired/reference
       only. Verified via `git stash` that the pre-existing `pytest`
       failures in `test_fleet_health.py` (`WATCHDOG_HEAL_AFTER`
       AttributeError) and the `just check` healing-coverage gap
@@ -89,8 +89,8 @@ Use this as the source for STATUS.md; every claim was verified this session.
   ~17 min). p7a offline since ~03:28Z, hd8 offline since ~05:36Z —
   `just health` exits 1 with SCRAPE_STALE for both; needs physical check.
 - **K1 native agent:** cutover commit 195c5c7 (2026-07-22) deleted
-  autojs6_watchdog role, switched health to agent_missing/agent_stale, added
-  dashboard agent card + best-effort AutoJs6 uninstall (`failed_when: false`).
+  watchdog role, switched health to agent_missing/agent_stale, added
+  dashboard agent card + best-effort uninstall (`failed_when: false`).
   BUT: only s24 verified post-cutover; the 07-22 handoff's soak preconditions
   (CLOSED_NO_SHELL pilot, 7-day OO evidence) never ran; fleet last seen on
   `.debug` APK; "Phase 4 complete" in options.md is intent, not verified state.

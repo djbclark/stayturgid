@@ -37,10 +37,10 @@ _fallback_ (`docs/handoff.md`, `docs/hacking.md`) — but **fleet Python never i
 
 - One jar via `app_process`; no Play app. Text/CSS-like selectors; agent-friendly
   `hs ui` table.
-- **Works with AutoJs6 accessibility ON** (critical for fleet).
+- **Works with accessibility ON** (critical for fleet).
 - Bench (hd8 warm socket): ping ~2–4 ms; full dump p50 **~16 ms**; `hs ui` loop
   avg **~90–126 ms** on both hosts when daemon up.
-- Tap-by-label: `hs tap "Display"` OK on Fire Settings; AutoJs6 drawer
+- Tap-by-label: `hs tap "Display"` OK on Fire Settings; drawer
   `Foreground service` found in **~539 ms** on hd8 after open.
 - **Multi-device sharp edge:** `hs use SERIAL` rejects `ip:5555` and mDNS ids
   (`unknown connect arg`). With many `adb devices` entries it demands
@@ -67,12 +67,12 @@ _fallback_ (`docs/handoff.md`, `docs/hacking.md`) — but **fleet Python never i
 
 ## Recommendation
 
-| Priority                | Choice                                      | Why                                                                                          |
-| ----------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| **1 — Primary (Mac)**   | **Handsets** via `control/lib/ui_driver.py` | 17–42× faster hierarchy than raw; ~4× vs u2; works with AutoJs6 a11y; Fire Settings reliable |
-| **2 — Fallback**        | Raw dump+tap                                | When Handsets missing; Termux on-device scripts; no UiAutomation lock                        |
-| **3 — Optional debug**  | uiautomator2                                | One-off Mac debugging only; **never** alongside Handsets                                     |
-| **Avoid as fleet core** | Maestro / Appium                            | Wrong abstraction / weight for post-UI                                                       |
+| Priority                | Choice                                      | Why                                                                                  |
+| ----------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **1 — Primary (Mac)**   | **Handsets** via `control/lib/ui_driver.py` | 17–42× faster hierarchy than raw; ~4× vs u2; works with a11y; Fire Settings reliable |
+| **2 — Fallback**        | Raw dump+tap                                | When Handsets missing; Termux on-device scripts; no UiAutomation lock                |
+| **3 — Optional debug**  | uiautomator2                                | One-off Mac debugging only; **never** alongside Handsets                             |
+| **Avoid as fleet core** | Maestro / Appium                            | Wrong abstraction / weight for post-UI                                               |
 
 Live numbers: [handsets-vs-u2-bench.md](handsets-vs-u2-bench.md).
 
@@ -84,10 +84,10 @@ Live numbers: [handsets-vs-u2-bench.md](handsets-vs-u2-bench.md).
 1. `control/lib/ui_driver.py` — `HandsetsSession`, `try_handsets()`, switch
    table parse, `tap_id` / `tap_any_text` / `wait_text`.
 2. Ports: s24 **9013**, hd8 **9012**, p7a **9014**.
-3. Mac scripts Handsets-primary: `enable_autojs6_shizuku.py`,
+3. Mac scripts Handsets-primary: `enable_shizuku.py`,
    `configure_aurora.py`, `import_catalog.py`, `enable_shizuku_installer.py`.
 4. Termux Handsets wire client **shipped** (`stayturgid_handsets.py`):
-   s24 bench ~12× vs dump; AutoJs6 / Aurora / Obtainium Termux twins
+   s24 bench ~12× vs dump; / Aurora / Obtainium Termux twins
    Handsets-primary (`try_session` + dump fallback). Details:
    [handsets-under-termux.md](handsets-under-termux.md). hd8 Handsets via
    peer bootstrap (or Mac adb).
@@ -96,6 +96,6 @@ Live numbers: [handsets-vs-u2-bench.md](handsets-vs-u2-bench.md).
 
 ### Non-goals
 
-- Replacing AutoJs6 accessibility watchdog (different problem: no-shell recovery).
+- Replacing accessibility watchdog (different problem: no-shell recovery).
 - Relying on keep-awake apps (Mac `svc power stayon` during sessions).
 - Shipping Android builds of the host `hs` CLI (wait for upstream or use wire client).

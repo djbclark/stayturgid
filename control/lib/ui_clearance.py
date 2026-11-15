@@ -40,7 +40,6 @@ PIP_CLOSE_LABELS = (
 )
 PROTECTED_PACKAGES = frozenset(
     {
-        "org.autojs.autojs6",
         "com.termux",
         "com.termux.api",
         "com.termux.boot",

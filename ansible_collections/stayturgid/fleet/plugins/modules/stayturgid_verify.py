@@ -97,8 +97,6 @@ REPO_SCRIPTS = {
     "start-adb.sh": os.path.join(TERMUX_HOME, ".termux", "boot", "start-adb.sh"),
 }
 
-A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
-
 
 def _run(cmd, timeout=8, env=None, check=False):
     """Run a command, return (rc, stdout, stderr)."""
@@ -189,16 +187,6 @@ def check_shizuku():
     return False, "Shizuku not detected"
 
 
-def check_a11y():
-    _, raw, _ = _shell(
-        "adb -s localhost:5555 shell settings get secure enabled_accessibility_services 2>/dev/null",
-        timeout=8,
-    )
-    if A11Y_SVC in raw:
-        return True, "AutoJs6 accessibility enabled"
-    return False, "AutoJs6 a11y missing from services"
-
-
 def check_repair_log():
     logfile = os.path.join(STG, "logs", "repair.log")
     try:
@@ -212,7 +200,7 @@ def check_repair_log():
 
 
 def check_watchdog():
-    # Check if AutoJs6 main.js watchdog has run recently
+    # watchdog.log is the repair mirror. Fresh mtime means the mirror is being written.
     sd_logs = [
         "/sdcard/stayturgid/logs/watchdog.log",
         os.path.join(STG, "shared", "logs", "watchdog.log"),
@@ -341,7 +329,6 @@ CHECK_MAP = {
     "bootloop": check_bootloop,
     "shell5555": check_shell5555,
     "shizuku": check_shizuku,
-    "a11y": check_a11y,
     "repair_log": check_repair_log,
     "watchdog": check_watchdog,
     "termux_api": check_termux_api,

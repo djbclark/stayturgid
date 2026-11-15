@@ -1,10 +1,10 @@
 # ADR 004: Self-heal vs Ansible deploy coverage — gap analysis
 
 **Status:** Accepted (2026-07-11)  
-**Context:** After migrating to operator/Shizuku, operator/AutoJs6, and operator/Obtainium forks with headless APIs, many one-time setup steps were added to the Ansible deploy flow but not to the on-device self-heal loop — and vice versa.
+**Context:** After migrating to operator/Shizuku, operator/, and operator/Obtainium forks with headless APIs, many one-time setup steps were added to the Ansible deploy flow but not to the on-device self-heal loop — and vice versa.
 
 > **2026-07-24 K1 addendum:** The matrices below describe the accepted
-> pre-cutover design. AutoJs6 is now retired from deployment. The native agent
+> pre-cutover design. is now retired from deployment. The native agent
 > owns port-5555/Shizuku catastrophic repair and the 20-minute Tailscale
 > probe/reconnect request. Reconnect success requires a healthy re-probe; a
 > Fire OS/Tailscale WorkManager incompatibility may still require an unlocked
@@ -23,11 +23,11 @@
 
 | Capability                                      | In Ansible?                        | In self-heal?                      | Notes                                        |
 | ----------------------------------------------- | ---------------------------------- | ---------------------------------- | -------------------------------------------- |
-| AutoJs6 fleet profile push + intent             | ✅ `autojs6_watchdog` role         | ❌                                 | Lost if app data cleared                     |
-| Shizuku fleet profile (mode=adb, tcp, watchdog) | ✅ `autojs6_watchdog` role         | ❌                                 | Lost if app data cleared                     |
-| Shizuku device idle whitelist                   | ✅ `autojs6_watchdog` role         | ❌                                 | Survives reboot; only needed after reinstall |
-| HEADLESS_START broadcast                        | ✅ `autojs6_watchdog` role         | ✅ `headlessStart()` in shizuku.js | Intentional redundancy                       |
-| USB/WiFi debugging dialog dismissal             | ✅ `enable_autojs6_shizuku.py`     | ❌                                 | One-time per ADB key                         |
+| fleet profile push + intent                     | ✅ `watchdog` role                 | ❌                                 | Lost if app data cleared                     |
+| Shizuku fleet profile (mode=adb, tcp, watchdog) | ✅ `watchdog` role                 | ❌                                 | Lost if app data cleared                     |
+| Shizuku device idle whitelist                   | ✅ `watchdog` role                 | ❌                                 | Survives reboot; only needed after reinstall |
+| HEADLESS_START broadcast                        | ✅ `watchdog` role                 | ✅ `headlessStart()` in shizuku.js | Intentional redundancy                       |
+| USB/WiFi debugging dialog dismissal             | ✅ `enable_shizuku.py`             | ❌                                 | One-time per ADB key                         |
 | Fleet ADB key authorization                     | ❌ (can't write adb_keys on A11+)  | ❌                                 | Dialog dismissal only viable path            |
 | Obtainium catalog import                        | ✅ `import_catalog.py`             | ❌                                 | Deploy-only; no self-heal needed             |
 | Shizuku installer toggle for Obtainium          | ✅ `enable_shizuku_installer.py`   | ❌                                 | One-time                                     |
@@ -37,15 +37,15 @@
 
 ### Present in self-heal loop (`device/termux/py/stayturgid_repair.py`)
 
-| Capability               | In self-heal?                       | In Ansible?                    | Notes                  |
-| ------------------------ | ----------------------------------- | ------------------------------ | ---------------------- |
-| sshd restart             | ✅ `sshd_up()` / `sshd_listening()` | ✅ `termux_sshd` module        | Intentional redundancy |
-| a11y merge (append-only) | ✅ `_merge_a11y_list()`             | ✅ `enable_autojs6_shizuku.py` | Intentional redundancy |
-| Wireless ADB repair      | ✅ `ensure_wireless_debugging()`    | ✅ `tailscale_vpn` role        | Intentional redundancy |
-| SSH config restore       | ✅ `ensure_control_et_ssh_config()` | ✅ `termux_userland` role      | OK                     |
-| Battery alarm            | ✅ `stayturgid_battery_alarm.py`    | ❌ (not deploy-time)           | Runtime-only, correct  |
+| Capability               | In self-heal?                       | In Ansible?               | Notes                  |
+| ------------------------ | ----------------------------------- | ------------------------- | ---------------------- |
+| sshd restart             | ✅ `sshd_up()` / `sshd_listening()` | ✅ `termux_sshd` module   | Intentional redundancy |
+| a11y merge (append-only) | ✅ `_merge_a11y_list()`             | ✅ `enable_shizuku.py`    | Intentional redundancy |
+| Wireless ADB repair      | ✅ `ensure_wireless_debugging()`    | ✅ `tailscale_vpn` role   | Intentional redundancy |
+| SSH config restore       | ✅ `ensure_control_et_ssh_config()` | ✅ `termux_userland` role | OK                     |
+| Battery alarm            | ✅ `stayturgid_battery_alarm.py`    | ❌ (not deploy-time)      | Runtime-only, correct  |
 
-### Present in AutoJs6 watchdog (`device/autojs6/lib/` — deleted entirely in #162, 2026-07-31; table below is historical)
+### Present in watchdog (`device//lib/` — deleted entirely in #162, 2026-07-31; table below is historical)
 
 | Capability             | In watchdog?                            | In self-heal?           | In Ansible? |
 | ---------------------- | --------------------------------------- | ----------------------- | ----------- |
@@ -58,9 +58,9 @@
 
 ### Gap A: Fleet profiles not re-applied by self-heal
 
-If AutoJs6 or Shizuku app data is cleared between deploys, the SharedPreferences written by `FleetProfileActivity` are lost. Neither the self-heal loop nor the JS watchdog re-applies them.
+If or Shizuku app data is cleared between deploys, the SharedPreferences written by `FleetProfileActivity` are lost. Neither the self-heal loop nor the JS watchdog re-applies them.
 
-**Status:** **Closed 2026-07-11** — `repair_fleet_profiles()` added to `stayturgid_repair.py` step 6. On every 5-min cycle, re-applies both AutoJs6 and Shizuku fleet profiles via `am start` intents, and whitelists Shizuku from device idle. No sentinel file needed — re-applying is fast (~500ms per intent) and idempotent.
+**Status:** **Closed 2026-07-11** — `repair_fleet_profiles()` added to `stayturgid_repair.py` step 6. On every 5-min cycle, re-applies both and Shizuku fleet profiles via `am start` intents, and whitelists Shizuku from device idle. No sentinel file needed — re-applying is fast (~500ms per intent) and idempotent.
 
 ### Gap B: Samsung process freezer blocks broadcast receivers
 
@@ -95,7 +95,7 @@ A lighter approach: extract the self-heal tasks into a shared Python module unde
 
 For example:
 
-- `control/lib/fleet_profiles.py` — `apply_autojs6_profile()` and `apply_shizuku_profile()` functions
+- `control/lib/fleet_profiles.py` — `apply_profile()` and `apply_shizuku_profile()` functions
 - Called by Ansible `android_intent` tasks at deploy time
 - Called by `stayturgid_repair.py` periodically
 
@@ -109,14 +109,14 @@ Running Ansible on-device is architecturally interesting but heavyweight for the
 
 A deeper issue: the same self-heal logic exists in three languages.
 
-| Operation            | YAML (Ansible)              | Python (repair.py)            | JS (watchdog)              |
-| -------------------- | --------------------------- | ----------------------------- | -------------------------- |
-| Shizuku status check | ❌                          | `HEADLESS_STATUS` + pgrep     | `HEADLESS_STATUS` + pgrep  |
-| HEADLESS_START       | `android_intent` task       | ❌                            | `headlessStart()` function |
-| a11y merge           | `enable_autojs6_shizuku.py` | `_merge_a11y_list()`          | `comonitor.mergeA11y()`    |
-| Wireless ADB         | `settings put` task         | `ensure_wireless_debugging()` | `tryShellWirelessRepair()` |
+| Operation            | YAML (Ansible)        | Python (repair.py)            | JS (watchdog)              |
+| -------------------- | --------------------- | ----------------------------- | -------------------------- |
+| Shizuku status check | ❌                    | `HEADLESS_STATUS` + pgrep     | `HEADLESS_STATUS` + pgrep  |
+| HEADLESS_START       | `android_intent` task | ❌                            | `headlessStart()` function |
+| a11y merge           | `enable_shizuku.py`   | `_merge_a11y_list()`          | `comonitor.mergeA11y()`    |
+| Wireless ADB         | `settings put` task   | `ensure_wireless_debugging()` | `tryShellWirelessRepair()` |
 
-Each language was chosen for its context: YAML for Ansible's declarative model, Python for the Mac/device runtime scripts, JS for the in-process AutoJs6 watchdog. But the same recovery primitives end up re-implemented three times with slightly different edge-case handling.
+Each language was chosen for its context: YAML for Ansible's declarative model, Python for the Mac/device runtime scripts, JS for the in-process watchdog. But the same recovery primitives end up re-implemented three times with slightly different edge-case handling.
 
 ### Why this matters
 
@@ -128,21 +128,21 @@ Instead of running Ansible on-device or accepting duplication, create a single P
 
 ```
 control/lib/fleet_self_heal.py
-├── apply_autojs6_profile(shell)     # am start FleetProfileActivity
+├── apply_profile(shell)     # am start FleetProfileActivity
 ├── apply_shizuku_profile(shell)      # am start FleetProfileActivity
 ├── whitelist_shizuku(shell)          # dumpsys deviceidle whitelist +
 ├── ensure_shizuku_running(shell)     # HEADLESS_STATUS → HEADLESS_START → pgrep
 ├── ensure_wireless_adb(shell)        # settings put global adb_*
-└── ensure_autojs6_a11y(shell)        # settings put secure a11y  (merge-only)
+└── ensure_a11y(shell)        # settings put secure a11y  (merge-only)
 ```
 
 ### Callers
 
-| Caller                                               | How it calls                                                                            | When                |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------- |
-| **Ansible** (`android_ui` module or `script` module) | `python3 control/lib/fleet_self_heal.py --host oneui-device --apply-all`                | Every `make deploy` |
-| **repair.py**                                        | `from control.lib import fleet_self_heal; fleet_self_heal.apply_autojs6_profile(shell)` | Every 5-min cycle   |
-| **JS watchdog** (shizuku.js)                         | Keep `headlessStart()` inline — single `am broadcast` is too simple to extract          | 20-min cycle + boot |
+| Caller                                               | How it calls                                                                    | When                |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------- |
+| **Ansible** (`android_ui` module or `script` module) | `python3 control/lib/fleet_self_heal.py --host oneui-device --apply-all`        | Every `make deploy` |
+| **repair.py**                                        | `from control.lib import fleet_self_heal; fleet_self_heal.apply_profile(shell)` | Every 5-min cycle   |
+| **JS watchdog** (shizuku.js)                         | Keep `headlessStart()` inline — single `am broadcast` is too simple to extract  | 20-min cycle + boot |
 
 ### Benefits
 
@@ -161,13 +161,13 @@ control/lib/fleet_self_heal.py
 
 With `repair_fleet_profiles()` in `stayturgid_repair.py`, the remaining duplication is:
 
-| Operation           | YAML (Ansible)                 | Python (repair.py)               | JS (watchdog)                 |
-| ------------------- | ------------------------------ | -------------------------------- | ----------------------------- |
-| Fleet profile apply | `android_intent` task          | ✅ `repair_fleet_profiles()`     | ❌                            |
-| Shizuku status      | ❌                             | ✅ `HEADLESS_STATUS` + pgrep     | ✅ `HEADLESS_STATUS` + pgrep  |
-| HEADLESS_START      | ✅ `android_intent` (deploy)   | ❌                               | ✅ `headlessStart()`          |
-| a11y merge          | ✅ `enable_autojs6_shizuku.py` | ✅ `_merge_a11y_list()`          | ✅ `comonitor.mergeA11y()`    |
-| Wireless ADB        | ✅ `settings put` (deploy)     | ✅ `ensure_wireless_debugging()` | ✅ `tryShellWirelessRepair()` |
+| Operation           | YAML (Ansible)               | Python (repair.py)               | JS (watchdog)                 |
+| ------------------- | ---------------------------- | -------------------------------- | ----------------------------- |
+| Fleet profile apply | `android_intent` task        | ✅ `repair_fleet_profiles()`     | ❌                            |
+| Shizuku status      | ❌                           | ✅ `HEADLESS_STATUS` + pgrep     | ✅ `HEADLESS_STATUS` + pgrep  |
+| HEADLESS_START      | ✅ `android_intent` (deploy) | ❌                               | ✅ `headlessStart()`          |
+| a11y merge          | ✅ `enable_shizuku.py`       | ✅ `_merge_a11y_list()`          | ✅ `comonitor.mergeA11y()`    |
+| Wireless ADB        | ✅ `settings put` (deploy)   | ✅ `ensure_wireless_debugging()` | ✅ `tryShellWirelessRepair()` |
 
 The remaining duplication is intentional: deploy-time tasks (YAML) configure initial state, while runtime tasks (Python/JS) handle recovery. They overlap on purpose — that's redundancy, not drift.
 
@@ -181,7 +181,7 @@ Every new capability should answer three questions:
 
 1. **Deploy:** Is it applied by `make deploy`? (Ansible role or task)
 2. **Self-heal:** Is it restored by the 5-min repair loop? (`stayturgid_repair.py`)
-3. **Catastrophic:** Is it recovered by the 20-min AutoJs6 watchdog? (`watchdog.js` / `comonitor.js`)
+3. **Catastrophic:** Is it recovered by the 20-min watchdog? (`watchdog.js` / `comonitor.js`)
 
 At minimum, items 1 and 2 should always be "yes". Item 3 is optional for non-critical settings (e.g., fleet profiles), but mandatory for anything that affects ADB/SSH reachability.
 

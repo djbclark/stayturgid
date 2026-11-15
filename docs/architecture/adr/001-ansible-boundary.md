@@ -4,7 +4,7 @@
 **Context:** Portfolio 2 — Ansible-forward consolidation (`site.yml`, thin `deploy_fleet.py`)
 
 > **2026-10-09 K1/#162 addendum:** The tables below describe the accepted
-> pre-cutover design. AutoJs6 was retired in K1 (2026-07-22); its `main.js`
+> pre-cutover design. was retired in K1 (2026-07-22); its `main.js`
 > watchdog role now belongs to the native agent and the Termux repair loop.
 > Obtainium, F-Droid and Aurora automation were removed (#119, #145), and the
 > `android_ui` module was deleted in #162 (see
@@ -20,7 +20,7 @@
 
 Fleet **declarative state** is managed by Ansible (collections, roles, composed
 playbooks). **Screen-control UI automation** and **on-device runtime self-heal**
-stay as Python / AutoJs6 / shell outside Ansible execution at runtime.
+stay as Python / / shell outside Ansible execution at runtime.
 
 Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 
@@ -41,8 +41,8 @@ Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 | Concern                                            | Why                                                                                                                                                               |
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `stayturgid-repair` loop, boot loop, repair bridge | Must run when SSH/adb is down                                                                                                                                     |
-| AutoJs6 `main.js` watchdog                         | Runtime interval + notifications                                                                                                                                  |
-| Obtainium / Aurora / AutoJs6 drawer UI             | On-device Python (`stayturgid_*`) via Termux `localhost:5555`; Mac wrappers SSH-invoke with Mac adb fallback (fireos-device = Mac adb only — no Fire OS loopback) |
+| `main.js` watchdog                                 | Runtime interval + notifications                                                                                                                                  |
+| Obtainium / Aurora / drawer UI                     | On-device Python (`stayturgid_*`) via Termux `localhost:5555`; Mac wrappers SSH-invoke with Mac adb fallback (fireos-device = Mac adb only — no Fire OS loopback) |
 | Catastrophic Shizuku accessibility tap             | Only recovery when shell is gone                                                                                                                                  |
 | Play silent install                                | No consumer API without MDM                                                                                                                                       |
 | PIN unlock, Play Protect, DHCP LAN                 | Environmental                                                                                                                                                     |

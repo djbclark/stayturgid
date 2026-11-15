@@ -37,13 +37,13 @@ roles/termux_userland/templates/otel-config.yaml.j2` (origin/master tip):
 `otelcol-contrib` runs as its own Termux:Boot-launched daemon
 (`stayturgid_otelcol_boot_script`) and tails exactly two files —
 `repair.jsonl` (written by `stayturgid_repair.py`, Termux Python) and
-`watchdog.jsonl` (originally written by AutoJs6's `comonitor.js`).
+`watchdog.jsonl` (originally written by 's `comonitor.js`).
 
-**This is where the gap is.** AutoJs6 was fully uninstalled fleet-wide during
+**This is where the gap is.** was fully uninstalled fleet-wide during
 the K1 native-agent cutover (2026-07-25, issue #43 — confirmed via
 `termux_userland/defaults/main.yml`'s own `stayturgid_retired_boot_scripts`
 comment on origin/master). Nothing writes to `watchdog.jsonl` anymore. The
-native-agent Kotlin app that replaced AutoJs6 — and that owns essentially
+native-agent Kotlin app that replaced — and that owns essentially
 every periodic job #18 is about — has **zero structured logging**:
 
 - `grep -rl "android.util.Log\|Timber\|Logger\b" device/native-agent/app` →
@@ -55,7 +55,7 @@ every periodic job #18 is about — has **zero structured logging**:
 
 So: the _infrastructure_ half of the overhaul (transport, ingest, storage,
 query) is done and verified working. The _on-device emitter_ half is done for
-Termux/Python, retired-along-with-AutoJs6 for the JS side, and **was never
+Termux/Python, retired-along-with- for the JS side, and **was never
 built for native-agent** — which didn't exist yet when the logging plan was
 written. Issue #18's own acceptance criteria (§6: "dynamic log level
 switching," "structured logging format," "performant... high-frequency Debug
@@ -105,7 +105,7 @@ is genuinely net-new.
 | `stayturgid_bridges.py` (`--mode repair`)                 | 2s poll (`POLL_SEC`)                                 | Local IPC/socket bridge, not a background "job" in the WorkManager sense — continuous fast poll, out of scope for clock-minute scheduling.                    |
 | `otelcol-contrib`                                         | continuous tail, `batch` processor flushes every 30s | Infra process, not a "job."                                                                                                                                   |
 
-`stayturgid_bridges.py --mode autojs6` and both `start-autojs6-*.sh` boot
+`stayturgid_bridges.py --mode ` and both `start--*.sh` boot
 scripts are retired (removed from `stayturgid_boot_scripts`, deleted from
 devices on next deploy per `stayturgid_retired_boot_scripts`) — dead, left in
 repo per issue #43's own no-delete-yet decision. Not part of this inventory's
@@ -132,7 +132,7 @@ Ordered by dependency, not by priority — §3.1 gates several others.
    a future implementer must resolve first):** native-agent (its own Android
    UID) and Termux's `otelcol-contrib` (a different UID) can't share
    internal `filesDir` — that's exactly why `watchdog.jsonl` (written by the
-   now-retired AutoJs6, a third, different UID) was readable by Termux at
+   now-retired , a third, different UID) was readable by Termux at
    all: it went through `stayturgid_sd_root` (default `/sdcard/stayturgid`,
    shared external storage, no app-scoped permission boundary). Two options
    for native-agent's JSONL emitter, in order of precedent-fit:
@@ -145,7 +145,7 @@ Ordered by dependency, not by priority — §3.1 gates several others.
      pointed at that exact path — no new Android permission grant beyond
      what native-agent already holds.
    - **Alternative:** write directly to `stayturgid_sd_root`
-     (`/sdcard/stayturgid/logs/agent.jsonl`), matching AutoJs6's old
+     (`/sdcard/stayturgid/logs/agent.jsonl`), matching 's old
      mechanism exactly — but this needs broader external-storage write
      access than native-agent's app-scoped dir currently requires, which
      modern Android gates behind `MANAGE_EXTERNAL_STORAGE` or a

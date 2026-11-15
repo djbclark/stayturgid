@@ -45,7 +45,7 @@ repair:
 
 - Fleet-health tests still asserted retired watchdog behavior. They now cover
   native-agent missing/stale semantics and the agent heal cooldown.
-- The fallback Obtainium catalog still contained retired AutoJs6 although role
+- The fallback Obtainium catalog still contained retired although role
   defaults are authoritative. The stale entry was removed.
 - The healing registry mechanically assigned sshd, Accessibility, and
   Tailscale to the native agent during K1. Its accepted scope does not include

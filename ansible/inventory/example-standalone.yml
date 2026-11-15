@@ -16,9 +16,9 @@ all:
           ansible_ssh_private_key_file: "{{ lookup('env', 'HOME') }}/.ssh/termux_key"
           # Optional — omit both for Termux-only (no mode files on /sdcard):
           # stayturgid_device_id: myphone
-          # stayturgid_automation_mode: autojs6
+          # stayturgid_automation_mode: ""
       vars:
         termux_home: /data/data/com.termux/files/home
         termux_prefix: /data/data/com.termux/files/usr
-        # Termux-only boot (no AutoJs6 nudge):
+        # Termux-only boot:
         # stayturgid_boot_scripts: [start-adb.sh]

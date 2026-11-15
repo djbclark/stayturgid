@@ -58,8 +58,6 @@ if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -qE "stayturgid_bridges|repair-b
 else
     echo "bridge=down"
 fi
-# AutoJs6 was removed fleet-wide in the K1 cutover (2026-07-25, #43).
-pm path org.autojs.autojs6 >/dev/null 2>&1 && echo "autojs6=installed" || echo "autojs6=absent"
 if [ "$FIRE" = 1 ]; then
     echo "shell5555=down"
 else
@@ -73,16 +71,6 @@ if [ -n "$last" ]; then
     [ "$age" -ge 0 ] && [ "$age" -lt 2700 ] && echo "repairlog=fresh" || echo "repairlog=stale"
 else
     echo "repairlog=missing"
-fi
-# AutoJs6 secondary watchdog liveness: it writes a [watchdog] line every ~20
-# min (INTERVAL_MS). A gap > ~30 min means the engine stalled (Doze, a11y
-# block, crash) — the layer we can't see from the repair log alone.
-wlast=$(grep -ah "\[watchdog\]" "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
-if [ -n "$wlast" ]; then
-    wage=$(( $(date +%s) - $(date -d "$wlast" +%s 2>/dev/null || echo 0) ))
-    [ "$wage" -ge 0 ] && [ "$wage" -lt 1800 ] && echo "watchdog=fresh" || echo "watchdog=stale:${wage}s"
-else
-    echo "watchdog=missing"
 fi
 batt=$(termux-battery-status 2>/dev/null | grep -o '"percentage": *[0-9]*' | grep -o '[0-9]*' || true)
 [ -n "$batt" ] && echo "battery=${batt}" || echo "battery=unknown"
@@ -235,28 +223,6 @@ def evaluate(host, report, repo_dir=REPO):
         todo("%s: repair bridge alive (pidfile)" % host, "expected until post-fix redeploy + reboot")
 
     (ok if report.get("repairlog") == "fresh" else fail)("%s: repair log fresh (<45 min)" % host)
-
-    # AutoJs6 secondary watchdog liveness (writes every ~20 min).
-    wd = report.get("watchdog", "")
-    if report.get("autojs6") == "absent":
-        ok_note("%s: AutoJs6 watchdog" % host, "retired — AutoJs6 not installed (K1 cutover, #43)")
-    elif report.get("localhost_shell") == "skip":
-        if wd == "fresh":
-            ok("%s: AutoJs6 watchdog alive (<30 min)" % host)
-        else:
-            todo("%s: AutoJs6 watchdog alive (<30 min)" % host, "Fire OS — confirm via Mac adb when USB connected")
-    elif wd == "fresh":
-        ok("%s: AutoJs6 watchdog alive (<30 min)" % host)
-    elif report.get("repairlog") == "fresh":
-        todo(
-            "%s: AutoJs6 watchdog alive (<30 min)" % host,
-            "%s — Termux repair OK; restart main.js via start_watchdog.py when convenient" % (wd or "stale"),
-        )
-    else:
-        fail(
-            "%s: AutoJs6 watchdog alive (<30 min)" % host,
-            "%s — repair also stale; fix Termux boot loop first" % (wd or "no data"),
-        )
 
     batt = report.get("battery", "unknown")
     if batt not in ("unknown", ""):

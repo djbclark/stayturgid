@@ -38,7 +38,7 @@ then falls back to `/opt/homebrew/bin/timeout` / `/usr/bin/timeout` /
 | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `adb_shell.py:17,21` (`adb_connect`, `adb_shell`)                                                    | ✅ routed through `run_command_with_timeout`, `DEFAULT_FAST_TIMEOUT` |
 | `adb_resolve.py:50,93,128,164` (`adb devices`, `adb connect`, `-s ... getprop`, `adb mdns services`) | ✅ all four routed, `DEFAULT_FAST_TIMEOUT`                           |
-| `autojs6_deploy_util.py:56` (`adb push`)                                                             | ✅ routed, `DEFAULT_SLOW_TIMEOUT`                                    |
+| `deploy_util.py:56` (`adb push`)                                                                     | ✅ routed, `DEFAULT_SLOW_TIMEOUT`                                    |
 | `shizuku_start.py:155` (`adb push` fleet profile)                                                    | ✅ routed, `DEFAULT_SLOW_TIMEOUT`                                    |
 | `shizuku_grant.py:94` (`adb push`)                                                                   | ✅ routed, `DEFAULT_SLOW_TIMEOUT`                                    |
 | `android_apk.py:172,212` (`package_installed`/`installed_version` via `adb_shell.py`)                | ✅ covered transitively (shared helper)                              |
@@ -48,9 +48,9 @@ then falls back to `/opt/homebrew/bin/timeout` / `/usr/bin/timeout` /
 Tests were added/updated in the same commit: `test_adb_timeout.py` (new, 5
 cases: bin resolution, prefixing, `rc==124` handling, double-wrap prevention,
 graceful no-op when `timeout` binary is missing), plus updates to
-`test_adb_resolve.py`, `test_autojs6_deploy.py`, `test_shell_libs.py`,
+`test_adb_resolve.py`, `test_deploy.py`, `test_shell_libs.py`,
 `test_shizuku_device.py`. I re-ran the full `android_common` unit suite plus
-the top-level `tests/python/test_{adb_resolve,autojs6_deploy,shell_libs,
+the top-level `tests/python/test_{adb_resolve,deploy,shell_libs,
 shizuku_device}.py` in a fresh worktree venv — **all green**, no changes
 needed to make them pass.
 
@@ -102,7 +102,7 @@ plugins/modules/native_agent_config.py:90
 This module (`native_agent_config.py`, added at `ops-v1.0.3` — well before the
 `db2a852` sweep) writes the native-agent peer-target JSON to each device over
 `adb push`, same failure class as the other push call sites already fixed
-(`shizuku_start.py`, `shizuku_grant.py`, `autojs6_deploy_util.py`). It's a
+(`shizuku_start.py`, `shizuku_grant.py`, `deploy_util.py`). It's a
 straight two-line miss, not a design gap — the fix is the identical pattern
 already applied six times in the same commit:
 

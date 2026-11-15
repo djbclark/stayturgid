@@ -40,7 +40,7 @@ That's the entire config — declarative, reproducible Nix packages across devic
 | **Process model**       | Native Termux processes (sshd via runsv)                 | proot-wrapped (fake filesystem, PID namespace issues) |
 | **Device APIs**         | termux-api (battery, notification, toast, wakelock)      | ❌ None — separate app, no API bridge                 |
 | **Shizuku integration** | Via localhost:5555 (uid 2000 privileged shell)           | ❌ No Shizuku or ADB integration                      |
-| **AutoJs6**             | JS watchdog + UI automation                              | ❌ No support                                         |
+| ****                    | JS watchdog + UI automation                              | ❌ No support                                         |
 | **Fire OS**             | Specific adaptations (no localhost:5555, peer bootstrap) | ❌ Untested, unlikely to work                         |
 | **Fleet orchestration** | Ansible (inventory, roles, playbooks)                    | ❌ Single-device only                                 |
 | **Health monitoring**   | `fleet_health_monitor.py` + launchd                      | ❌ None                                               |
@@ -74,12 +74,12 @@ Nix offers 80,000+ packages vs Termux's ~5,000. Development tools like `ripgrep`
 
 nix-on-droid explicitly states: **"has no relation to Termux-the-distro. Please do not pester Termux folks."** The entire stayturgid stack runs INSIDE Termux:
 
-- `start-adb.sh`, `repair-bridge.sh`, `start-autojs6-watchdog.sh` (Termux:Boot hooks)
+- `start-adb.sh`, `repair-bridge.sh`, `start--watchdog.sh` (Termux:Boot hooks)
 - `sshd` (Termux runsv managed)
 - `stayturgid_repair.py` (needs Termux PATH, HOME, PREFIX)
 - `stayturgid_agent_presence.py` (termux-notification, termux-toast)
 - `stayturgid_battery_alarm.py` (termux-battery-status, termux-torch)
-- `termux-api` (RUN_COMMAND bridge from AutoJs6)
+- `termux-api` (RUN_COMMAND bridge from )
 - `termux-wake-lock` (Doze prevention)
 
 Moving to nix-on-droid means porting or abandoning ALL of this. The termux-api functions have no nix equivalent.
@@ -88,7 +88,7 @@ Moving to nix-on-droid means porting or abandoning ALL of this. The termux-api f
 
 The Nix environment runs inside `proot` — a userspace chroot. This means:
 
-- Process visibility is restricted (AutoJs6 can't see Nix processes via `RUN_COMMAND`)
+- Process visibility is restricted ( can't see Nix processes via `RUN_COMMAND`)
 - PID namespaces may not work with `pgrep`, `kill`, `setsid`
 - The Shizuku ADB bridge (localhost:5555) won't be accessible from inside proot
 - `sshd` from Nix would run in a different context than Termux's runsv

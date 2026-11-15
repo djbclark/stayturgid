@@ -33,8 +33,8 @@ plugged in; a backwards step is recorded as ``window_reset`` rather than a
 negative delta.
 
 Tracked packages are the ones this fleet exempts from battery optimization
-(control/lib/fleet_app_profiles.json), minus retired AutoJs6, plus the debug
-agent application id. A test locks that set to the profile file.
+(control/lib/fleet_app_profiles.json), plus the debug agent application id.
+A test locks that set to the profile file.
 
 One JSON object per line in ``~/.stayturgid/logs/battery-use.jsonl`` (the
 boot loop rotates it). ``v`` is 1. Times in the checkin rows are milliseconds
@@ -71,8 +71,6 @@ ENV_UID_SEC = "STAYTURGID_BATTERY_USE_UID_SEC"
 ENV_DUMP_TIMEOUT = "STAYTURGID_BATTERY_USE_DUMP_TIMEOUT_SEC"
 SCHEMA_VERSION = 1
 
-# Retired with the AutoJs6 cutover; still listed in the profile file.
-RETIRED_PACKAGES = frozenset({"org.autojs.autojs6"})
 # Installed only for debug builds, so it is not in the fleet profile.
 EXTRA_PACKAGES = frozenset({"org.stayturgid.agent.debug"})
 TRACKED_PACKAGES = frozenset(

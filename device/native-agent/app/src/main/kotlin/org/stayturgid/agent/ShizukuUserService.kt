@@ -36,7 +36,7 @@ class ShizukuUserService : IStayTurgidService.Stub {
 
     /**
      * IPC liveness check only: the host calls this periodically and rebinds when it throws. It used
-     * to inject a silent KEYCODE_UNKNOWN (AutoJs6-era keep-awake, plan goal G-A), which reset the
+     * to inject a silent KEYCODE_UNKNOWN (an old keep-awake, plan goal G-A), which reset the
      * screen-off timer and kept phones awake indefinitely; removed 2026-09-29 — stayturgid no
      * longer sends key/input events of any kind.
      */

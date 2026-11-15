@@ -31,11 +31,11 @@ def test_patch_preserves_other_apps():
             ],
         }
     )
-    out = json.loads(dev.patch_shizuku_json(current, 10123, "org.autojs.autojs6"))
+    out = json.loads(dev.patch_shizuku_json(current, 10123, "com.example.app"))
     uids = {e["uid"] for e in out["packages"]}
     assert uids == {10001, 10123}, "existing grant preserved, new one added"
     added = [e for e in out["packages"] if e["uid"] == 10123][0]
-    assert added == {"uid": 10123, "flags": 2, "packages": ["org.autojs.autojs6"]}
+    assert added == {"uid": 10123, "flags": 2, "packages": ["com.example.app"]}
 
 
 def test_patch_replaces_same_uid():
@@ -65,7 +65,7 @@ def test_patch_output_is_compact():
 
 
 def test_parse_uid():
-    assert dev.parse_uid("package:org.autojs.autojs6 uid:10123") == "10123"
+    assert dev.parse_uid("package:com.example.app uid:10123") == "10123"
     assert dev.parse_uid("package:x.y.z  uid:0") == "0"
     assert dev.parse_uid("package:no.uid.here") is None
     assert dev.parse_uid("") is None
@@ -113,7 +113,7 @@ def test_parse_switch_same_node_content_desc():
 
 
 def test_parse_switch_before_label_by_y():
-    """AutoJs6 drawer: Switch node precedes label text; match by Y center."""
+    """Switch node precedes label text; match by Y center."""
     xml = (
         '<node class="android.widget.Switch" checked="true" '
         'bounds="[608,1010][730,1081]" />'

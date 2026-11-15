@@ -13,8 +13,7 @@ on only what they need:
 
 **Fleet roles:** `stayturgid.fleet.post_ui` (post-deploy screen-unlock gate;
 the `android_ui` module it used to call was deleted in #162);
-`stayturgid.fleet.validate` (repair/sshd/a11y smoke + warn-only legacy AutoJs6
-a11y probe).
+`stayturgid.fleet.validate` (repair/sshd/a11y smoke).
 
 ## Backward compatibility
 

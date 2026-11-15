@@ -5,8 +5,8 @@ FIRERPA bundles an ``Instrumentation`` subclass (obfuscated to ``Ld/r;``) that
 overrides both ``getUiAutomation()`` and ``getUiAutomation(int)``.  The no-argument
 override constructs a ``UiAutomation`` by reflection and then calls its hidden
 ``connect()`` with no arguments, which is equivalent to ``connect(0)``: Android
-registers the test automation service with flags 0 and suppresses AutoJs6 and
-every other accessibility service.  The ``getUiAutomation(int)`` override is the
+registers the test automation service with flags 0 and suppresses every
+accessibility service.  The ``getUiAutomation(int)`` override is the
 flag-aware path that handles ``isDestroyed``/``getFlags`` and reconnects.
 
 On each vetted release this patch rewrites the no-argument override's prologue

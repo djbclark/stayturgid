@@ -336,7 +336,7 @@ PY
 
 FIRERPA bundles an `Instrumentation` subclass whose no-argument `getUiAutomation()`
 override connects with flags `0`. Android then suppresses normal accessibility services,
-which disconnects automation tools such as AutoJs6, AutoInput, or screen readers.
+which disconnects other accessibility services, including automation tools and screen readers.
 Android exposes `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES` (value `1`) to preserve them.
 
 The patch rewrites that override's 12-byte prologue, hash-pinned per release, so it

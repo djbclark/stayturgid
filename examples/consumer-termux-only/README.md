@@ -31,8 +31,7 @@ ansible-playbook playbook.yml
 
 `stayturgid.termux.termux_userland` — packages, scripts, boot hooks, sshd keys.
 
-AutoJs6 is out of scope; add collections from
-`requirements.yml` when needed.
+Add further collections from `requirements.yml` when needed.
 
 ## Pinning a release
 

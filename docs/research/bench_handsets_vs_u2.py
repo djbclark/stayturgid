@@ -6,8 +6,6 @@
 Scenarios mirror fleet post-UI work:
   1. Warm hierarchy read (n=8)
   2. Settings: find + tap a label (n=5)
-  3. AutoJs6: open drawer + find Shizuku access switch (n=3)
-  4. Coexistence: AutoJs6 a11y ON — can driver still dump/find?
 
 Drivers share UiAutomation — kill the other before each block.
 Usage: PYTHONUNBUFFERED=1 python3 docs/research/bench_handsets_vs_u2.py
@@ -34,7 +32,6 @@ SETTINGS_LABEL = {
     "s24": "Display",
     "hd8": "Display",
 }
-AUTOJS = "org.autojs.autojs6"
 
 
 def run(cmd, timeout=60):
@@ -83,42 +80,6 @@ def stay_awake(serial: str) -> None:
 def open_settings(serial: str) -> None:
     run(["adb", "-s", serial, "shell", "am", "start", "-a", "android.settings.SETTINGS"])
     time.sleep(1.5)
-
-
-def open_autojs(serial: str) -> None:
-    run(["adb", "-s", serial, "shell", "am", "force-stop", AUTOJS])
-    time.sleep(0.5)
-    run(
-        [
-            "adb",
-            "-s",
-            serial,
-            "shell",
-            "monkey",
-            "-p",
-            AUTOJS,
-            "-c",
-            "android.intent.category.LAUNCHER",
-            "1",
-        ]
-    )
-    time.sleep(2.0)
-
-
-def a11y_on(serial: str) -> bool:
-    r = run(
-        [
-            "adb",
-            "-s",
-            serial,
-            "shell",
-            "settings",
-            "get",
-            "secure",
-            "enabled_accessibility_services",
-        ]
-    )
-    return AUTOJS in (r.stdout or "")
 
 
 def ms(samples: list[float]) -> str:
@@ -257,63 +218,6 @@ def bench_raw_settings_tap(serial: str, label: str, n: int = 5):
     return times, ok, n
 
 
-def bench_handsets_drawer(hs: uid.HandsetsSession, n: int = 3):
-    times, ok = [], 0
-    for _ in range(n):
-        open_autojs(hs.serial)
-        t0 = time.perf_counter()
-        if not hs.ui_contains("Shizuku access", "Foreground service"):
-            hs.tap_desc("Open drawer", timeout_ms=3000)
-            time.sleep(1.0)
-        checked, found = hs.switch_near_label("Shizuku access", timeout_ms=4000)
-        times.append((time.perf_counter() - t0) * 1000)
-        if found:
-            ok += 1
-        run(["adb", "-s", hs.serial, "shell", "input", "keyevent", "KEYCODE_HOME"])
-        time.sleep(0.5)
-    return times, ok, n, checked if ok else None
-
-
-def bench_u2_drawer(d, serial: str, n: int = 3):
-    times, ok = [], 0
-    last_checked = None
-    for _ in range(n):
-        open_autojs(serial)
-        t0 = time.perf_counter()
-        if not d(text="Shizuku access").exists(timeout=1.0):
-            # Open drawer via content-desc
-            btn = d(description="Open drawer")
-            if btn.exists(timeout=2.0):
-                btn.click()
-                time.sleep(1.0)
-            else:
-                # swipe from left
-                w, h = d.window_size()
-                d.swipe(10, h // 2, w - 10, h // 2, 0.2)
-                time.sleep(1.0)
-        el = d(text="Shizuku access")
-        found = el.exists(timeout=3.0)
-        if found:
-            # sibling switch: u2 xpath or right-of
-            d(className="android.widget.Switch")
-            # find switch near — iterate
-            last_checked = None
-            for s in d(className="android.widget.Switch"):
-                # rough: any switch with similar y
-                try:
-                    info = s.info
-                    last_checked = info.get("checked")
-                except Exception:
-                    pass
-                break
-        times.append((time.perf_counter() - t0) * 1000)
-        if found:
-            ok += 1
-        d.press("home")
-        time.sleep(0.5)
-    return times, ok, n, last_checked
-
-
 def connect_u2(serial: str):
     import uiautomator2 as u2
 
@@ -329,8 +233,8 @@ def run_host(alias: str) -> dict:
     serial = dev.resolve_adb(alias)
     stay_awake(serial)
     label = SETTINGS_LABEL[alias]
-    out: dict = {"alias": alias, "serial": serial, "a11y": a11y_on(serial)}
-    print("\n======== %s (%s) a11y_autojs=%s ========" % (alias, serial, out["a11y"]))
+    out: dict = {"alias": alias, "serial": serial}
+    print("\n======== %s (%s) ========" % (alias, serial))
 
     # --- RAW ---
     kill_ui_daemons(serial)
@@ -359,10 +263,6 @@ def run_host(alias: str) -> dict:
     t, ok, n = bench_handsets_settings_tap(hs, label)
     out["hs_tap"] = (t, ok, n)
     print("  find+tap %s: %s ok=%d/%d" % (label, ms(t), ok, n))
-    print("HANDSETS AutoJs6 drawer…")
-    t, ok, n, checked = bench_handsets_drawer(hs)
-    out["hs_drawer"] = (t, ok, n, checked)
-    print("  drawer+Shizuku: %s ok=%d/%d checked=%s" % (ms(t), ok, n, checked))
     hs.stop()
     kill_ui_daemons(serial)
 
@@ -401,16 +301,6 @@ def run_host(alias: str) -> dict:
             out["u2_tap"] = ([], 0, 0)
             out["u2_error"] = str(e)
             print("  FAIL tap: %s" % e)
-
-        print("U2 AutoJs6 drawer…")
-        try:
-            t, ok, n, checked = bench_u2_drawer(d, serial)
-            out["u2_drawer"] = (t, ok, n, checked)
-            print("  drawer+Shizuku: %s ok=%d/%d checked=%s" % (ms(t), ok, n, checked))
-        except Exception as e:
-            out["u2_drawer"] = ([], 0, 0, None)
-            out["u2_error"] = str(e)
-            print("  FAIL drawer: %s" % e)
 
         try:
             d.app_stop("com.github.uiautomator")
@@ -460,12 +350,6 @@ def summarize(results: list[dict]) -> str:
             "| Settings find+tap | %s (%d/%d) | %s (%d/%d) | %s (%d/%d) |"
             % (ms(rt), rok, rn, ms(ht), hok, hn, ms(ut), uok, un)
         )
-        hd = r.get("hs_drawer") or ([], 0, 0, None)
-        ud = r.get("u2_drawer") or ([], 0, 0, None)
-        lines.append(
-            "| AutoJs6 drawer+Shizuku | — | %s (%d/%d) | %s (%d/%d) |"
-            % (ms(hd[0]), hd[1], hd[2], ms(ud[0]), ud[1], ud[2])
-        )
         lines.append(
             "| Driver start (ms) | 0 | %.0f | %s |"
             % (
@@ -482,7 +366,6 @@ def summarize(results: list[dict]) -> str:
     lines.append("## Verdict")
     lines.append("")
     hs_ok = all((r.get("hs_tap") or (None, 0, 1))[1] == (r.get("hs_tap") or (None, 0, 1))[2] for r in results)
-    hs_drawer = all((r.get("hs_drawer") or (None, 0, 1))[1] == (r.get("hs_drawer") or (None, 0, 1))[2] for r in results)
     u2_ok = all(
         r.get("u2_hier") and (r.get("u2_tap") or (None, 0, 1))[1] == (r.get("u2_tap") or (None, 0, 1))[2]
         for r in results
@@ -505,23 +388,18 @@ def summarize(results: list[dict]) -> str:
     for s in speed_notes:
         lines.append("- %s" % s)
     lines.append("- Handsets Settings reliability: %s" % ("PASS" if hs_ok else "PARTIAL"))
-    lines.append("- Handsets AutoJs6 drawer (a11y ON): %s" % ("PASS" if hs_drawer else "PARTIAL"))
     lines.append("- u2 Settings reliability: %s" % ("PASS" if u2_ok else "FAIL/PARTIAL"))
-    adopt = (
-        hs_ok
-        and hs_drawer
-        and (
-            not u2_ok
-            or all(
-                statistics.median(r["hs_hier"]) < 0.5 * statistics.median(r["u2_hier"])
-                for r in results
-                if r.get("hs_hier") and r.get("u2_hier")
-            )
-            or all(
-                statistics.median(r["hs_hier"]) < 0.2 * statistics.median(r["raw_hier"])
-                for r in results
-                if r.get("hs_hier") and r.get("raw_hier")
-            )
+    adopt = hs_ok and (
+        not u2_ok
+        or all(
+            statistics.median(r["hs_hier"]) < 0.5 * statistics.median(r["u2_hier"])
+            for r in results
+            if r.get("hs_hier") and r.get("u2_hier")
+        )
+        or all(
+            statistics.median(r["hs_hier"]) < 0.2 * statistics.median(r["raw_hier"])
+            for r in results
+            if r.get("hs_hier") and r.get("raw_hier")
         )
     )
     lines.append("")

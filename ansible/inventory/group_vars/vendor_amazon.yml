@@ -15,6 +15,3 @@ stayturgid_no_local_adb: true
 stayturgid_shizuku_clean_reinstall: true
 # Match Mac ui_driver.py DEFAULT_PORTS["fireos-device"].
 stayturgid_handsets_port: 9012
-# AutoJs6 still reads scripts from /sdcard (deployed via adb push from Mac).
-autojs6_target: /sdcard/stayturgid/autojs6
-stayturgid_autojs6_deploy_via_adb: true

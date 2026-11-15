@@ -56,7 +56,6 @@ def test_pip_packages_excludes_protected():
     pkgs = uc.pip_packages(ACTIVITY_PIP, SAMSUNG_STACK, "")
     assert "com.google.android.youtube" in pkgs
     assert "org.lichess.mobileV2" not in pkgs
-    assert "org.autojs.autojs6" not in pkgs
     assert "keyb" not in pkgs
 
 
@@ -66,15 +65,13 @@ def test_parse_services_skips_null_tokens():
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "control" / "lib"))
     import a11y_services as a11y
 
-    assert a11y.parse_services(
-        "null:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
-    ) == ["org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"]
+    assert a11y.parse_services("null:com.example.app/.ExampleService") == ["com.example.app/.ExampleService"]
 
 
 def test_pip_obstruction_negative():
     stack = """
 RootTask id=1 bounds=[0,0][1080,2340] displayId=0
  configuration={... mWindowingMode=fullscreen ...}
-  taskId=2: org.autojs.autojs6/org.autojs.autojs.ui.main.MainActivity bounds=[0,0][1080,2340]
+  taskId=2: com.example.browser/.MainActivity bounds=[0,0][1080,2340]
 """
     assert not uc.pip_obstruction_detected("", stack, "")

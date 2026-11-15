@@ -12,7 +12,7 @@ The project has ~70+ hand-written Python files across five locations:
 ```
 control/lib/          — shared libraries (logging, fleet_health, adb_cli, etc.)
 control/bin/          — Mac-side CLI tools (dashboard, monitors, deploy, heal)
-control/tools/        — one-shot scripts (autojs6, fdroid, obtainium, play)
+control/tools/        — one-shot scripts (, fdroid, obtainium, play)
 device/termux/py/     — scripts deployed to Android Termux (start_adb, repair, bridges)
 tests/python/         — pytest twin tests for device scripts + libs
 ansible_collections/  — Ansible module_utils + modules with their own unit tests
@@ -63,7 +63,7 @@ The codebase predates modern Python packaging conventions. It uses a flat layout
 
 **Why it matters for stayturgid:**
 
-- **Catches real bugs.** Type checking finds `None`-unsafe dereferences, mismatched argument types, missing return values — the exact class of bugs that have caused production issues (e.g., the `getParent()` TypeError on Android 16 AutoJs6, or `sys.path.insert` shadowing stdlib `logging`).
+- **Catches real bugs.** Type checking finds `None`-unsafe dereferences, mismatched argument types, missing return values — the exact class of bugs that have caused production issues (e.g., the `getParent()` TypeError on Android 16 , or `sys.path.insert` shadowing stdlib `logging`).
 - **Gradual adoption.** ty has `--level` to start with only the most severe rules, and supports per-file overrides and `# type: ignore[code]` suppressions. It does not require full coverage from day one.
 - **Designed for partially typed code.** The "gradual guarantee" means untyped code is tolerated; you get value where you have type annotations and silence elsewhere.
 - **Language server.** Richer editor experience (VS Code, Neovim, PyCharm) via LSP — auto-imports, hover docs, rename refactoring. The doc mentions opencode-web editing; this would give better error surfacing there too.

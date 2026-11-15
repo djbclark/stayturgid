@@ -1,4 +1,4 @@
-"""Retired AutoJs6 and watchdog readings must not look like a dead check."""
+"""A missing [watchdog] marker is telemetry, not a dead check."""
 
 from __future__ import annotations
 
@@ -14,10 +14,9 @@ sys.path.insert(0, str(REPO / "control" / "lib"))
 import fleet_health as fh
 
 
-def test_gather_overrides_agent_a11y_down_when_autojs_is_retired():
-    retired = fh.HEALTH_GATHER.split('echo "autojs6_a11y=retired"', 1)[1]
-    assert retired.startswith("\n")
-    assert 'echo "a11y=retired"' in retired.split("else", 1)[0]
+def test_gather_does_not_probe_a_retired_accessibility_package():
+    assert "a11y=unknown" not in fh.HEALTH_GATHER
+    assert "a11y=retired" not in fh.HEALTH_GATHER
 
 
 def test_gather_reports_retired_watchdog_when_the_legacy_marker_is_absent():
@@ -26,10 +25,10 @@ def test_gather_reports_retired_watchdog_when_the_legacy_marker_is_absent():
     assert 'echo "watchdog_age=$_wd_age"' in fh.HEALTH_GATHER
 
 
-def test_adb_fallback_uses_the_same_retired_readings():
+def test_adb_fallback_uses_the_same_retired_watchdog_reading():
     src = inspect.getsource(fh.adb_health)
-    assert "autojs_retired=1" in src
-    assert 'echo "a11y=retired"' in src
+    assert "a11y=unknown" not in src
+    assert "a11y=retired" not in src
     assert '[ "$_wd_age" = missing ]' in src
 
 
@@ -66,10 +65,9 @@ def test_tasker_monitor_ghost_record_is_stopped_and_a_live_process_is_running(tm
     assert _tasker_monitor(tmp_path / "live", live) == "running"
 
 
-def test_parse_kv_last_a11y_wins():
-    text = "a11y=down\nautojs6_a11y=retired\na11y=retired\nwatchdog_age=retired\n"
+def test_retired_watchdog_is_not_a_health_issue():
+    text = "watchdog_age=retired\n"
     report = fh.parse_kv(text)
-    assert report["a11y"] == "retired"
     assert report["watchdog_age"] == "retired"
     assert (
         fh.evaluate_health(
@@ -78,7 +76,6 @@ def test_parse_kv_last_a11y_wins():
                 "sshd": "ok",
                 "repair_age": "100",
                 "agent_heartbeat_age": "30",
-                "a11y": "retired",
                 "watchdog_age": "retired",
                 "port": "open",
                 "shizuku": "up",

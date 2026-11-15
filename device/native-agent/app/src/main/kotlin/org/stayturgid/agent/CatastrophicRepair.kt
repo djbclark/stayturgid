@@ -8,15 +8,14 @@ import java.util.concurrent.TimeUnit
  *
  * // @heals: PORT5555-OPEN SHIZUKU-HEADLESS TAILSCALE-VPN TAILSCALE-ALWAYSON
  *
- * Mirrors AutoJs6 `lib/shizuku.ts` **shell-first** sequence (ADR 003):
+ * Shell-first sequence (ADR 003):
  * 1. settings: development + adb + adb_wifi
  * 2. setprop service.adb.tcp.port 5555
  * 3. adb connect 127.0.0.1:5555 + verify uid 2000
  * 4. HEADLESS_START broadcast (thedjchi / stayturgid Shizuku fork); a result-4 `AUTH_UNANSWERED`
  *    reply ends the repair as `auth_unanswered` with no retry ([ShizukuAuth])
  *
- * No Accessibility UI taps here — that remains AutoJs6-only until a fork intent path is proven on
- * all fleet ROMs.
+ * No accessibility UI taps.
  */
 object CatastrophicRepair {
     private const val TAG = "StayTurgidCat"

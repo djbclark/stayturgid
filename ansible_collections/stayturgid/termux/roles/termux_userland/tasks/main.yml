@@ -200,7 +200,7 @@
 - name: Ensure shared-storage stayturgid directory tree  # noqa: command-instead-of-shell
   ansible.builtin.shell: >-
     mkdir -p {{ stayturgid_sd_root }}/state {{ stayturgid_sd_root }}/logs
-    {{ stayturgid_sd_root }}/run {{ stayturgid_sd_root }}/tmp {{ stayturgid_sd_root }}/autojs6
+    {{ stayturgid_sd_root }}/run {{ stayturgid_sd_root }}/tmp
   changed_when: false
 
 - name: Build Termux overlay appops grant list
@@ -337,11 +337,10 @@
   notify: restart boot loop
 
 # read_device_profile() in stayturgid_repair.py / stayturgid_shell.py has been
-# reading this file with nothing writing it: s24 and p7a only have one left over
-# from the retired AutoJs6 flow (which templated the different, older path
-# /sdcard/stayturgid_device.json), and t2e — onboarded 2026-09-20, after that
-# flow was retired — never got one, so it reported device_profile=MISSING on
-# every repair cycle. Every value it needs is already in the inventory.
+# reading this file with nothing writing it. s24 and p7a kept a leftover at the
+# older path /sdcard/stayturgid_device.json, and t2e — onboarded 2026-09-20 —
+# never got one, so it reported device_profile=MISSING on every repair cycle.
+# Every value it needs is already in the inventory.
 - name: Render per-device profile read by the repair loop
   ansible.builtin.template:
     src: device.json.j2
@@ -425,13 +424,6 @@
   tags: [scripts]
   ansible.builtin.file:
     path: "{{ termux_home }}/.stayturgid/catalog"
-    state: directory
-    mode: "0755"
-
-- name: Ensure on-device autojs6 directory exists
-  tags: [scripts]
-  ansible.builtin.file:
-    path: "{{ termux_home }}/.stayturgid/autojs6"
     state: directory
     mode: "0755"
 

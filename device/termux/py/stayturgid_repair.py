@@ -1,10 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/python
-# @heals: SSHD-RUNNING PORT5555-OPEN SHIZUKU-HEADLESS A11Y-AUTOJS6 MIRROR-PINNED PATH-CLEAN ET-CONFIG OS-RELEASE PKG-UPGRADE AUTOJS6-PROFILE SHIZUKU-PROFILE DEVICE-JSON ENV-FILE TAILSCALE-VPN TAILSCALE-ALWAYSON SHIZUKU-SERVER-CURRENT
+# @heals: SSHD-RUNNING PORT5555-OPEN SHIZUKU-HEADLESS MIRROR-PINNED PATH-CLEAN ET-CONFIG OS-RELEASE PKG-UPGRADE SHIZUKU-PROFILE DEVICE-JSON ENV-FILE TAILSCALE-VPN TAILSCALE-ALWAYSON SHIZUKU-SERVER-CURRENT
 """stayturgid-repair.py — Termux-side self-heal (deployed as ~/stayturgid_repair.py,
 reached via the ~/stayturgid_repair.py compat shim).
 
 Unit-tested via tests/test-unit.sh (repair_suite). The ~/stayturgid_repair.py
-shim keeps AutoJs6 RUN_COMMAND / boot-loop / repair-bridge callers unchanged.
+shim keeps RUN_COMMAND / boot-loop / repair-bridge callers unchanged.
 
 Uses Shizuku's shell-privileged adbd on localhost:5555 (uid 2000) for
 privileged checks/repairs. Exit 0 = healthy after repair; 1 = a subsystem
@@ -71,13 +71,11 @@ LOG = os.path.join(STG, "logs", "repair.log")
 LOG_JSONL = os.path.join(STG, "logs", "repair.jsonl")
 SDLOG = os.path.join(SD, "logs", "watchdog.log")
 SDLOG_JSONL = os.path.join(SD, "logs", "watchdog.jsonl")
-# AutoJs6 always reads /sdcard/stayturgid/logs (cannot write Termux-private
-# paths on Fire). Dual-write STATUS there so the JS co-monitor can see Termux
-# freshness even when STAYTURGID_SD is ~/.stayturgid/shared.
+# Dual-write STATUS to the shared log. Fire OS cannot use a Termux-private
+# path, and STAYTURGID_SD may be ~/.stayturgid/shared.
 SDCARD_WATCHDOG_LOG = "/sdcard/stayturgid/logs/watchdog.log"
 SDCARD_WATCHDOG_JSONL = "/sdcard/stayturgid/logs/watchdog.jsonl"
 STATE_JSON = os.path.join(STG, "run", "state.json")
-A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
 TAILSCALE_PACKAGE = "com.tailscale.ipn"
 TAILSCALE_CONTROL_HOST = "controlplane.tailscale.com"
 TAILSCALE_RECEIVER = "com.tailscale.ipn/com.tailscale.ipn.IPNReceiver"
@@ -967,10 +965,10 @@ def duplicate_branch():
     """Another invocation holds the lock: read-only advisory probe, exit 0.
     Output goes only to log — never stdout, even when quiet mode is off."""
     sshd = "up" if (sshd_up() or sshd_listening()) else "unknown"
-    # Match main() STATUS schema (a11y=, et_cfg=) so parsers stay consistent.
+    # Match main() STATUS schema (et_cfg=) so parsers stay consistent.
     shizuku_auth = "unknown"
     if not privileged_shell_expected():
-        port, sh, shizuku, a11y, wifi = "skip", False, "skip", "skip", "skip"
+        port, sh, shizuku, wifi = "skip", False, "skip", "skip"
         shizuku_auth = "skip"
     elif privileged_shell():
         port, sh = "open", True
@@ -984,14 +982,12 @@ def duplicate_branch():
             shizuku_rc, _ = sh_adb("pgrep -f '[s]hizuku_(plus_)?server'")
             shizuku = "up" if shizuku_rc == 0 else "down"
         wifi = "up" if sh_adb("settings get global adb_wifi_enabled")[1].strip() in ("1", "true") else "down"
-        before = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
-        a11y = "up" if A11Y_SVC in before else "down"
     else:
         # Port 5555 down — fall back to Termux-native pgrep for Shizuku.
         port, sh = "CLOSED_NO_SHELL", False
         rc, _ = run(["pgrep", "-f", "[s]hizuku_(plus_)?server"])
         shizuku = "up" if rc == 0 else "down"
-        wifi, a11y = "unknown", "unknown"
+        wifi = "unknown"
     # Contention path never mutates SSH config; report presence only.
     share = os.path.join(STG, "share", "ssh-config-control-et")
     if not os.path.isfile(share):
@@ -1008,12 +1004,11 @@ def duplicate_branch():
         et_cfg = "up" if "STAYTURGID-CONTROL-ET" in existing and "IdentityFile" in existing else "down"
     tailscale, tailscale_policy = _tailscale_status(have_sh=sh)
     status = (
-        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s tailscale_policy=%s et_cfg=%s os_release=skip pkg_upgrade=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip shizuku_auth=%s"
+        "STATUS port=%s shizuku=%s sshd=%s shell=%s wifi=%s tailscale=%s tailscale_policy=%s et_cfg=%s os_release=skip pkg_upgrade=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip shizuku_auth=%s"
         % (
             port,
             shizuku,
             sshd,
-            a11y,
             "yes" if sh else "no",
             wifi,
             tailscale,
@@ -1524,7 +1519,6 @@ def main():
         have_sh = False
         port = "skip"
         shizuku = "skip"
-        a11y = "skip"
         wifi = "skip"
     elif privileged_shell():
         have_sh = True
@@ -1617,62 +1611,7 @@ def main():
         elif watchdog_status != "already running":
             log("shizuku watchdog: " + watchdog_status, INFO if watchdog_status == "spawned" else WARNING)
 
-    # AutoJs6 was fully uninstalled fleet-wide during the K1 native-agent
-    # cutover verification (2026-07-25, issue #43) and is not expected to
-    # return. Gate the two legacy AutoJs6-specific self-heal checks below on
-    # live install state so its absence reads as the retired, healthy state
-    # instead of perpetual ACTION_REQUIRED noise (was: always "missing").
-    autojs6_present = False
-    if expect_shell and have_sh:
-        _rc, _autojs6_out = sh_adb("pm path org.autojs.autojs6 2>/dev/null")
-        autojs6_present = _rc == 0 and "package:" in _autojs6_out
-
-    # --- 4. AutoJs6 accessibility (detection only; user must enable manually) ---
-    a11y = "unknown"
-    if expect_shell:
-        if have_sh:
-            if not autojs6_present:
-                a11y = "retired"
-            else:
-                raw = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
-                if A11Y_SVC in raw:
-                    a11y = "up"
-                    # Settings-list alone cannot detect sticky ON (enabled but not bound).
-                    # If the AutoJs6 watchdog has gone quiet while we remain listed, nudge
-                    # the operator — OFF→ON rebind is the human fix (policy G3: no settings put).
-                    try:
-                        wd = os.path.join(SD, "logs", "watchdog.log")
-                        if os.path.isfile(wd):
-                            age = time.time() - os.path.getmtime(wd)
-                            if age >= 1800:  # 30 min — matches fleet WATCHDOG_FRESH_SEC band
-                                log(
-                                    "AutoJs6 a11y listed ON but watchdog quiet %.0fs — "
-                                    "if Task is empty, toggle Accessibility OFF then ON "
-                                    "and re-run main.js" % age,
-                                    WARNING,
-                                )
-                                log(
-                                    "ACTION_REQUIRED: AutoJs6 accessibility may be sticky "
-                                    "(Settings ON, service not bound) on %s — toggle OFF then ON"
-                                    % (os.uname().nodename if hasattr(os, "uname") else "device"),
-                                    NOTICE,
-                                )
-                    except OSError:
-                        pass
-                else:
-                    a11y = "down"
-                    log(
-                        "AutoJs6 accessibility is OFF — re-enable in Settings > Accessibility > "
-                        "AutoJs6 (if already ON, turn OFF then ON again)",
-                        WARNING,
-                    )
-                    log(
-                        "ACTION_REQUIRED: AutoJs6 accessibility disabled on %s"
-                        % (os.uname().nodename if hasattr(os, "uname") else "device"),
-                        NOTICE,
-                    )
-
-    # --- 5. Shell profile PATH (remove leaked Mac PATH that breaks pkg/apt) ---
+    # --- 4. Shell profile PATH (remove leaked Mac PATH that breaks pkg/apt) ---
     ensure_shell_profile_path()
 
     # --- 6. Termux mirror pin (re-pin after random mirror selection by pkg) ---
@@ -1687,14 +1626,13 @@ def main():
     # --- 7c. Daily pkg upgrade (once/24h, 3-5am; retries if phone was off) ---
     pkg_upgrade = ensure_pkg_upgrade_daily()
 
-    # --- 8. Re-apply the Shizuku profile in case app data was cleared.
-    # AutoJs6 is retired; Shizuku uses its headless receiver when needed so
-    # unattended repair never opens an app over the operator's foreground task.
+    # --- 7. Re-apply the Shizuku profile in case app data was cleared.
+    # Shizuku uses its headless receiver when needed so unattended repair
+    # never opens an app over the operator's foreground task.
     shizuku_profile = "skip"
     auto_profile = "skip"
     device_profile = "present"
     if expect_shell and have_sh:
-        auto_profile = "retired"
         _, sf_out = sh_adb("[ -f /data/local/tmp/shizuku-fleet.json ] && echo ok || echo missing")
         if "missing" in sf_out:
             _, sf_out2 = sh_adb("[ -f /sdcard/Download/shizuku-fleet.json ] && echo ok || echo missing")
@@ -1730,12 +1668,11 @@ def main():
     maybe_notify_error_rate()
 
     status = (
-        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s tailscale_policy=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s shizuku_auth=%s"
+        "STATUS port=%s shizuku=%s sshd=%s shell=%s wifi=%s tailscale=%s tailscale_policy=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s shizuku_auth=%s"
         % (
             port,
             shizuku,
             sshd,
-            a11y,
             "yes" if have_sh else "no",
             wifi,
             tailscale,

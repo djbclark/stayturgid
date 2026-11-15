@@ -44,14 +44,14 @@
 - **p7a** (Google Pixel 7a, Android 16, arm64, 12 GB free) — daily driver
 - **hd8** (Amazon Kindle Fire HD 8 KFRASWI, Fire OS 11 / API 30, armv7a, 20 GB free) — tablet
 
-All three run Shizuku (thedjchi fork, TCP mode, port 5555), Termux (GitHub-debug, sshd on :8022), AutoJs6 (v6.7.0 fleet-profile), Obtainium (app catalog), and Tailscale (always-on VPN).
+All three run Shizuku (thedjchi fork, TCP mode, port 5555), Termux (GitHub-debug, sshd on :8022), (v6.7.0 fleet-profile), Obtainium (app catalog), and Tailscale (always-on VPN).
 
 **Access architecture:**
 
 ```
 Mac Control Node ←─SSH :8022 (Tailscale)──→ Android Device
                  ←─ADB :5555 (Tailscale)──→ Android Device
-                 ←─AutoJs6 a11y watchdogs──→ Android Device
+                 ←─ a11y watchdogs──→ Android Device
 ```
 
 **Self-heal system (what runs on each device):**
@@ -60,13 +60,15 @@ Mac Control Node ←─SSH :8022 (Tailscale)──→ Android Device
    - Removes stale sshd `down` file (runit lockout fix)
    - Checks/repairs sshd, privileged shell :5555, Shizuku, a11y services
    - Ensures shell profile PATH (Mac leak fix), Termux mirror pinning
-   - Re-applies fleet profiles (AutoJs6 + Shizuku)
+   - Re-applies fleet profiles ( + Shizuku)
    - Samsung wireless debug cosmetic skip (adb_wifi_enabled=0 but 5555 open)
    - Phone→Mac Eternal Terminal SSH config
-2. AutoJs6 `main.js` — runs every 20 min:
-   - Checks sshd + port 5555 liveness
-   - If 5555 dead: accessibility-tap Shizuku "Start" button
-   - Notifications on failures
+2. `main.js` — runs every 20 min:
+
+- Checks sshd + port 5555 liveness
+- If 5555 dead: accessibility-tap Shizuku "Start" button
+- Notifications on failures
+
 3. Mac launchd agents: fleet-health (5 min), access-monitor (5 min), adb-reconnect (60 sec)
 
 **Key recent failures (2026-07-12):**
@@ -244,7 +246,7 @@ Proto: `ServerInfoResponse.privileged` (bool) — false = shell, true = root
 | ----- | -------------------------------------------- | ------- | ------------ |
 | 1     | Termux sshd :8022                            | ✅      | ✅           |
 | 2     | Shizuku adbd :5555                           | ✅      | ✅           |
-| 3     | AutoJs6 watchdog                             | ✅      | ✅           |
+| 3     | watchdog                                     | ✅      | ✅           |
 | 4     | **FIRERPA sshd on :65000**                   | ❌      | ✅ NEW       |
 | 5     | **FIRERPA adbd on :65000**                   | ❌      | ✅ NEW       |
 | 6     | **FIRERPA UI automation taps Shizuku Start** | ❌      | ✅ NEW       |
@@ -284,7 +286,7 @@ def repair_shizuku():
 
 ### Architecture & Design
 
-1. **Is FIRERPA the right choice for a redundant failsafe layer?** Given stayturgid's architecture (Termux sshd + Shizuku adbd + AutoJs6 watchdog + Ansible fleet orchestration), does adding a separate native daemon (FIRERPA on port 65000) actually improve reliability, or does it add a new single point of failure (the server binary itself)?
+1. **Is FIRERPA the right choice for a redundant failsafe layer?** Given stayturgid's architecture (Termux sshd + Shizuku adbd + watchdog + Ansible fleet orchestration), does adding a separate native daemon (FIRERPA on port 65000) actually improve reliability, or does it add a new single point of failure (the server binary itself)?
 
 2. **What's the right deployment model for non-root devices?** The options are:
    - A) Shizuku APK install (one-click, auto-start on boot, but Chinese-hosted APK)
@@ -372,7 +374,7 @@ def repair_shizuku():
 | stayturgid GitHub                        | https://github.com/djbclark/stayturgid                                                             |
 | FIRERPA issue #138 (Android 16/Pixel 7a) | https://github.com/firerpa/lamda/issues/138                                                        |
 | scrcpy (alternative remote desktop)      | https://github.com/Genymobile/scrcpy                                                               |
-| AutoJs6 (stayturgid watchdog)            | https://github.com/djbclark/AutoJs6                                                                |
+| (stayturgid watchdog)                    | https://github.com/djbclark/                                                                       |
 | Shizuku (fork used by stayturgid)        | https://github.com/frdminc/Shizuku                                                                 |
 | Obtainium (app catalog)                  | https://github.com/djbclark/Obtainium                                                              |
 | Hermes Agent (control-node gateway)      | https://github.com/anomalyco/hermes-agent                                                          |

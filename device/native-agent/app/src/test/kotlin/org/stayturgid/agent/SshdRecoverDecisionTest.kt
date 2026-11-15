@@ -61,7 +61,7 @@ class SshdRecoverDecisionTest {
 class SshdRecoverStatusParseTest {
     @Test
     fun readsSshdStateFromAStatusLine() {
-        val line = "[agent] STATUS port=5555 shizuku=running sshd=down a11y=ok shell=ok"
+        val line = "[agent] STATUS port=5555 shizuku=running sshd=down shell=ok"
         org.junit.jupiter.api.Assertions.assertEquals("down", SshdRecover.sshdState(line))
         org.junit.jupiter.api.Assertions.assertEquals(
             "up",

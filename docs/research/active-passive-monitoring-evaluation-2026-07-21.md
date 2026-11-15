@@ -12,7 +12,7 @@ You asked whether stayturgid currently has Nagios-style active/passive monitorin
 
 - `control/bin/access_monitor.py` — runs every 5 min via launchd, probes ADB/SSH reachability per device, fires a macOS notification after 2 consecutive failures. Its own docstring calls it a "dead-man's switch," but architecturally it's an active poller, not a passive push.
 - `control/bin/fleet_health_monitor.py`, `fire_help_monitor.py`, `check_fleet_health.py`, `check_et_mac.py` — more active probes (SSH/ADB scrape → log/restart).
-- `device/autojs6/lib/watchdog.ts` — on-device watchdog that actively checks freshness of a repair-loop log line, ADB port, sshd, Shizuku, Tailscale.
+- `device//lib/watchdog.ts` — on-device watchdog that actively checks freshness of a repair-loop log line, ADB port, sshd, Shizuku, Tailscale.
 
 **Passive/heartbeat checks (the classic Nagios "passive check" — something pushes a result in, and you alert on staleness/absence): no dedicated implementation.**
 
@@ -104,4 +104,4 @@ The active+passive gap closes with **zero new platform**:
 
 ## Suggested next step (only if you want to proceed)
 
-Pilot the passive side first, since it needs no new binary: add a `heartbeat_timestamp` push (single `curl -XPOST …/api/v1/import/prometheus`) into `stayturgid_repair.py`'s loop and into the AutoJs6 watchdog cycle, add one OpenObserve alert rule on staleness wired to the Hermes Telegram gateway, and confirm the alert fires when a source goes dark. Roll out to the rest of the fleet checks after that proves out.
+Pilot the passive side first, since it needs no new binary: add a `heartbeat_timestamp` push (single `curl -XPOST …/api/v1/import/prometheus`) into `stayturgid_repair.py`'s loop and into the watchdog cycle, add one OpenObserve alert rule on staleness wired to the Hermes Telegram gateway, and confirm the alert fires when a source goes dark. Roll out to the rest of the fleet checks after that proves out.

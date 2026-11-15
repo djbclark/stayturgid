@@ -479,7 +479,7 @@ agent-grant target:
 agent-start target:
     python3 "{{ repo }}/control/tools/native-agent/start_agent.py" "{{ target }}"
 
-# Install + grant + start native-agent on reachable hosts (dual-run; leaves AutoJs6).
+# Install + grant + start native-agent on reachable hosts.
 # Example: just agent-rollout
 #          just agent-rollout p7a s24
 agent-rollout +hosts="":

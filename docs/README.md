@@ -4,16 +4,15 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 
 ## By module
 
-| Module                            | README                                                                                                  | Use when you want…                                                                   |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Termux runtime                    | [docs/architecture/components/termux.md](architecture/components/termux.md)                             | Boot self-heal, repair script, presence indicator                                    |
-| Ansible                           | [ansible/README.md](../ansible/README.md)                                                               | Idempotent Termux deploy over SSH                                                    |
-| Control node                      | [docs/architecture/components/control.md](architecture/components/control.md)                           | ADB reconnect, fleet health, **Hermes gateway**, **phone→Mac ET** (`et_mac`), deploy |
-| AutoJs6 (retired, reference only) | [docs/architecture/components/autojs6.md](architecture/components/autojs6.md)                           | Legacy JS watchdog, replaced fleet-wide by the native agent (K1, 2026-07-22)         |
-| Play                              | [docs/architecture/components/play.md](architecture/components/play.md)                                 | apkeep/gplaycli direct Play installs (**parked** by default)                         |
-| Shared libraries                  | [control/lib/README.md](../control/lib/README.md)                                                       | `resolve-adb`, repo-root discovery, UI parse                                         |
-| Screen-control lease              | [docs/architecture/components/screen-control-lease.md](architecture/components/screen-control-lease.md) | Cross-project glass lock (DSCL v1; interop prompt)                                   |
-| CFEngine server                   | [docs/architecture/components/cfengine-server.md](architecture/components/cfengine-server.md)           | CFEngine policy server, cf-runagent repair tier                                      |
+| Module               | README                                                                                                  | Use when you want…                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Termux runtime       | [docs/architecture/components/termux.md](architecture/components/termux.md)                             | Boot self-heal, repair script, presence indicator                                    |
+| Ansible              | [ansible/README.md](../ansible/README.md)                                                               | Idempotent Termux deploy over SSH                                                    |
+| Control node         | [docs/architecture/components/control.md](architecture/components/control.md)                           | ADB reconnect, fleet health, **Hermes gateway**, **phone→Mac ET** (`et_mac`), deploy |
+| Play                 | [docs/architecture/components/play.md](architecture/components/play.md)                                 | apkeep/gplaycli direct Play installs (**parked** by default)                         |
+| Shared libraries     | [control/lib/README.md](../control/lib/README.md)                                                       | `resolve-adb`, repo-root discovery, UI parse                                         |
+| Screen-control lease | [docs/architecture/components/screen-control-lease.md](architecture/components/screen-control-lease.md) | Cross-project glass lock (DSCL v1; interop prompt)                                   |
+| CFEngine server      | [docs/architecture/components/cfengine-server.md](architecture/components/cfengine-server.md)           | CFEngine policy server, cf-runagent repair tier                                      |
 
 ## Project-wide
 
@@ -64,8 +63,6 @@ Findings that inform **shipping** fleet behavior (Handsets, Fire OS, UI drivers)
 | [research/fire-os-local-adb.md](research/fire-os-local-adb.md)                                               | Fire HD loopback ADB limits                                                                                                   |
 | [research/fire-os-google-play.md](research/fire-os-google-play.md)                                           | Fire HD Google Play / GMS stack                                                                                               |
 | [research/mac-android-ui-automation.md](research/mac-android-ui-automation.md)                               | Mac→Android UI playbook                                                                                                       |
-| [research/autojs6-project-import-questions.md](research/autojs6-project-import-questions.md)                 | Questions for AutoJs6 maintainer about existing-project import and launch                                                     |
-| [research/autojs6-hd8-project/](research/autojs6-hd8-project/)                                               | Reference copy of the fireos-device AutoJs6 project files that actually ran                                                   |
 | [research/text-based-android-config.md](research/text-based-android-config.md)                               | Best practices for adding text-based configuration to Android apps; candidate apps in the stayturgid stack                    |
 | [research/ansible-pull-architecture-2026-07-14.md](research/ansible-pull-architecture-2026-07-14.md)         | Hybrid `ansible-pull` architecture, security model, staged pilot, and junior-developer implementation guide                   |
 | [research/site-identity-source-of-truth-2026-07-14.md](research/site-identity-source-of-truth-2026-07-14.md) | Single authority for hostnames, addresses, serials, generated consumers, runtime observations, and SecretSpec-managed secrets |

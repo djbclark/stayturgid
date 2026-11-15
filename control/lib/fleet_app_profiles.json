@@ -3,22 +3,6 @@
     "battery_unrestricted": true,
     "disable_unused_restrictions": true,
     "grant_all_runtime": true,
-    "package": "org.autojs.autojs6",
-    "permissions": [
-      "com.termux.permission.RUN_COMMAND",
-      "android.permission.READ_EXTERNAL_STORAGE",
-      "android.permission.WRITE_EXTERNAL_STORAGE",
-      "android.permission.POST_NOTIFICATIONS"
-    ],
-    "appops": [
-      {"op": "MANAGE_EXTERNAL_STORAGE", "mode": "allow"},
-      {"op": "SYSTEM_ALERT_WINDOW", "mode": "allow"}
-    ]
-  },
-  {
-    "battery_unrestricted": true,
-    "disable_unused_restrictions": true,
-    "grant_all_runtime": true,
     "package": "moe.shizuku.privileged.api"
   },
   {

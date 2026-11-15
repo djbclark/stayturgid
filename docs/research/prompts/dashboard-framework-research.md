@@ -25,7 +25,7 @@ Silicon Mac control node. The current fleet is:
 - `hd8`: older Amazon Fire HD 8 / Fire OS device with materially different behavior
   and USB-oriented recovery.
 
-The system keeps wireless ADB, Termux SSH, Shizuku, AutoJs6 automation, CFEngine,
+The system keeps wireless ADB, Termux SSH, Shizuku, automation, CFEngine,
 and an optional FIRERPA recovery channel working across reboots. Ansible is the main
 configuration/deployment mechanism. Most host-side orchestration and monitoring is
 Python. Python is the project's default implementation language unless another
@@ -60,7 +60,7 @@ The current dashboard provides:
 - Static inventory data such as alias, label, USB serial, LAN IP, and Tailscale IP.
 - Latest fleet-health data and freshness.
 - Per-service state for SSH, the Termux boot loop, localhost ADB port 5555,
-  Shizuku, accessibility services, AutoJs6, CFEngine, and related repair loops.
+  Shizuku, accessibility services, , CFEngine, and related repair loops.
 - FIRERPA version and service state.
 - Current issue tags, consecutive failure counts, and active/recovered distinctions.
 - Immediate live health probes through an HTMX action.

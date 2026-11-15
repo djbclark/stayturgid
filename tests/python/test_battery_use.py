@@ -108,9 +108,8 @@ def _runner(text, rc=0, truncated=False):
 def test_tracked_packages_match_the_fleet_profile():
     profiles = json.loads((REPO / "control/lib/fleet_app_profiles.json").read_text())
     unrestricted = {entry["package"] for entry in profiles if entry.get("battery_unrestricted")}
-    expect = (unrestricted - set(bu.RETIRED_PACKAGES)) | set(bu.EXTRA_PACKAGES)
+    expect = unrestricted | set(bu.EXTRA_PACKAGES)
     assert set(bu.TRACKED_PACKAGES) == expect
-    assert "org.autojs.autojs6" not in bu.TRACKED_PACKAGES
 
 
 def test_dumpsys_command_never_resets():

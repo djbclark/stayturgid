@@ -10,7 +10,7 @@
 
 - **Shizuku side**: Obtainium is authorized in Shizuku. `shizuku.json` has `uid=10375 flags=2` (FLAG_ALLOWED). The Shizuku app → Application management shows Obtainium with the switch **ON**.
 - **Shizuku server**: Running on oneui-device (PID 10980). HEADLESS_START/HEADLESS_STATUS work after one manual Start tap (Samsung process freezer issue).
-- **AutoJs6 fleet profile**: Works correctly (23 keys applied). Same `FleetProfileActivity` pattern, different app.
+- **Fleet profile**: Works correctly (23 keys applied). Same `FleetProfileActivity` pattern, different app.
 - **Manual setting**: The user can manually change Settings → Installation to Shizuku and it works. The Shizuku permission dialog appears and "Allow all the time" grants it.
 
 ## What we tried that didn't work

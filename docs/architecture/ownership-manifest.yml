@@ -95,7 +95,7 @@
     - control/lib/a11y_services.py
     - control/lib/a11y_profiles.json
   disposition: split
-  note: "Generic module is core; the profile data and has_autojs6 helpers still name the retired AutoJs6 service and should be retired or replaced."
+  note: "Generic accessibility module and profile data are core. Profiles list services the operator enabled."
 
 - concern: app-privileges
   title: "App privilege policy (runtime grants, battery policy) and package profiles"
@@ -176,7 +176,7 @@
     - just/kotlin.just
   disposition: core
   note: >-
-    Replaced AutoJs6 (cutover 2026-07-22, removal #168); signing material (DEBUG_KEYSTORE*) stays site/private; the bundled Handsets hs.jar is MIT
+    Native agent (cutover 2026-07-22, removal #168); signing material (DEBUG_KEYSTORE*) stays site/private; the bundled Handsets hs.jar is MIT
     with its licence file beside it (#121).
 
 - concern: termux-userland
@@ -265,7 +265,7 @@
     - control/lib/ui_driver.py
     - control/lib/ui_parse.py
   disposition: core
-  note: "Still carries AutoJs6 selectors/comments to prune; no site selectors or credentials."
+  note: "UI parse and driver are core; no site selectors or credentials."
 
 - concern: battery-locate
   title: "Battery watch/alarm tiers, ring-device and locate-sound asset"
@@ -432,7 +432,7 @@
     - ansible/roles/control_node/templates/power-unplug-alert.plist.j2
     - ansible/roles/control_node/templates/fire-help.plist.j2
   disposition: core+site-data
-  note: "Probes and status model upstream; schedules and alert destinations are site data; fleet_health.py still has many AutoJs6 references."
+  note: "Probes and status model upstream; schedules and alert destinations are site data."
 
 - concern: operator-notify
   title: "Operator notification adapter used by control scripts"

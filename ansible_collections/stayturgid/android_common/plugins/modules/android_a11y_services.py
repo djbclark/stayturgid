@@ -11,7 +11,7 @@ module: android_a11y_services
 short_description: Read and report enabled_accessibility_services via adb
 description:
   - Detection-only — no automatic writes or merge-repair.
-  - Reads current accessibility services list and reports whether AutoJs6 is enabled.
+  - Reads the current accessibility services list.
 options:
   device:
     description: ADB serial or C(host:5555).
@@ -32,8 +32,6 @@ EXAMPLES = r"""
 RETURN = r"""
 services:
   type: str
-autojs6_present:
-  type: bool
 services_count:
   type: int
 """
@@ -74,11 +72,9 @@ def main():
 
     live = settings_get(module.run_command, device)
     services = a11y.parse_services(live)
-    autojs6_present = a11y.has_autojs6(live)
 
     module.exit_json(
         services=live,
-        autojs6_present=autojs6_present,
         services_count=len(services),
         services_list=services,
     )

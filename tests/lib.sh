@@ -79,7 +79,7 @@ case "$*" in
       exit 0 ;;
   *"settings get secure enabled_accessibility_services"*)
       if [ -f "$SANDBOX/a11y_state" ]; then cat "$SANDBOX/a11y_state"; echo
-      else printf '%s\n' "${ADB_A11Y:-org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher}"; fi
+      else printf '%s\n' "${ADB_A11Y:-}"; fi
       exit 0 ;;
   *"settings get system screen_off_timeout"*) printf '%s\n' "${ADB_TIMEOUT:-60000}"; exit 0 ;;
   *"settings get global stay_on_while_plugged_in"*) printf '%s\n' "${ADB_STAYON:-0}"; exit 0 ;;
@@ -102,11 +102,6 @@ case "$*" in
   *"dumpsys power"*)
       printf 'mWakefulness=%s\nmStayOn=%s\n' "${ADB_WAKE:-Awake}" "${ADB_MSTAYON:-false}"
       [ -n "${ADB_WAKELOCK:-}" ] && printf "  SCREEN_BRIGHT_WAKE_LOCK (tag='%s' uid=10123)\n" "$ADB_WAKELOCK"
-      exit 0 ;;
-  *"pm path org.autojs.autojs6"*)
-      # AutoJs6 is retired fleet-wide; default sandbox state is "not
-      # installed" (empty output) unless a test opts into the legacy path.
-      [ -n "${ADB_AUTOJS6_INSTALLED:-}" ] && printf 'package:/data/app/org.autojs.autojs6-1/base.apk\n'
       exit 0 ;;
 esac
 exit 0

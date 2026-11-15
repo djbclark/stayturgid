@@ -31,11 +31,11 @@ work), check the active notifications: confirm the ones up are expected and
 correct, and that expected ones (e.g. an active presence notification during
 a session, a battery-tier alert when low) aren't missing.
 
-**Why:** zombie/spam notifications (legacy Tasker, AutoJs6 blocked-loop) went
+**Why:** zombie/spam notifications (legacy Tasker, a blocked repair loop) went
 unnoticed in the past; missing ones can mean a dead watchdog.
 
 **How to apply:** read-only probe: `adb shell dumpsys notification
---noredact` filtered for stayturgid/termux/autojs6/tasker records; compare
+--noredact` filtered for stayturgid/termux/tasker records; compare
 against what the current device state should show.
 
 ### GitHub-signed builds over Play Store / F-Droid (Obtainium part historical)
@@ -297,8 +297,8 @@ actually changes.
 Two variants of the same gap, both found 2026-10-02, both silent for weeks:
 
 1. **Read but never written.** `read_device_profile()` has been reading
-   `{{ stayturgid_sd_root }}/state/device.json` since the AutoJs6 cutover, but
-   the thing that wrote a profile was the retired AutoJs6 flow, templating a
+   `{{ stayturgid_sd_root }}/state/device.json` since the K1 cutover, but
+   the thing that wrote a profile was the retired flow, templating a
    _different, older_ path (`/sdcard/stayturgid_device.json`). s24 and p7a only
    had a file left over from then; t2e, onboarded after the retirement, never
    got one and reported `device_profile=MISSING` on every cycle.
@@ -333,7 +333,7 @@ remote screen-control lease arbitration — it has nothing to do with
 autonomous on-device scripts.
 
 **How to apply:** when a reviewer cites an AGENTS.md convention against code
-in `device/autojs6/`, `ansible_collections/`, or similar autonomous/on-device
+in `ansible_collections/` or similar autonomous/on-device
 paths, don't implement it reflexively — `grep` the convention's real usage
 sites first and check whether the flagged file's context (interactive AI
 session vs. autonomous script vs. Mac-side tooling) actually matches. This

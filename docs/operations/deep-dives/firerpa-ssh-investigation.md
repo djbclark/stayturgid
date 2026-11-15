@@ -32,7 +32,7 @@ The durable stayturgid configuration now uses a private custom service certifica
 - SSH alias: `ssh oneui-device-firerpa` (Tailscale IP, port 65000, user `shell`)
 - gRPC clients fail closed if the configured certificate is missing
 - Unauthenticated gRPC and the upstream default SSH identity are rejected
-- AutoJs6, AutoInput, and Octoclip remain bound while secure FIRERPA UI automation works
+- , AutoInput, and Octoclip remain bound while secure FIRERPA UI automation works
 
 ## Verified Tests on oneui-device + stock-android-device
 
@@ -58,7 +58,7 @@ The following all passed:
 - a gRPC client without the custom certificate was rejected
 - the upstream default SSH identity was rejected
 - authenticated UI hierarchy capture succeeded on both devices
-- `dumpsys accessibility` showed AutoJs6, AutoInput, and Octoclip bound concurrently
+- `dumpsys accessibility` showed , AutoInput, and Octoclip bound concurrently
 
 ### Clean reboot behavior
 
@@ -120,7 +120,7 @@ manual command equivalents, reboot/`rish` recovery, security notes, and troubles
 
 If a handset reboot leaves both localhost ADB and Shizuku down, restore one privileged bridge
 using the normal stayturgid recovery path (USB ADB, wireless debugging/Shizuku, or the
-AutoJs6 catastrophic recovery). The Python supervisor will then start FIRERPA on its next
+catastrophic recovery). The Python supervisor will then start FIRERPA on its next
 attempt. On both phones, open Shizuku's Termux authorization and choose **Allow all the
 time**. Those grants were validated on 2026-07-13: `rish` returned UID 2000 and successfully
 restored the privileged localhost adbd path used to launch FIRERPA; secure SSH returned UID

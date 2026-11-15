@@ -214,7 +214,7 @@ stayturgid no-screen-control rule.
 - Limrun (limrun.com) and VibeView are cloud emulators only; they cannot drive your own phones.
 - Hamibot (hamibot.com) is a cloud-managed Auto.js-style service. A community MCP is listed on mcpmarket,
   but I did not verify its free tier or license.
-- AutoJs6 (MPL-2.0, 6,450 stars) is on-device JS automation with no MCP. `kkevsekk1/AutoX` now returns 404.
+- (MPL-2.0, 6,450 stars) is on-device JS automation with no MCP. `kkevsekk1/AutoX` now returns 404.
 
 ## C. Ranked top 3 (versus FireRPA, for agent use on s24 / hd8 / p7a)
 

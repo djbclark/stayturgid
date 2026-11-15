@@ -9,8 +9,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-AUTOJS6_A11Y = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
-
 _LIB = Path(__file__).resolve().parent
 _ON_DEVICE_PROFILES = Path.home() / ".stayturgid" / "a11y_profiles.json"
 _REPO_PROFILES = _LIB / "a11y_profiles.json"
@@ -42,10 +40,6 @@ def parse_services(raw: str | None) -> list[str]:
         seen.add(svc)
         out.append(svc)
     return out
-
-
-def has_autojs6(raw: str | None) -> bool:
-    return AUTOJS6_A11Y in parse_services(raw)
 
 
 def load_profiles() -> dict:

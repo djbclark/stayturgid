@@ -78,11 +78,6 @@
       "must_cover": ["termux_repair", "firerpa", "native_agent"],
       "should_cover": ["usb_heal"]
     },
-    "A11Y-AUTOJS6": {
-      "description": "AutoJs6 accessibility service enabled (detection-only; user must enable manually)",
-      "must_cover": ["termux_repair", "fleet_health"],
-      "should_cover": ["ansible_deploy"]
-    },
     "MIRROR-PINNED": {
       "description": "Termux main mirror pinned to packages-cf.termux.dev (deterministic pkg)",
       "must_cover": ["termux_repair", "ansible_deploy"],
@@ -132,11 +127,6 @@
       "description": "Daily Termux pkg update + full-upgrade (3-5am window, once/24h)",
       "must_cover": ["termux_repair"],
       "should_cover": ["ansible_deploy"]
-    },
-    "AUTOJS6-PROFILE": {
-      "description": "AutoJs6 fleet profile applied when process is dead (data clear/crash recovery)",
-      "must_cover": ["termux_repair"],
-      "should_cover": []
     },
     "SHIZUKU-PROFILE": {
       "description": "Shizuku fleet profile applied when Shizuku is down",

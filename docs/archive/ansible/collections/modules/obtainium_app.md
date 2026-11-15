@@ -15,9 +15,9 @@ catalog — use Mac `control/tools/obtainium/import_catalog.py` (`obtainium://ap
 ```yaml
 - stayturgid.obtainium.obtainium_app:
     apps:
-      - id: org.autojs.autojs6
-        url: https://github.com/SuperMonster003/AutoJs6
-        name: AutoJs6
+      - id:
+        url: https://github.com/SuperMonster003/
+        name:
     catalog_path: /sdcard/Download/my-catalog.json
     import_ui: false
 ```

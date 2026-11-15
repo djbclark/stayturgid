@@ -58,7 +58,7 @@
     <ID>MagicNumber:PeerStarter.kt$PeerStarter$200</ID>
     <ID>MagicNumber:PeerStarter.kt$PeerStarter$300</ID>
     <ID>MagicNumber:PeerStarter.kt$PeerStarter$400</ID>
-    <ID>MaxLineLength:ComonitorProbes.kt$ComonitorProbes.Status$"[agent] STATUS port=$port shizuku=$shizuku sshd=$sshd a11y=$a11y shell=$shell wifi=$wifi tailscale=$tailscale tailscale_policy=$tailscalePolicy reason=$reason ts=$ts uid=${Process.myUid()}"</ID>
+    <ID>MaxLineLength:ComonitorProbes.kt$ComonitorProbes.Status$"[agent] STATUS port=$port shizuku=$shizuku sshd=$sshd shell=$shell wifi=$wifi tailscale=$tailscale tailscale_policy=$tailscalePolicy reason=$reason ts=$ts uid=${Process.myUid()}"</ID>
     <ID>MaximumLineLength:ComonitorProbes.kt$ComonitorProbes.Status$ </ID>
     <ID>MultiLineIfElse:AdbClient.kt$AdbClient$error("not A_AUTH ADB_AUTH_TOKEN")</ID>
     <ID>MultiLineIfElse:ComonitorProbes.kt$ComonitorProbes$"down"</ID>

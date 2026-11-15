@@ -97,7 +97,7 @@ def test_ensure_permission_skips_undeclared_legacy_permission():
     changed, status = fp.ensure_permission(
         run,
         "dev",
-        "org.autojs.autojs6",
+        "com.example.legacy",
         "android.permission.READ_EXTERNAL_STORAGE",
     )
     assert changed is False
@@ -107,7 +107,7 @@ def test_ensure_permission_skips_undeclared_legacy_permission():
 
 def test_deviceidle_whitelisted_detects_package():
     def run(_cmd):
-        return (0, "user,org.autojs.autojs6,com.termux\n", "")
+        return (0, "user,com.example.legacy,com.termux\n", "")
 
     assert adb_shell.deviceidle_whitelisted(run, "dev", "com.termux") is True
     assert adb_shell.deviceidle_whitelisted(run, "dev", "com.missing") is False

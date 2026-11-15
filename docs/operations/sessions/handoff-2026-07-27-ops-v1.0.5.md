@@ -48,7 +48,7 @@ All three `~/ops` checkouts (`stayturgid`, `site-djbclark`, `site-private`) are 
 - **Central Timeout Helper ([#59](https://github.com/djbclark/stayturgid/issues/59))**: Created `adb_timeout.py` in `stayturgid.android_common`. Standardized on two operational tiers:
   - **Fast Queries (30s)**: `adb devices`, `adb connect`, `adb shell getprop`, `pm list`, `settings get`, `adb mdns services`.
   - **Slow Transfers/Installs (180s)**: `adb push`, `adb install`, `gh release download`, `apksigner sign`.
-- **Collection Migration**: Migrated `adb_shell.py`, `adb_resolve.py`, `autojs6_deploy_util.py`, `shizuku_grant.py`, `shizuku_start.py`, and `android_apk.py`. Added returncode `124` explicit error reporting.
+- **Collection Migration**: Migrated `adb_shell.py`, `adb_resolve.py`, `deploy_util.py`, `shizuku_grant.py`, `shizuku_start.py`, and `android_apk.py`. Added returncode `124` explicit error reporting.
 - **Unit Tests**: Added `test_adb_timeout.py` covering timeout resolution, command prefixing, and double-wrap prevention.
 
 ### Coordinated Release ops-v1.0.5

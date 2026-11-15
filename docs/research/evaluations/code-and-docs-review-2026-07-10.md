@@ -65,7 +65,7 @@ architecture remains clear.
 When `privileged_shell_expected()` is False (HD8 / `STAYTURGID_SD` under Termux
 home), the branch sets `port, sh, shizuku` but **never assigns `wifi`**, then
 interpolates `wifi` into the STATUS string. Concurrent repair (boot loop +
-bridge + AutoJs6) takes this path via lock contention → `NameError`, no STATUS
+bridge + ) takes this path via lock contention → `NameError`, no STATUS
 line, non-zero exit instead of advisory `rc=0 (skipped-duplicate)`.
 
 **STATUS schema drift (same path):** even after fixing `wifi`,
@@ -127,9 +127,9 @@ Silicon Homebrew adb and ignore `STAYTURGID_ADB` / `stayturgid_device.adb_bin()`
 
 **Fix:** use shared `adb_bin()` resolution (as `fleet_health` does).
 
-#### M5. AutoJs6 drawer verify can report OK when still off
+#### M5. drawer verify can report OK when still off
 
-`device/termux/py/stayturgid_enable_autojs6.py` (~454–458) — after toggle, if
+`device/termux/py/stayturgid_enable.py` (~454–458) — after toggle, if
 Handsets path and `want_on` and `sw2 is not None`, returns `"ok"` even when
 `sw2[0]` is still False.
 
@@ -189,7 +189,7 @@ falls back to `agent-presence.sh`.
 - Battery alarm Python migration is a real improvement over shell.
 - `ssh_marked_block` / `et_mac` keep peer-help ForceCommand lines outside fleet key blocks.
 - HD8 Google stack default no longer force-downgrades GMS/Play (`STAYTURGID_HD8_PIN_GMS` opt-in).
-- Dual-write of repair STATUS for Fire AutoJs6 co-monitor.
+- Dual-write of repair STATUS for Fire co-monitor.
 - Clear `control/` vs `device/` vs `catalogs/` vs `ansible*` split ([architecture.md](../../architecture/core-architecture.md)).
 
 ### Suggested code fix order
@@ -197,7 +197,7 @@ falls back to `agent-presence.sh`.
 1. **H1** — Fire concurrent-repair `wifi` crash **and** STATUS schema parity
    with `main()` (`a11y=`, etc.).
 2. **M1** — portable soft-health ages (stale must not look clean).
-3. **M5** — false AutoJs6 “enabled”.
+3. **M5** — false “enabled”.
 4. **M2, M3, M4** — lease races, Gemini key header, adb path.
 5. L items opportunistically.
 
@@ -299,7 +299,7 @@ New-feature coverage matrix:
 - [architecture.md](../../architecture/core-architecture.md) layout / deploy flow / soft health
 - [handoff.md](../../handoff.md) agent session policy (modulo H2 contradictions)
 - [hacking.md](../../hacking.md) clean install walkthrough (modulo link depth)
-- Module docs: termux, autojs6, obtainium, fdroid/play parked, control (incl. Hermes/ET), screen-control-lease
+- Module docs: termux, , obtainium, fdroid/play parked, control (incl. Hermes/ET), screen-control-lease
 - Local + cloud VLM gates (architecture note removed with VLM retirement on
   2026-07-26)
 - ADRs 001–002, incubator parking, `.cursor/rules/*.mdc`, `human/HANDOFF-HUMAN.md`
@@ -308,18 +308,18 @@ New-feature coverage matrix:
 
 ## Repo inventory snapshot (review tip)
 
-| Area           | Approx                                                       |
-| -------------- | ------------------------------------------------------------ |
-| Python         | ~173 files                                                   |
-| YAML           | ~92                                                          |
-| Markdown       | ~78                                                          |
-| `tests/python` | ~42 test modules                                             |
-| Top runtimes   | Mac `control/`, device Termux + AutoJs6, Ansible collections |
+| Area           | Approx                                                |
+| -------------- | ----------------------------------------------------- |
+| Python         | ~173 files                                            |
+| YAML           | ~92                                                   |
+| Markdown       | ~78                                                   |
+| `tests/python` | ~42 test modules                                      |
+| Top runtimes   | Mac `control/`, device Termux + , Ansible collections |
 
 Production layout reminder (for multi-agent coordination):
 
 - Code: `control/`, `device/`, `catalogs/`, `ansible/`, `ansible_collections/`, `docs/`
-- AutoJs6: `device/autojs6/` → on device `/sdcard/stayturgid/autojs6/`
+- : `device//` → on device `/sdcard/stayturgid//`
 - Repair entrypoint: `~/.stayturgid/bin/stayturgid_repair.py` (Python), not the old bash shim
 
 ---

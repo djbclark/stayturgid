@@ -30,7 +30,7 @@ The target model has four distinct kinds of data:
 | Secrets                | Tokens, passwords, private-key material, sensitive account IDs                                                | `secretspec.toml` defines requirements; configured SecretSpec provider stores values |
 
 Generated files such as `~/.config/stayturgid/devices.conf`, the SSH fragment, CFEngine
-run-agent targets, AutoJs6 profiles, and dashboard inputs are **projections**, not
+run-agent targets, profiles, and dashboard inputs are **projections**, not
 authorities. They must carry a generated header and must never be hand-edited.
 
 ## Why this matters
@@ -271,7 +271,7 @@ Generated outputs should include:
 | SSH config fragment            | OpenSSH/operator                  | Continue generating from inventory                         |
 | CFEngine `cf-runagent.cf`      | Mac repair channel                | Replace hardcoded address list with a template             |
 | LaunchAgent arguments          | Mac services                      | Render only from inventory-derived paths/aliases           |
-| AutoJs6 device profile         | Device watchdog                   | Render per host from `hostvars`; no embedded site fallback |
+| device profile                 | Device watchdog                   | Render per host from `hostvars`; no embedded site fallback |
 | FIRERPA endpoint configuration | Backup health/heal tools          | Generate from inventory, including port defaults           |
 | Dashboard device list          | Web UI                            | Read generated projection or shared identity library       |
 
@@ -460,7 +460,7 @@ Migrate one consumer at a time in recovery-risk order:
 1. template `control/cfengine/cf-runagent.cf` from the `stayturgid` inventory group;
 2. convert FIRERPA health/heal endpoint literals to inventory-derived configuration;
 3. verify all launchd jobs receive aliases/config paths rather than embedded endpoints;
-4. generate AutoJs6 profile identity only from hostvars;
+4. generate profile identity only from hostvars;
 5. keep dashboard and Python monitors on the generated `devices.conf` API; and
 6. remove production literals from active test fixtures.
 

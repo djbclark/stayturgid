@@ -66,7 +66,7 @@ def _label_center_y(xml, label):
 
 
 def _nearest_switch_by_y(xml, label_y, max_dy=120):
-    """Switch whose vertical center is closest to label_y (AutoJs6 drawer)."""
+    """Switch whose vertical center is closest to label_y."""
     best = None
     for m in re.finditer(r"<node\b[^>]*>", xml or ""):
         node = m.group(0)
@@ -89,7 +89,7 @@ def parse_switch(xml, label):
 
     Order:
       1. Switch node that itself has text=/content-desc= equal to label
-      2. Switch whose Y center is nearest the label TextView (AutoJs6 drawer
+      2. Switch whose Y center is nearest the label TextView (settings drawer
          dumps Switch *before* the label text — string-order search fails)
       3. First Switch after the label string (legacy Obtainium-style layout)
       4. Last Switch before the label string within a short window

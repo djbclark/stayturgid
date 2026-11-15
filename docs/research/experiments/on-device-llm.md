@@ -16,7 +16,7 @@ deliberately picked — not default agent work.
 | **shell-gpt + local Ollama on phone**        | Feasible on s24/p7a; **marginally useful** for short shell suggestions; not smart enough to own repair       |
 | **aider-chat on Termux**                     | **Reject** for this use case — tree-sitter aarch64 install pain; wrong tool (repo editing, not device shell) |
 
-**Do not** put any LLM in the 5-minute Termux repair hot path. Deterministic `stayturgid-repair` + AutoJs6 catastrophic tap stay primary. LLM is an optional **escalation** after N failed STATUS cycles, with allowlisted commands and screen-control consent for any `input`.
+**Do not** put any LLM in the 5-minute Termux repair hot path. Deterministic `stayturgid-repair` + catastrophic tap stay primary. LLM is an optional **escalation** after N failed STATUS cycles, with allowlisted commands and screen-control consent for any `input`.
 
 ## Would a local model actually be useful?
 
@@ -28,7 +28,7 @@ deliberately picked — not default agent work.
 | p7a             | Tensor G2          | 8 GB        | Prefer **1.5B–3B**; 7B will thrash under daily-driver load |
 | hd8             | Fire OS mid-range  | low         | **Skip** — no Termux→5555 loopback; keep Mac path          |
 
-Expect ~2–4 GB OS/apps already in use. A 3B Q4 model needs ~2 GB weights + KV; usable but competes with AutoJs6, Termux, and the user’s apps. Thermal throttling on long generations is normal.
+Expect ~2–4 GB OS/apps already in use. A 3B Q4 model needs ~2 GB weights + KV; usable but competes with , Termux, and the user’s apps. Thermal throttling on long generations is normal.
 
 ### What phone-class models can do well
 
@@ -43,7 +43,7 @@ Reported mobile speeds (order of magnitude, CPU/Adreno): **1–1.5B ~30+ tok/s**
 - Replace the deterministic repair checklist (sshd, 5555, a11y merge, Shizuku)
 - Invent safe OEM-specific UI flows without hallucinated taps
 - Run unattended multi-step “fix the phone” agents without a human in the loop
-- Survive catastrophic path (5555 closed) — no shell for the model to use; AutoJs6 a11y remains mandatory
+- Survive catastrophic path (5555 closed) — no shell for the model to use; a11y remains mandatory
 
 **Bottom line:** A **1.5B–3B coder/instruct** model on s24/p7a is smart enough to be a **bounded advisor** (propose allowlisted shell after deterministic heal fails). It is **not** smart enough to own self-heal or GUI automation. Prefer cloud models if you want higher-quality escalation; prefer local only for offline/privacy experiments.
 
@@ -58,7 +58,7 @@ Reported mobile speeds (order of magnitude, CPU/Adreno): **1–1.5B ~30+ tok/s**
 
 - aider-chat as fleet heal
 - Always-on Ollama in Termux:Boot (battery + RAM)
-- LLM-driven Obtainium/Aurora/AutoJs6 drawer flows (deterministic on-device scripts own those)
+- LLM-driven Obtainium/Aurora/ drawer flows (deterministic on-device scripts own those)
 
 **Mac vision gates (UI-TARS)** were separate from on-device LLM and were
 [retired on 2026-07-26](../../operations/sessions/handoff-2026-07-26-release-vlm-cleanup.md).

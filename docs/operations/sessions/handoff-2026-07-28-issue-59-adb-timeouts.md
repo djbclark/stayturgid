@@ -106,7 +106,7 @@ pre-existing infra fix, not in scope here.
 
 Routed the staging `adb push` through `run_command_with_timeout()` with
 `DEFAULT_SLOW_TIMEOUT` (180s, transfer-class), matching the identical pattern
-already used in `shizuku_start.py`/`shizuku_grant.py`/`autojs6_deploy_util.py`.
+already used in `shizuku_start.py`/`shizuku_grant.py`/`deploy_util.py`.
 Added `test_push_command_wrapped_in_timeout` to
 `test_native_agent_config.py` asserting the push command is prefixed with
 the resolved `timeout` binary + `180`.

@@ -1,8 +1,8 @@
 # stayturgid-agent (native Kotlin)
 
-OPTIONS **K1** replaced AutoJs6 (retired 2026-07-22) with a purpose-built APK
-that binds a **Shizuku UserService** (UID 2000) and injects silent input via
-`InputManager.injectInputEvent` — **no** shell spawn, **no** Accessibility.
+OPTIONS **K1** is a purpose-built APK that binds a **Shizuku UserService**
+(UID 2000) and injects silent input via `InputManager.injectInputEvent` —
+**no** shell spawn, **no** Accessibility.
 
 The agent also writes a 20-minute co-monitor heartbeat, repairs the Shizuku
 shell path, and requests a Tailscale reconnect when either the tunnel or
@@ -11,9 +11,7 @@ successful only after both are re-probed as healthy. It also restores the config
 non-lockdown always-on VPN policy. Termux remains the primary sshd and routine
 repair owner.
 
-History (K1 cutover): plan
-[`docs/archive/plans/autojs6-to-native-apk-plan.md`](../../docs/archive/plans/autojs6-to-native-apk-plan.md),
-checkpoint
+History (K1 cutover): checkpoint
 [`docs/operations/sessions/session-2026-07-22-native-agent.md`](../../docs/operations/sessions/session-2026-07-22-native-agent.md).
 Current status: [docs/STATUS.md](../../docs/STATUS.md).
 
@@ -146,16 +144,7 @@ The launcher UI shows the version name/code, UTC build time, source revision,
 application ID, build type, Android/device identity, and live Shizuku state.
 The full diagnostic block is selectable and can be copied with one button.
 
-## Retired AutoJs6 code
-
-AutoJs6 was retired fleet-wide in the K1 cutover (2026-07-22) and its code
-(`device/autojs6/`, `control/tools/autojs6/`) was deleted entirely in #162
-(2026-07-31) — see
-[docs/architecture/components/autojs6.md](../../docs/architecture/components/autojs6.md)
-for historical reference only.
-
 ## Non-goals
 
 The agent does not replace the Termux primary repair loop, restart Termux
-sshd, or enable Accessibility. AutoJs6 package removal and signed-release
-verification remain tracked operational work.
+sshd, or enable Accessibility.

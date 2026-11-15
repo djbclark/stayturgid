@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-22  
 **OPTIONS:** K1  
-**Plan:** [autojs6-to-native-apk-plan.md](autojs6-to-native-apk-plan.md)  
+**Plan:** -to-native-apk-plan.md  
 **Checkpoint:** [session-2026-07-22-native-agent.md](../../operations/sessions/session-2026-07-22-native-agent.md)  
 **Code:** `device/native-agent/` — package `org.stayturgid.agent` (debug: `.debug`)  
 **Current version:** `0.3.1-heartbeat-heal` (versionCode 5)
@@ -12,9 +12,10 @@
 ## One-sentence summary
 
 We are **mid dual-run**: a Kotlin/Shizuku UserService APK already does inject +
-co-monitor + shell catastrophic repair on pilot hardware, while **AutoJs6 remains
-installed** as the safety net (especially Accessibility UI last resort). **Do not
-rebuild AutoJs6** to continue agent work unless you change AutoJs6 itself.
+co-monitor + shell catastrophic repair on pilot hardware, while the previous
+runtime remains installed as the safety net (especially Accessibility UI last
+resort). **Do not rebuild that runtime** to continue agent work unless that
+runtime itself changes.
 
 ---
 
@@ -23,9 +24,9 @@ rebuild AutoJs6** to continue agent work unless you change AutoJs6 itself.
 | Piece                                           | Role                                                                                                                                                       |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Termux** `stayturgid_repair` / `start_adb.py` | **Primary** 5‑min self-heal (sshd, 5555, Shizuku headless, packages, …)                                                                                    |
-| **AutoJs6** `device/autojs6/`                   | **Secondary** JS watchdog: co-monitor → `watchdog.log`, catastrophic shell **+ a11y UI tap**, Termux kick, Tailscale, notifications                        |
+| **** `device//`                                 | **Secondary** JS watchdog: co-monitor → `watchdog.log`, catastrophic shell **+ a11y UI tap**, Termux kick, Tailscale, notifications                        |
 | **native-agent** `device/native-agent/`         | **Replacement under dual-run**: FGS host + UserService (UID 2000), inject (screen-on), co-monitor → `agent.log`, shell-first catastrophic **without a11y** |
-| **Mac** `fleet_health_monitor`                  | Soft health every 5 min; restarts AutoJs6 on `watchdog_stale`; restarts agent on `agent_stale`                                                             |
+| **Mac** `fleet_health_monitor`                  | Soft health every 5 min; restarts on `watchdog_stale`; restarts agent on `agent_stale`                                                                     |
 
 Routine repair stays **Termux-primary**. Agent does not own the 5‑min repair loop.
 
@@ -40,7 +41,7 @@ Routine repair stays **Termux-primary**. Agent does not own the 5‑min repair l
 | **2**  | `runComonitor()` STATUS → `agent.log`                                   | **Done**                                    |
 | **3**  | `repairCatastrophic()` shell + HEADLESS_START (no a11y)                 | **Done** (code + auto on CLOSED_NO_SHELL)   |
 | **3b** | Screen-off heartbeat; Mac `agent_stale` heal; `start_agent` / `rollout` | **Done**                                    |
-| **4**  | Cutover: Obtainium, Ansible, remove AutoJs6                             | **Not started**                             |
+| **4**  | Cutover: Obtainium, Ansible, remove                                     | **Not started**                             |
 
 ### Notable commits
 
@@ -55,7 +56,7 @@ Routine repair stays **Termux-primary**. Agent does not own the 5‑min repair l
 
 ## Fleet rollout (2026-07-22, updated after s24/hd8 attach)
 
-| Host                 | Reachability                       | Agent install | Shizuku UserService | `agent.log` STATUS    | AutoJs6  |
+| Host                 | Reachability                       | Agent install | Shizuku UserService | `agent.log` STATUS    |          |
 | -------------------- | ---------------------------------- | ------------- | ------------------- | --------------------- | -------- |
 | **p7a** (Pixel 7a)   | adb wireless OK                    | **0.3.1**     | **bound**           | **writing** (~20 min) | dual-run |
 | **s24** (Galaxy S24) | adb wireless `100.123.218.30:5555` | **0.3.1**     | **bound**           | **writing**           | dual-run |
@@ -99,7 +100,7 @@ python3 control/tools/native-agent/rollout.py
 python3 control/tools/native-agent/rollout.py --serial GN43T503430603PS
 ```
 
-**AutoJs6:** leave running. Rebuild only if you change `device/autojs6/**` or the AutoJs6 APK fork.
+**:** leave running. Rebuild only if you change `device//**` or the APK fork.
 
 ---
 
@@ -119,7 +120,7 @@ python3 control/tools/native-agent/rollout.py --serial GN43T503430603PS
 6. ~~**Release signing key** + non-debug `applicationId` without `.debug`~~ **Done (verified in build.gradle.kts)**
 7. ~~**Obtainium catalog entry** for agent APK updates~~ **Done**
 8. ~~**Ansible: install agent, grant Shizuku, battery flags**~~ **Done**
-9. Forced `CLOSED_NO_SHELL` soak: prove `repairCatastrophic` restores 5555 without AutoJs6 a11y
+9. Forced `CLOSED_NO_SHELL` soak: prove `repairCatastrophic` restores 5555 without a11y
 10. ~~**Fire-specific: durable Shizuku start** (starter/fleet profile) so agent binds after reboot~~ **Done**
 11. ~~**Dashboard**: show `agent_age` / agent STATUS card~~ **Done**
 12. ~~**Healing registry**: optional `native_agent` mechanism for PORT5555 / SHIZUKU-HEADLESS should_cover~~ **Done**
@@ -128,15 +129,15 @@ python3 control/tools/native-agent/rollout.py --serial GN43T503430603PS
 Fleet soft-health now writes a durable `soft_health` JSONL sample every ~5 min per
 reachable host so dual-run regressions are debuggable weeks later.
 
-### C — Phase 4 cutover (retire AutoJs6)
+### C — Phase 4 cutover (retire )
 
 Only after B soaks pass on all fleet hosts you care about:
 
 13. Agent owns co-monitor + shell catastrophic exclusively
 14. Decide a11y UI last resort: **keep tiny companion**, **fork Shizuku intent**, or **accept peer-ADB**
-15. Stop deploying AutoJs6 project; remove Mac `start_watchdog` heal for AJ6 (or gate on package absent)
-16. Uninstall AutoJs6 from pilot → soak → fleet
-17. Drop `watchdog_stale` / `autojs6_a11y_*` as primary signals; prefer `agent_stale`
+15. Stop deploying project; remove Mac `start_watchdog` heal for AJ6 (or gate on package absent)
+16. Uninstall from pilot → soak → fleet
+17. Drop `watchdog_stale` / `a11y_*` as primary signals; prefer `agent_stale`
 18. Docs + OPTIONS K1 close; update handoff / component pages
 
 ### D — Explicitly out of scope for agent
@@ -162,13 +163,13 @@ last Tuesday?”
 
 ### Already logged forever (`events.jsonl`)
 
-| `type`            | Source                          | Fields of interest                                                                                                                                    |
-| ----------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `connection_path` | fleet_health_monitor            | `via` (ssh/adb path)                                                                                                                                  |
-| `issue_detected`  | fleet_health_monitor            | `issue` (one event per tag, e.g. `agent_stale`)                                                                                                       |
-| `heal_triggered`  | fleet_health_monitor            | `heal=agent\|watchdog\|repair\|…`                                                                                                                     |
-| `device_status`   | access-monitor et al.           | online/offline                                                                                                                                        |
-| **`soft_health`** | fleet_health_monitor each probe | `agent_age`, `watchdog_age`, `repair_age`, `port`, `shizuku`, `a11y`, `autojs6_a11y`, `sshd`, `shell5555`, `bootloop`, `issues`, `issue_count`, `via` |
+| `type`            | Source                          | Fields of interest                                                                                                                            |
+| ----------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `connection_path` | fleet_health_monitor            | `via` (ssh/adb path)                                                                                                                          |
+| `issue_detected`  | fleet_health_monitor            | `issue` (one event per tag, e.g. `agent_stale`)                                                                                               |
+| `heal_triggered`  | fleet_health_monitor            | `heal=agent\|watchdog\|repair\|…`                                                                                                             |
+| `device_status`   | access-monitor et al.           | online/offline                                                                                                                                |
+| **`soft_health`** | fleet_health_monitor each probe | `agent_age`, `watchdog_age`, `repair_age`, `port`, `shizuku`, `a11y`, `a11y`, `sshd`, `shell5555`, `bootloop`, `issues`, `issue_count`, `via` |
 
 ### Crash-safe path to OpenObserve (chosen design)
 
@@ -261,10 +262,10 @@ Avoid logging every dumpsys every 5 min (noise + cost). Prefer: high-cadence **a
 
 ---
 
-## Success criteria for “agent replaces AutoJs6”
+## Success criteria for “agent replaces ”
 
 - [ ] All fleet hosts run release agent, fresh `agent.log`
-- [ ] CLOSED_NO_SHELL recovery without AutoJs6 installed (pilot ≥1 week)
+- [ ] CLOSED_NO_SHELL recovery without installed (pilot ≥1 week)
 - [ ] Fleet health / deploy / boot paths do not require AJ6
 - [ ] Operator accepts residual a11y policy (or has replacement)
 - [ ] Rollback recipe tested once (reinstall AJ6 project + APK)

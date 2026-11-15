@@ -9,7 +9,7 @@ residuals: release APK, forced soak, official Shizuku packaging) and
 fleet state).
 
 **Bottom line:** all four non-physical prep items are done — one fully fixed
-and tested (AutoJs6 self-heal noise, expanded into a full repo-wide sweep per
+and tested ( self-heal noise, expanded into a full repo-wide sweep per
 operator request mid-session), three investigated to a concrete, evidence-backed
 conclusion (Shizuku watchdog scheduling, release-APK path, Shizuku packaging).
 The gated physical step ran in a follow-up continuation of this session once
@@ -24,66 +24,65 @@ green — see §6 for the itemized breakdown).
 
 ---
 
-## 1. AutoJs6 self-heal noise — fixed, tested, and swept fleet-wide
+## 1. self-heal noise — fixed, tested, and swept fleet-wide
 
 ### Original ask (2 files)
 
 `stayturgid_repair.py`'s a11y-check + fleet-profile-reapply, and
-`fleet_health.py`'s `autojs6_a11y` probe, were both hardcoded to assume
-AutoJs6 might still be present. Since AutoJs6 is fully uninstalled fleet-wide
+`fleet_health.py`'s `a11y` probe, were both hardcoded to assume
+might still be present. Since is fully uninstalled fleet-wide
 (confirmed live on s24 + hd8 again this session via `pm path`), both fired
 perpetual, misleading signals:
 
-- `stayturgid_repair.py` logged `NOTICE: ACTION_REQUIRED: AutoJs6
-accessibility disabled` every ~15 min cycle — **caught live on s24's own
+- `stayturgid_repair.py` logged `NOTICE: ACTION_REQUIRED: accessibility disabled` every ~15 min cycle — **caught live on s24's own
   `repair.log` during this session** (`21:06:32`), confirming the bug was
   actively firing, not theoretical.
-- `fleet_health.py` reported `autojs6_a11y=missing` forever in dashboard/health
+- `fleet_health.py` reported `a11y=missing` forever in dashboard/health
   summaries (confirmed telemetry-only via the existing
-  `test_evaluate_retired_autojs_a11y_is_telemetry_only` test — never actually
+  `test_evaluate_retired__a11y_is_telemetry_only` test — never actually
   raised an alert, but was permanent noise).
 
-**Fix:** both now check live AutoJs6 install state (`pm path
-org.autojs.autojs6`) before running the legacy check at all. If not installed,
+**Fix:** both now check live install state (`pm path
+`) before running the legacy check at all. If not installed,
 they report the new `retired` state and skip the check entirely — no more
 false ACTION_REQUIRED, no more perpetual "missing".
 
 ### Operator-directed full sweep
 
-Mid-unit, the operator asked for a full repo-wide `grep -ri autojs6` sweep
+Mid-unit, the operator asked for a full repo-wide `grep -ri ` sweep
 (`control/`, `device/`, `ansible/`, `docs/`) and a categorized accounting of
 every hit — not just the two files that triggered the conversation. ~180
 files matched; most are legitimately historical (the retired
-`device/autojs6/` project itself, `docs/archive/`, `docs/research/`,
+`device//` project itself, `docs/archive/`, `docs/research/`,
 `docs/operations/sessions/` logs, CHANGELOGs) and were left untouched.
 Categorized findings below.
 
 #### Fixed this unit (same pattern: check live state, don't assume)
 
 1. **`device/termux/py/stayturgid_repair.py`** — as above, plus fixed two
-   stale escalation-path log/docstring lines that still said "AutoJs6 UI
+   stale escalation-path log/docstring lines that still said " UI
    repair" (now: "native-agent catastrophic repair").
 2. **`control/lib/fleet_health.py`** — as above, in both the SSH-path
    (`HEALTH_GATHER`) and the USB-fallback (`adb_health`) probe scripts.
 3. **`ansible_collections/stayturgid/fleet/roles/validate/tasks/main.yml`** —
    found during the sweep, same bug pattern, live in the deploy/validate path:
-   a "Warn when AutoJs6 accessibility is not enabled" `debug` task fired on
+   a "Warn when accessibility is not enabled" `debug` task fired on
    **every single `just deploy`/validate run, for every device**, since
-   AutoJs6 is uninstalled everywhere. Gated the probe and the warning on a new
-   `_autojs6_installed` fact (via the `stayturgid.android_common.android_packages`
+   is uninstalled everywhere. Gated the probe and the warning on a new
+   `_installed` fact (via the `stayturgid.android_common.android_packages`
    lookup, same idiom used elsewhere in this collection).
 4. **`ansible_collections/stayturgid/termux/roles/termux_userland/defaults/main.yml`**
-   — `start-autojs6-bridge.sh` and `start-autojs6-watchdog.sh` were still in
+   — `start--bridge.sh` and `start--watchdog.sh` were still in
    the live `stayturgid_boot_scripts` deploy list. Both scripts' entire job is
-   launching/restarting AutoJs6's `boot-launcher.js` — with AutoJs6 gone,
+   launching/restarting 's `boot-launcher.js` — with gone,
    every device boot ran a dead `am start` against an uninstalled package plus
    a wasted 45s sleep in the boot sequence, fleet-wide, forever. Moved both to
    `stayturgid_retired_boot_scripts` (an already-established convention in
    this file — next deploy removes them from `~/.termux/boot/` on every
    device). Underlying script files and `stayturgid_bridges.py --mode
-autojs6` left in place, now unreachable in production — flagged below for
+` left in place, now unreachable in production — flagged below for
    a follow-up decision, not deleted here.
-5. **`stayturgid_automation_mode: autojs6`** stale default, found in three
+5. **`stayturgid_automation_mode: `** stale default, found in three
    places: `SITE-CONTRACT.md` (source of truth — this repo uses Entangled
    literate programming; `control/site_contract/templates/inventory/hosts.yml`
    is _tangled from_ SITE-CONTRACT.md, not hand-editable — learned this the
@@ -95,19 +94,19 @@ autojs6` left in place, now unreachable in production — flagged below for
    file (`automation_mode.txt`) on every deploy and shown in
    `validate_site_identity.py`'s site-identity report as if meaningful, but
    the **only actual reader** anywhere in the repo is
-   `device/autojs6/scripts/switch-to-autojs6.{ts,js}` — itself part of the
-   retired AutoJs6 project. Changed the default to `""` (falls through to
+   `device//scripts/switch-to-.{ts,js}` — itself part of the
+   retired project. Changed the default to `""` (falls through to
    `site_identity.py`'s existing `"none"` fallback) with an explanatory
    comment. **Note:** the _live_ production inventory value for hd8/p7a/s24
    lives in `site-djbclark`'s own inventory (different repo, out of this
    unit's scope/worktree) — this fix only corrects the template/example
    defaults used when scaffolding _new_ sites or devices.
 6. **`tests/lib.sh` + `tests/test-unit.sh`** — my repair.py fix broke 3
-   existing shell-suite tests that assumed AutoJs6 was always "installed"
+   existing shell-suite tests that assumed was always "installed"
    (`repair[py]: healthy STATUS line` expected `a11y=up`; two tests expected
-   ACTION_REQUIRED to fire unconditionally). Added an `ADB_AUTOJS6_INSTALLED`
+   ACTION_REQUIRED to fire unconditionally). Added an `ADB_INSTALLED`
    stub knob (default: not installed, matching real fleet state) and updated
-   those 3 tests to explicitly mock AutoJs6-installed for the legacy-path
+   those 3 tests to explicitly mock -installed for the legacy-path
    assertions, plus added 3 new tests for the retired-state path
    (`a11y=retired`, no ACTION_REQUIRED, `auto_profile=retired`). Net: 133 → 136
    shell tests, all green.
@@ -115,8 +114,8 @@ autojs6` left in place, now unreachable in production — flagged below for
 #### Confirmed real bugs, deliberately deferred (need a Kotlin build/verify cycle)
 
 7. **`device/native-agent/app/src/main/kotlin/org/stayturgid/agent/ComonitorProbes.kt:23-24,104`**
-   — the native agent's _own_ accessibility probe (`A11Y_AUTOJS6` constant +
-   list-contains check) is hardcoded to AutoJs6's accessibility-service
+   — the native agent's _own_ accessibility probe (`A11Y` constant +
+   list-contains check) is hardcoded to 's accessibility-service
    string. This is exactly the same bug pattern as items 1-2, just in
    Kotlin — the native agent's own STATUS/`agent.log` `a11y=` field will read
    `down` fleet-wide, permanently. This is the exact gap the operator's own
@@ -127,16 +126,16 @@ autojs6` left in place, now unreachable in production — flagged below for
    is already independently needed for the release-APK item; recommend
    bundling this fix into that work).
 8. **`device/native-agent/app/src/main/res/values/strings.xml:15`** — the
-   `main_hint` UI string says "AutoJs6 stays installed", which is now false.
+   `main_hint` UI string says " stays installed", which is now false.
    Trivial, but bundled with the Kotlin cycle above rather than a
    one-line-only PR.
 
 #### Real functionality gap, not yet migrated (needs a decision, not a quick fix)
 
 9. **`CatastrophicRepair.kt:17`** ("No Accessibility UI taps here — that
-   remains AutoJs6-only until a fork intent path is proven") and
-   **`HostService.kt:472`** ("AutoJs6 still owns UI fallback until cutover")
-   — both point at a real, unresolved capability gap: AutoJs6 used to own an
+   remains -only until a fork intent path is proven") and
+   **`HostService.kt:472`** (" still owns UI fallback until cutover")
+   — both point at a real, unresolved capability gap: used to own an
    Accessibility-based UI-tap fallback for catastrophic-repair scenarios that
    has **not** been reimplemented in the native agent. This is category (a)
    from the operator's framing — real functionality not yet migrated, not
@@ -147,36 +146,36 @@ autojs6` left in place, now unreachable in production — flagged below for
 
 #### Dormant/dead code, not touched (recommend a dedicated decommission issue if wanted)
 
-10. **`device/termux/py/stayturgid_autojs6_guard.py`** — still invoked
+10. **`device/termux/py/stayturgid_guard.py`** — still invoked
     unconditionally every `daemon_loop()` cycle (5-15 min) via
     `start_adb.py`. Its `action_check()` now always short-circuits to a
     benign one-line "no watchdog cycle in log yet" log entry (its input
     signal can never appear again) — low-severity noise, not an alert, but a
     genuinely dead invocation.
-11. **`device/termux/py/stayturgid_bridges.py --mode autojs6`** — unreachable
+11. **`device/termux/py/stayturgid_bridges.py --mode `** — unreachable
     in production after fix #4 above (its only launcher was just retired),
-    but the mode's code (and `stayturgid_autojs6_guard.py`'s matching
+    but the mode's code (and `stayturgid_guard.py`'s matching
     `maybe_restart_trigger()`) is still in the tree.
-12. **Entire dedicated legacy AutoJs6 tooling stack**, left as-is
+12. **Entire dedicated legacy tooling stack**, left as-is
     (dormant — only runs if explicitly invoked, causes no active noise post-fix):
-    `device/autojs6/` (already documented as historical-reference-only per
-    `docs/architecture/components/autojs6.md`), `control/tools/autojs6/` (8
-    scripts), `device/termux/py/stayturgid_enable_autojs6.py` +
-    `stayturgid_grant_shizuku.py`, `control/lib/adb_cli.py` (AutoJs6
-    script-launch helper library), `ansible_collections/stayturgid/android_common/plugins/modules/autojs6_project_deploy.py`
-    and its `module_utils/autojs6_deploy_util.py`. (`android_a11y_services.py`
+    `device//` (already documented as historical-reference-only per
+    `docs/architecture/components/.md`), `control/tools//` (8
+    scripts), `device/termux/py/stayturgid_enable.py` +
+    `stayturgid_grant_shizuku.py`, `control/lib/adb_cli.py` (
+    script-launch helper library), `ansible_collections/stayturgid/android_common/plugins/modules/project_deploy.py`
+    and its `module_utils/deploy_util.py`. (`android_a11y_services.py`
     and `a11y_services_util.py` are _not_ in this bucket — they're now also
     used generically by fix #3 above, kept.)
-13. **`control/bin/dashboard.py`**'s `HUMAN_ACTIONS["autojs6_a11y_missing"]`
-    / `["autojs6_a11y_stale"]` entries — already-dead before this session
+13. **`control/bin/dashboard.py`**'s `HUMAN_ACTIONS["a11y_missing"]`
+    / `["a11y_stale"]` entries — already-dead before this session
     (the issue tags they key off are never actually generated by
     `evaluate_health()`, confirmed by the pre-existing
-    `test_evaluate_retired_autojs_a11y_is_telemetry_only` test). Pre-existing,
+    `test_evaluate_retired__a11y_is_telemetry_only` test). Pre-existing,
     harmless, unrelated to anything changed here — noted for completeness
     only.
 14. **Prose docs** (`docs/architecture/platform-architecture.md:755`,
     `docs/architecture/multi-site-topology.md:237`) still show the stale
-    `stayturgid_automation_mode: autojs6` example in narrative text — not
+    `stayturgid_automation_mode: ` example in narrative text — not
     tangled/enforced, cosmetic only, not fixed.
 
 ---
@@ -279,7 +278,7 @@ step.
   exactly. The catalog entry (`catalogs/obtainium/stayturgid-apps.json`) is
   already correctly configured (repo URL, filter, prerelease/fallback
   settings) — this part of #45 is done, not just unverified-done like the
-  AutoJs6 uninstall claim was.
+  uninstall claim was.
 - **s24 is already running this exact release build right now**: live
   `dumpsys package org.stayturgid.agent` shows `versionCode=15
 versionName=0.6.0-boot-stability`, matching current `master`'s
@@ -356,7 +355,7 @@ all are done).
 Per the brief's explicit gate: "stop and report what you've found so far
 before triggering any reboot... don't assume standing-by-now still means
 available whenever you get there; ask." A large amount of non-physical work
-above (in particular the operator-directed full AutoJs6 sweep) extended this
+above (in particular the operator-directed full sweep) extended this
 unit well past the point where "operator standing by" at the start can be
 assumed to still hold. Devices are confirmed on USB right now
 (`RFCX219CHKA` = s24, `GN43T503430603PS` = hd8, both `device` state) and both

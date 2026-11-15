@@ -46,7 +46,7 @@ Both issues appear to share a root-cause hypothesis: Android system settings/sta
 
 ## Notes for healers
 
-- After the investigation, add a `desired_states` entry to tests/healing_registry.json (ID: SETTINGS-STATE-CORRUPTION) and annotate the implementing mechanisms: device/termux/py/stayturgid_repair.py, the native agent (device/native-agent/ — the AutoJs6 repair.js/watchdog.js layer was retired by the K1 cutover, commit 195c5c7), and control/bin/firerpa_heal.py.
+- After the investigation, add a `desired_states` entry to tests/healing_registry.json (ID: SETTINGS-STATE-CORRUPTION) and annotate the implementing mechanisms: device/termux/py/stayturgid_repair.py, the native agent (device/native-agent/ — the repair.js/watchdog.js layer was retired by the K1 cutover, commit 195c5c7), and control/bin/firerpa_heal.py.
 - Run `check_healing_coverage.py` to ensure tests/gates are satisfied.
 
 ## Contact

@@ -44,20 +44,20 @@ def run_module(mocker, args, cmd_results=None):
     return captured
 
 
-def test_a11y_report_shows_autojs6_present(mocker):
-    autojs = mod.a11y.AUTOJS6_A11Y
+def test_a11y_report_lists_enabled_services(mocker):
+    service = "com.example.app/.ExampleService"
     out = run_module(
         mocker,
         dict(device="dev", connect=False),
         cmd_results=[
-            ("settings get", (0, autojs, "")),
+            ("settings get", (0, service, "")),
         ],
     )
-    assert out["autojs6_present"] is True
-    assert autojs in out["services"]
+    assert service in out["services"]
+    assert out["services_count"] == 1
 
 
-def test_a11y_report_shows_autojs6_missing(mocker):
+def test_a11y_report_keeps_other_services(mocker):
     out = run_module(
         mocker,
         dict(device="dev", connect=False),
@@ -65,7 +65,6 @@ def test_a11y_report_shows_autojs6_missing(mocker):
             ("settings get", (0, "com.foo/.Bar", "")),
         ],
     )
-    assert out["autojs6_present"] is False
     assert "com.foo/.Bar" in out["services"]
 
 
@@ -77,5 +76,4 @@ def test_a11y_report_empty_list(mocker):
             ("settings get", (0, "null", "")),
         ],
     )
-    assert out["autojs6_present"] is False
     assert out["services_count"] == 0

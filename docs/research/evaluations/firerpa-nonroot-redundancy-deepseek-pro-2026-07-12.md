@@ -72,14 +72,14 @@ This gives you SSH backup on :65000 and ADB backup on :65000. No APK, no Shizuku
 | ----- | ---------------------- | ---- | ------------------------------------------------ | ----------------------------------------------------------------- |
 | 1     | **Termux sshd**        | 8022 | Termux:Boot `start-adb.sh`                       | `down` file lockout, sshd crash, Termux force-stop                |
 | 2     | **Shizuku adbd**       | 5555 | Shizuku TCP mode + `ensure_wireless_debugging()` | Shizuku crash, Samsung process freezer, wireless debug toggle off |
-| 3     | **AutoJs6 watchdog**   | N/A  | `start-autojs6-watchdog.sh` → main.js            | a11y drift, AutoJs6 crash, Fire OS zombie instance                |
+| 3     | ** watchdog**          | N/A  | `start--watchdog.sh` → main.js                   | a11y drift, crash, Fire OS zombie instance                        |
 | 4     | **Termux repair loop** | N/A  | `start-adb.sh` (5-min cycle)                     | Boot loop death, `run-as` PATH poisoning                          |
 
 ### What these channels repair
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌───────────┐     ┌──────────┐
-│ Termux sshd │────▶│ Shizuku adbd│────▶│ AutoJs6   │────▶│ Termux   │
+│ Termux sshd │────▶│ Shizuku adbd│────▶│    │────▶│ Termux   │
 │  :8022      │     │  :5555      │     │ a11y      │     │ repair    │
 └──────┬──────┘     └──────┬──────┘     └─────┬─────┘     └────┬─────┘
        │                   │                  │                 │
@@ -159,19 +159,19 @@ FIRERPA's built-in MCP server and `agent` command allow AI-driven device control
 └──────────────────────────────────────────────────┘
 ```
 
-### Layer 2: AutoJs6 watchdog (current — catastrophic recovery)
+### Layer 2: watchdog (current — catastrophic recovery)
 
 ```
 ┌──────────────────────────────────────────────────┐
-│ EVERY 20 MINUTES (AutoJs6 main.js)                │
+│ EVERY 20 MINUTES ( main.js)                │
 │                                                    │
 │  1. Check sshd + port 5555 liveness               │
 │  2. If 5555 dead: accessibility-tap Shizuku Start │
 │  3. Termux probe (Tailscale connectivity)          │
 │  4. Notification if anything still broken          │
 │                                                    │
-│ RAN BY: AutoJs6 engine (a11y service)             │
-│ REQUIRES: AutoJs6 a11y service enabled            │
+│ RAN BY:  engine (a11y service)             │
+│ REQUIRES:  a11y service enabled            │
 │ FAILS ON: Fire OS (zombie instance), a11y drift    │
 └──────────────────────────────────────────────────┘
 ```
@@ -225,20 +225,20 @@ FIRERPA's built-in MCP server and `agent` command allow AI-driven device control
 
 ### Failure matrix: what survives what
 
-| Failure            | stayturgid repair | AutoJs6 | FIRERPA repair | Mac→FIRERPA |
-| ------------------ | :---------------: | :-----: | :------------: | :---------: |
-| sshd down file     |      ✅ NEW       |   ❌    |       ✅       |     ✅      |
-| sshd crash         |        ✅         |   ❌    |       ✅       |     ✅      |
-| Boot loop dead     |        ❌         |   ✅    |       ✅       |     ✅      |
-| Shizuku crash      |        ✅         |   ✅    |       ✅       |     ✅      |
-| Samsung freezer    |      ✅ NEW       |   ❌    |       ✅       |     ✅      |
-| Wireless debug off |        ✅         |   ❌    |       ✅       |     ✅      |
-| a11y drift         |        ✅         |   ❌    |       ✅       |     ✅      |
-| AutoJs6 dead       |        ✅         |   N/A   |       ✅       |     ✅      |
-| Termux force-stop  |        ❌         |   ✅    |       ✅       |     ✅      |
-| FIRERPA crash      |        N/A        |   N/A   |       ❌       |     ❌      |
-| Tailscale down     |        ❌         |   ❌    |       ❌       |     ❌      |
-| Battery dead       |        ❌         |   ❌    |       ❌       |     ❌      |
+| Failure            | stayturgid repair |     | FIRERPA repair | Mac→FIRERPA |
+| ------------------ | :---------------: | :-: | :------------: | :---------: |
+| sshd down file     |      ✅ NEW       | ❌  |       ✅       |     ✅      |
+| sshd crash         |        ✅         | ❌  |       ✅       |     ✅      |
+| Boot loop dead     |        ❌         | ✅  |       ✅       |     ✅      |
+| Shizuku crash      |        ✅         | ✅  |       ✅       |     ✅      |
+| Samsung freezer    |      ✅ NEW       | ❌  |       ✅       |     ✅      |
+| Wireless debug off |        ✅         | ❌  |       ✅       |     ✅      |
+| a11y drift         |        ✅         | ❌  |       ✅       |     ✅      |
+| dead               |        ✅         | N/A |       ✅       |     ✅      |
+| Termux force-stop  |        ❌         | ✅  |       ✅       |     ✅      |
+| FIRERPA crash      |        N/A        | N/A |       ❌       |     ❌      |
+| Tailscale down     |        ❌         | ❌  |       ❌       |     ❌      |
+| Battery dead       |        ❌         | ❌  |       ❌       |     ❌      |
 
 **Result:** With FIRERPA as layer 3/4, every single-device failure mode has at least one recovery path that doesn't require physical access. The only failures that still need human intervention are FIRERPA crash + stayturgid crash simultaneously, Tailscale outage, or power loss.
 
@@ -460,7 +460,7 @@ curl -X POST http://100.123.218.30:65000/stayturgid/heal/ \
 
 | Phase                     | What                                              | Effort       | Adds                    |
 | ------------------------- | ------------------------------------------------- | ------------ | ----------------------- |
-| **0 (current)**           | stayturgid repair + AutoJs6                       | Already done | Layers 1-2              |
+| **0 (current)**           | stayturgid repair +                               | Already done | Layers 1-2              |
 | **1 — FIRERPA spike**     | Install FIRERPA on s24 (Shizuku mode)             | 1 day        | Verify FIRERPA coexists |
 | **2 — FIRERPA Ansible**   | `ansible/roles/firerpa/` — install, config, start | 1 day        | Deployable to fleet     |
 | **3 — FIRERPA self-heal** | `stayturgid_firerpa_heal.py` + MCP extension      | 1 day        | Layer 3 (on-device)     |

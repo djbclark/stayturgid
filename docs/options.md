@@ -123,7 +123,7 @@ that version; only after H5 and a deliberate version bump review.
 Mac soft health: launchd `com.stayturgid.fleet-health` →
 `control/bin/fleet_health_monitor.py` every 5 min
 (`~/.config/stayturgid/logs/fleet-health.log`). Post-K1, this restarts the
-**native agent** (`agent_stale`/`agent_missing`), not AutoJs6. Reachability in
+**native agent** (`agent_stale`/`agent_missing`). Reachability in
 `access-monitor`. Prefer health trail before 43–45.
 
 **Merged:** A11 — see [archive](archive/options-closed-2026-07-23.md#track-d--reliability).
@@ -174,20 +174,17 @@ If sshd freezes again (TCP up but `ssh_echo` fails in health log), try
 foreground `-D` / supervision. Wrong change can lock out SSH; only with a
 reproduced freeze and USB adb recovery.
 
-#### K1 — AutoJs6 → native Kotlin APK (agent) · **Cutover landed 2026-07-22, verification incomplete**
+#### K1 — native Kotlin APK (agent) · **Cutover landed 2026-07-22, verification incomplete**
 
-Replaced the Rhino/AutoJs6 watchdog with a purpose-built Kotlin app that binds
-a Shizuku **UserService** (UID 2000). Plan:
-[AutoJs6 → native Kotlin APK migration plan](archive/plans/autojs6-to-native-apk-plan.md).
+A purpose-built Kotlin app binds a Shizuku **UserService** (UID 2000).
+Checkpoint:
+[session-2026-07-22-native-agent.md](operations/sessions/session-2026-07-22-native-agent.md).
 
 **Code:** `device/native-agent/` deployed on s24 + p7a + hd8. Fleet health now
-uses `agent_stale`/`agent_missing`, and the `autojs6_watchdog` Ansible role
+uses `agent_stale`/`agent_missing`, and the old watchdog Ansible role
 was retired (195c5c7).
 
-**2026-07-25 correction:** the "AutoJs6 uninstalled" claim above was false —
-live-checked all three devices and found AutoJs6 still installed on s24,
-p7a, and hd8. Uninstalled for real fleet-wide same day; confirmed via
-`pm path` on all three. Reboot-based `CLOSED_NO_SHELL` soak attempts found
+**2026-07-25:** reboot-based `CLOSED_NO_SHELL` soak attempts found
 three real bugs, **all fixed, built, and deployed fleet-wide same day,
 verified via a second live reboot capture**: (1) `HostService`'s first
 post-boot comonitor check raced Shizuku's binder and silently lost, then
@@ -238,9 +235,8 @@ Tracked as [#43](https://github.com/djbclark/stayturgid/issues/43) (fleet-state
 verification) and [#45](https://github.com/djbclark/stayturgid/issues/45)
 (release APK, forced soak, official Shizuku packaging).
 
-**2026-07-31 update (most of #43 now verified live):** AutoJs6 confirmed
-absent via `pm list packages` on all three fleet devices (s24, hd8, p7a).
-Release build confirmed fleet-wide (`buildType=release`, versionCode 16,
+**2026-07-31 update (most of #43 now verified live):** Release build confirmed
+fleet-wide (`buildType=release`, versionCode 16,
 `0.7.0-liveness-hardening`) via each device's own runtime-diagnostics
 screen. hd8's Shizuku UserService binding — the one with a history of
 prior binder failures — was re-verified working end-to-end (permission
@@ -256,7 +252,7 @@ permanent). As of 2026-07-31 the forced `CLOSED_NO_SHELL` soak test had not
 run; it ran on 2026-08-01 and failed (next paragraph).
 
 **2026-08-01 release25 soak:** hd8 was rebooted with Shizuku
-`13.7.0-thedjchi+stayturgid-release25` installed and AutoJs6 absent, then
+`13.7.0-thedjchi+stayturgid-release25` installed, then
 observed only through its existing USB ADB transport. The agent started at
 about four minutes, repeatedly reported that Shizuku was not running, and
 exhausted its five-minute bind-retry window at uptime 531 seconds with
@@ -277,8 +273,8 @@ starts after reboot") tracks in detail.
 
 Spike only: after deterministic `stayturgid-repair` fails, optionally ask
 shell-gpt for allowlisted shell advice. Consent still required for any `input`.
-**Not** in the 5-min repair hot path. The original text pinned "AutoJs6
-catastrophic path stays mandatory when 5555 is dead" — that path no longer
+**Not** in the 5-min repair hot path. The original text pinned a catastrophic
+path as mandatory when 5555 is dead — that path no longer
 exists post-K1; re-scope against the native agent's catastrophic-repair path
 before spiking this. Note (incubator):
 [docs/research/experiments/on-device-llm.md](research/experiments/on-device-llm.md).
@@ -304,10 +300,9 @@ cross-reference, flagged by T5 below and fixed here). A useful candidate must
 reduce host-side glue or add meaningful job, approval, or audit support;
 generic uptime widgets do not count. Option A is the host-only Biome
 lint/format pilot (ESLint replaced by Biome). Options B, C, D remain
-deferred. Note: the "AutoJs6 runtime dependency" framing predates K1 —
-AutoJs6 is retired fleet-wide and its code deleted entirely (#162), so this
-evaluation now concerns only `just/tools`' small JS/TS build tooling, not
-any on-device runtime.
+deferred. The old on-device runtime-dependency framing predates K1
+and was removed in #162, so this evaluation now concerns only `just/tools`'
+small JS/TS build tooling.
 
 #### T4 — Evaluate `ansible-pull` for fleet policy delivery · Risk: **Medium** · Deferred
 
@@ -372,7 +367,7 @@ and `parse_foreground_component()` functions remain intact for future use.
 - Restore a predictable final screen when it becomes reliable to do so
 
 **Non-goals / do-not-touch:** MDM / root / Play Protect bypass; full Obtainium
-API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
+API; Tasker rebuild; aider-chat as fleet heal;
 always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 [docs/research/experiments/inferno-styx/](research/experiments/inferno-styx)).
 

@@ -66,7 +66,7 @@ Live on hd8 (deepened 2026-07-09):
 | `pm grant com.termux moe.shizuku.manager.permission.API_V23`     | **Fails** — Termux does not declare that permission                     |
 | `rish -c id` (dex from Shizuku APK)                              | **Request timeout** even with json grant + `MANAGER_APPLICATION_ID` set |
 
-Termux is not a Shizuku client app (no binder handshake / no declared API perm). AutoJs6 _is_ granted and can use Shizuku APIs, but that does not give Termux a shell-UID `app_process` starter without going through AutoJs6 JS — and Shizuku itself still needs an **external** start every boot on Fire (“Start by connecting to a computer”).
+Termux is not a Shizuku client app (no binder handshake / no declared API perm). _is_ granted and can use Shizuku APIs, but that does not give Termux a shell-UID `app_process` starter without going through JS — and Shizuku itself still needs an **external** start every boot on Fire (“Start by connecting to a computer”).
 
 **Do not** build the Fire Handsets path on `rish`. Peer ADB (below) is strictly better.
 

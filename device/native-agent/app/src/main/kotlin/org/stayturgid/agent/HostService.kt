@@ -555,8 +555,7 @@ class HostService : Service() {
                 Log.e(TAG, "ensureAdbBaseline IPC failed", e)
             }
             SshdRecover.onStatus(applicationContext, line)
-            // Phase 3: if agent STATUS says CLOSED_NO_SHELL, try shell-first repair
-            // (no a11y). AutoJs6 still owns UI fallback until cutover.
+            // Phase 3: if agent STATUS says CLOSED_NO_SHELL, try shell-first repair.
             if (line.contains("port=CLOSED_NO_SHELL") || line.contains("port=closed")) {
                 Log.w(TAG, "CLOSED_NO_SHELL — invoking repairCatastrophic")
                 try {

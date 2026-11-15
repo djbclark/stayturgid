@@ -359,12 +359,12 @@ The built-in ADB is the main concern. If FIRERPA's `adb.enable=true` and its adb
 
 FIRERPA's built-in sshd and ADB provide **independent backup channels** for remote access when stayturgid's Termux sshd is down:
 
-| Channel        | stayturgid (primary)     | FIRERPA (backup)       |
-| -------------- | ------------------------ | ---------------------- |
-| SSH            | Termux sshd :8022        | FIRERPA sshd on :65000 |
-| ADB            | Shizuku adbd :5555       | FIRERPA adbd on :65000 |
-| Screen control | scrcpy via SSH           | WebRTC via browser     |
-| UI automation  | AutoJs6 + Termux scripts | gRPC API + MCP tools   |
+| Channel        | stayturgid (primary) | FIRERPA (backup)       |
+| -------------- | -------------------- | ---------------------- |
+| SSH            | Termux sshd :8022    | FIRERPA sshd on :65000 |
+| ADB            | Shizuku adbd :5555   | FIRERPA adbd on :65000 |
+| Screen control | scrcpy via SSH       | WebRTC via browser     |
+| UI automation  | + Termux scripts     | gRPC API + MCP tools   |
 
 ---
 
@@ -449,7 +449,7 @@ Below is an updated comparison based on actual code inspection, not just documen
 - **Health monitoring** — fleet-wide health aggregation with debounce + notify
 - **Screen leases** — cross-device DSCL-based lease tracking
 - **Peer ADB mesh** — device-to-device ADB routing through Tailscale
-- **AutoJs6 watchdogs** — self-healing JS engine monitoring
+- ** watchdogs** — self-healing JS engine monitoring
 - **Obtainium integration** — APK catalog management with version tracking
 - **Fire OS support** — Fire-specific quirks and boot scripts
 - **Termux boot lifecycle** — `start-adb.sh` + self-healing loops
@@ -621,11 +621,11 @@ The code inspection confirms three things the documentation-only analysis couldn
 
 ### Updated fleet viability
 
-| Device | FIRERPA viable? | Self-heal channels                                                     |
-| ------ | :-------------: | ---------------------------------------------------------------------- |
-| s24    |       ✅        | Termux repair + Shizuku + AutoJs6 + FIRERPA gRPC + FIRERPA heal script |
-| p7a    |       ✅        | Termux repair + Shizuku + AutoJs6 + FIRERPA gRPC + FIRERPA heal script |
-| hd8    |       ❌        | Termux repair + peer bootstrap (existing) — no FIRERPA                 |
+| Device | FIRERPA viable? | Self-heal channels                                             |
+| ------ | :-------------: | -------------------------------------------------------------- |
+| s24    |       ✅        | Termux repair + Shizuku + + FIRERPA gRPC + FIRERPA heal script |
+| p7a    |       ✅        | Termux repair + Shizuku + + FIRERPA gRPC + FIRERPA heal script |
+| hd8    |       ❌        | Termux repair + peer bootstrap (existing) — no FIRERPA         |
 
 ### What was built this session:
 

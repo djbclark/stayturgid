@@ -5,8 +5,6 @@ Detection-only — no automatic writes or merge-repair.
 
 from __future__ import absolute_import, division, print_function
 
-AUTOJS6_A11Y = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
-
 
 def normalize_value(raw):
     text = (raw or "").strip()
@@ -34,7 +32,3 @@ def parse_services(raw):
 
 def join_services(services):
     return ":".join(parse_services(":".join(services)))
-
-
-def has_autojs6(raw):
-    return AUTOJS6_A11Y in parse_services(raw)

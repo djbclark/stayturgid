@@ -2,12 +2,12 @@
 
 **Purpose:** Recoverable handoff if the implementing agent runs out of context.  
 **OPTIONS:** K1  
-**Plan:** [autojs6-to-native-apk-plan.md](../../archive/plans/autojs6-to-native-apk-plan.md)
+**Plan:** -to-native-apk-plan.md
 
 ## Operator direction
 
 - Work continuously on **implementation**; stop only for questions.
-- End goal: **remove AutoJs6** (G-C). Phase 1 does **not** remove it (dual-run).
+- End goal: remove the previous runtime (G-C). Phase 1 does **not** remove it (dual-run).
 
 ## Status: Phase 1 **device-proven** on stock Pixel 7a
 
@@ -20,7 +20,7 @@
 | FGS HostService running                     | **done**                    |
 | Shizuku UserService bind (`:userservice`)   | **done**                    |
 | `pingAwake` inject via InputManager         | **done** (Context path)     |
-| AutoJs6 removal                             | **not started** (Phase 2–4) |
+| removal                                     | **not started** (Phase 2–4) |
 | Co-monitor port                             | **not started**             |
 
 ### Live evidence (2026-07-22 ~10:32 device local)
@@ -41,11 +41,11 @@ Version: `0.1.1-phase1` (versionCode 2).
 
 | Choice    | Value                                     |
 | --------- | ----------------------------------------- |
-| End-state | G-C (full AutoJs6 replacement later)      |
+| End-state | G-C (full replacement later)              |
 | Phase 1   | UserService + screen-on timer + pingAwake |
 | FGS type  | `specialUse`                              |
 | daemon    | `true` + unbind on screen-off             |
-| AutoJs6   | left installed                            |
+|           | left installed                            |
 
 ## Shizuku fork fixes (outside stayturgid)
 
@@ -70,7 +70,7 @@ Needs **JDK 17/21** (not 25+). Composite default on; Maven: `just agent-assemble
 ```bash
 SERIAL=100.65.230.108:5555   # or USB serial
 adb -s $SERIAL install -r device/native-agent/app/build/outputs/apk/debug/app-debug.apk
-# grant Shizuku (same path as AutoJs6):
+# grant Shizuku (same path as ):
 python3 - <<'PY'
 import os, sys
 sys.path.insert(0, "control/lib")
@@ -108,7 +108,7 @@ Notes:
 | Device STATUS line on Pixel 7a                | **done** (`port=open shizuku=up sshd=up a11y=up shell=yes`) |
 | `control/tools/native-agent/grant_shizuku.py` | **done**                                                    |
 | Fleet health dual-read agent.log              | **not started**                                             |
-| AutoJs6 still dual-running                    | **yes**                                                     |
+| still dual-running                            | **yes**                                                     |
 
 Version: `0.2.0-phase2-comonitor` (versionCode 3).
 
@@ -122,7 +122,7 @@ Version: `0.2.0-phase2-comonitor` (versionCode 3).
 | Auto-trigger on CLOSED_NO_SHELL                   | **done**                                                            |
 | Device reinstall 0.3.0 + STATUS                   | **done** (Pixel 7a; userservice up)                                 |
 | Forced CLOSED_NO_SHELL soak                       | **not done**                                                        |
-| AutoJs6 rebuild                                   | **not needed** to continue                                          |
+| rebuild                                           | **not needed** to continue                                          |
 
 Version: `0.3.0-phase3-catastrophic` (versionCode 4).
 
@@ -136,7 +136,7 @@ Version: `0.3.0-phase3-catastrophic` (versionCode 4).
 | just agent-grant / agent-start                | **done**             |
 | Healing registry AGENT-FRESH                  | **done**             |
 | Device 0.3.1 on Pixel 7a                      | **done**             |
-| AutoJs6 rebuild                               | **still not needed** |
+| rebuild                                       | **still not needed** |
 
 Version: `0.3.1-heartbeat-heal` (versionCode 5).
 
@@ -156,11 +156,11 @@ Rollout tool: `control/tools/native-agent/rollout.py` / `just agent-rollout`
 1. Commit/push if not already on origin.
 2. Optional: `control/tools/native-agent/grant_shizuku.py` thin wrapper (package param).
 3. Optional: fix BootReceiver logging always showing BOOT_COMPLETED on cold start (investigate redelivery).
-4. Phase 2: co-monitor AIDL methods + STATUS log — **do not** remove AutoJs6.
+4. Phase 2: co-monitor AIDL methods + STATUS log — **do not** remove .
 5. Battery unrestricted / unused-app off for agent package (harden path).
 
 ## Do not
 
-- Delete AutoJs6.
+- Delete .
 - Shell-spawn `input` from UserService.
 - Use `moe.shizuku.api` client packages.

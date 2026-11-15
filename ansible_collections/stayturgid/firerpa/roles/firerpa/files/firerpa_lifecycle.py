@@ -3,7 +3,7 @@
 
 The signed FIRERPA distribution (v10.9 onward) validates ``lamda/aab.zip`` at process
 startup.  Its bundled UIAutomation driver then registers with Android flags 0,
-which suppresses AutoJs6 and all other accessibility services.  A patched archive
+which suppresses ordinary accessibility services.  A patched archive
 requests flag 1, but cannot be present during FIRERPA's integrity check.
 
 This controller restores the signed archive through ADB or Shizuku ``rish``, starts

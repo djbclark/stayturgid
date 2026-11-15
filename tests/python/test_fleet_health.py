@@ -225,7 +225,6 @@ def test_evaluate_healthy():
         "repair_age": "200",
         "agent_heartbeat_age": "60",
         "a11y": "ok",
-        "autojs6_a11y": "ok",
         "port": "open",
         "shizuku": "up",
     }
@@ -239,11 +238,9 @@ def test_evaluate_retired_watchdog_stale_is_telemetry_only():
         "watchdog_age": str(fh.WATCHDOG_FRESH_SEC + 1),
         "repair_age": "100",
         "a11y": "ok",
-        "autojs6_a11y": "ok",
     }
     issues = fh.evaluate_health(report)
     assert "watchdog_stale" not in issues
-    assert "autojs6_a11y_stale" not in issues
 
 
 def test_evaluate_retired_watchdog_missing_is_telemetry_only():
@@ -253,25 +250,9 @@ def test_evaluate_retired_watchdog_missing_is_telemetry_only():
         "watchdog_age": "missing",
         "repair_age": "100",
         "a11y": "ok",
-        "autojs6_a11y": "ok",
     }
     issues = fh.evaluate_health(report)
     assert "watchdog_missing" not in issues
-    assert "autojs6_a11y_stale" not in issues
-
-
-def test_evaluate_retired_autojs_a11y_is_telemetry_only():
-    report = {
-        "ssh_echo": "ok",
-        "sshd": "ok",
-        "watchdog_age": str(fh.WATCHDOG_FRESH_SEC + 1),
-        "repair_age": "100",
-        "a11y": "down",
-        "autojs6_a11y": "missing",
-    }
-    issues = fh.evaluate_health(report)
-    assert "autojs6_a11y_missing" not in issues
-    assert "autojs6_a11y_stale" not in issues
 
 
 def test_evaluate_shell_bootloop_port():
@@ -285,7 +266,6 @@ def test_evaluate_shell_bootloop_port():
         "port": "CLOSED_NO_SHELL",
         "shizuku": "down",
         "a11y": "ok",
-        "autojs6_a11y": "ok",
     }
     issues = fh.evaluate_health(report)
     assert "bootloop_down" in issues
@@ -301,12 +281,10 @@ def test_evaluate_a11y_and_ssh_echo():
         "watchdog_age": "10",
         "repair_age": "10",
         "a11y": "FAILED",
-        "autojs6_a11y": "missing",
     }
     issues = fh.evaluate_health(report)
     assert "ssh_echo" in issues
     assert "a11y_failed" in issues
-    assert "autojs6_a11y_missing" not in issues
 
 
 def test_summarize_includes_issues():
@@ -332,7 +310,6 @@ def test_evaluate_agent_missing_is_hard_fail_after_cutover():
         "repair_age": "200",
         "agent_heartbeat_age": "missing",
         "a11y": "ok",
-        "autojs6_a11y": "ok",
         "port": "open",
         "shizuku": "up",
     }
@@ -349,7 +326,6 @@ def test_evaluate_agent_stale():
         "repair_age": "200",
         "agent_heartbeat_age": str(fh.AGENT_HEARTBEAT_FRESH_SEC + 50),
         "a11y": "ok",
-        "autojs6_a11y": "ok",
         "port": "open",
         "shizuku": "up",
     }
@@ -418,7 +394,6 @@ def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):
                 "agent_heartbeat_age": "99999",
                 "repair_age": "10",
                 "a11y": "ok",
-                "autojs6_a11y": "ok",
                 "port": "open",
                 "shizuku": "up",
             },
@@ -464,7 +439,6 @@ def test_monitor_agent_heal_failure_skips_cooldown(tmp_path, monkeypatch):
                 "bootloop": "ok",
                 "shell5555": "ok",
                 "a11y": "ok",
-                "autojs6_a11y": "ok",
                 "port": "open",
                 "shizuku": "up",
             },
@@ -529,7 +503,6 @@ def test_soft_health_snapshot_recorded(tmp_path, monkeypatch):
                 "agent_age": "42",
                 "agent_heartbeat_age": "42",
                 "a11y": "up",
-                "autojs6_a11y": "ok",
                 "port": "open",
                 "shizuku": "up",
             },
@@ -564,7 +537,6 @@ def test_monitor_heals_stale_agent(tmp_path, monkeypatch):
                 "agent_age": "99999",
                 "agent_heartbeat_age": "99999",
                 "a11y": "ok",
-                "autojs6_a11y": "ok",
                 "port": "open",
                 "shizuku": "up",
             },
@@ -707,7 +679,6 @@ def test_check_device_forwards_devlog_to_stats(tmp_path, monkeypatch):
                 "repair_age": "10",
                 "agent_heartbeat_age": "10",
                 "a11y": "ok",
-                "autojs6_a11y": "ok",
                 "port": "open",
                 "shizuku": "up",
                 "_devlog": [

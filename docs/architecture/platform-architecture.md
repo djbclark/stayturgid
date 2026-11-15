@@ -204,7 +204,7 @@ site identity. The file is `ansible/inventory/hosts.yml` in the site overlay
 | `ansible_python_interpreter`   | path    | —       | Termux Python path                                 |
 | `ansible_ssh_private_key_file` | path    | —       | Path to Termux SSH key                             |
 | `stayturgid_device_id`         | string  | —       | `{{ inventory_hostname }}`                         |
-| `stayturgid_automation_mode`   | string  | —       | Leave unset/`none` — AutoJs6 is retired fleet-wide |
+| `stayturgid_automation_mode`   | string  | —       | Leave unset/`none`                                 |
 
 **Taxonomy groups** describe device characteristics. Group membership controls
 which `group_vars/` quirk files apply. The variable precedence hierarchy

@@ -2,7 +2,7 @@
 """Inject (or verify) the `// @generated` header on compiled TS->JS output.
 
 The header must be the first line, except when the file has a shebang
-(`#!...`), in which case it must be the second line — Node/AutoJs6 entry
+(`#!...`), in which case it must be the second line — Node entry
 points need the shebang to stay on line 1 to remain executable.
 
 Previously implemented as a shell script driving sed's "1a" (append) and
