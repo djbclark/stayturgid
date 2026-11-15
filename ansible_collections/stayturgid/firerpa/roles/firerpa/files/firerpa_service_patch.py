@@ -9,7 +9,8 @@ registers the test automation service with flags 0 and suppresses AutoJs6 and
 every other accessibility service.  The ``getUiAutomation(int)`` override is the
 flag-aware path that handles ``isDestroyed``/``getFlags`` and reconnects.
 
-On v10.9, this patch rewrites the no-argument override's prologue so it simply delegates::
+On each vetted release this patch rewrites the no-argument override's prologue
+so it simply delegates::
 
     const/4             v0, 1              # FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES
     invoke-virtual      {v5, v0}, Ld/r;->getUiAutomation(I)Landroid/app/UiAutomation;
@@ -20,13 +21,18 @@ That is 12 bytes replacing the override's first 12 bytes (six 16-bit code units)
 landing exactly on an instruction boundary, so the method's remaining units become
 unreachable and no branch target, ``try`` range or offset shifts.  The method has
 ``tries_size`` 0 and ``outs_size`` 3, so the two-argument invoke needs no header
-change and the DEX keeps its original length.
+change and the DEX keeps its original length.  Rebuilding the driver moves two
+indexes inside those bytes: the cache field in the original prologue, and the
+method index of ``getUiAutomation(I)`` in the replacement.  v10.9 uses
+method@0x0cf4; v10.12 uses method@0x0d00.  Both still name
+``Ld/r;->getUiAutomation(I)``, and the original prologue still reads
+``Ld/r;->b:Landroid/app/UiAutomation``.
 
-Patching this single override is deliberate: v10.9 calls the no-argument overload
-from four separate sites, and this is the one chokepoint all four pass through.  It
-also agrees with upstream's own intent — FIRERPA's driver already sets
-``Configurator.uiAutomationFlags = 1`` before it starts, and ``UiDevice``'s helper
-honours that on API 24+; only this private override ignored it.
+Patching this single override is deliberate: it is the chokepoint every
+no-argument call passes through.  It also agrees with upstream's own intent —
+FIRERPA's driver already sets ``Configurator.uiAutomationFlags = 1`` before it
+starts, and ``UiDevice``'s helper honours that on API 24+; only this private
+override ignored it.
 
 The role deploys whatever FIRERPA release is latest upstream, but this patch edits
 exact bytes, so it is keyed by version in ``SUPPORTED_DRIVERS``.  A version with no
@@ -76,6 +82,19 @@ SUPPORTED_DRIVERS: dict[str, DriverPatch] = {
         # Replaced by an unconditional delegation to the flag-aware overload
         # (method@0cf4 = Ld/r;->getUiAutomation(I)); v5 is ``this``.
         patched_prologue=bytes.fromhex("12106e20f40c05000c001100"),
+    ),
+    # v10.12 keeps the same cache-check prologue and the same delegation. The
+    # cache field moved from 0x0595 to 0x05a0 (still Ld/r;->b), and
+    # getUiAutomation(I) moved from method@0x0cf4 to method@0x0d00. No later
+    # branch target lands inside the replaced six code units. Checked by
+    # disassembly of this release's classes.dex.
+    "10.12": DriverPatch(
+        original_dex_sha256="0b8cb034bd1c6da356d416d3cceb6a9731a7c2324c4150e573ad56827302ce41",
+        patched_dex_sha256="d868a3366b2190b6e7669ebf47e1a3c3b402a7b3616e3fe8b0bcf2b3f2cad613",
+        signed_archive_sha256="e8c62a004bb4f383e297073b4feef83bb02ccdf9f6733a440c15b2d9842d96d7",
+        patched_archive_sha256="ac0dcbf8d7528aae7770e8d8387152991d5a4690c45b37f9f8ab24a1a9139e2e",
+        original_prologue=bytes.fromhex("12005451a005380103001101"),
+        patched_prologue=bytes.fromhex("12106e20000d05000c001100"),
     ),
 }
 

@@ -879,7 +879,7 @@ each converge resolves `firerpa/lamda`'s `releases/latest` once (the firerpa
 role's `tasks/resolve_release.yml`), deploys that release's server, and installs
 `lamda==<release>` from PyPI on top of the unpinned
 `control/requirements-firerpa-venv.txt`. The venv runs on Python 3.14, not 3.15:
-lamda 10.9 declares `Requires-Python <3.15`, and the grpcio ≤1.82.0 it allows
+lamda 10.12 declares `Requires-Python <3.15`, and the grpcio ≤1.82.0 it allows
 has no cp315 wheels (see `stayturgid_firerpa_venv_python_version`).
 
 A new upstream release deploys only after the DEX coexistence patch is vetted for

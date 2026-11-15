@@ -38,6 +38,10 @@ SUPPORTED_DRIVERS: dict[str, tuple[str, str]] = {
         "74d2f1493025acdb92905d8cf5b5fa75a3978508b440049f81a1dd0eab2c7465",
         "3be26ac64d6532d1c8635737d4c186c976ea5c1c02e71c17b7207ab0cfbcb510",
     ),
+    "10.12": (
+        "e8c62a004bb4f383e297073b4feef83bb02ccdf9f6733a440c15b2d9842d96d7",
+        "ac0dcbf8d7528aae7770e8d8387152991d5a4690c45b37f9f8ab24a1a9139e2e",
+    ),
 }
 DRIVER_ARCHIVE_FRAGMENT = "/site-packages/lamda/aab.zip"
 

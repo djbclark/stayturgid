@@ -3,9 +3,10 @@
 # Tracks upstream's latest release: tasks/resolve_release.yml looks it up once per
 # converge, and control_node installs the same version of the Mac client. v10.9
 # was the first build supporting Android 17 / API 37 and a 16KB page size
-# (firerpa/lamda#147), and it replaced the driver JAR with lamda/aab.zip. A new
-# release deploys only once firerpa_service_patch.py has an entry for it, and
-# until then the deploy fails on that host before touching the device.
+# (firerpa/lamda#147), and it replaced the driver JAR with lamda/aab.zip.
+# v10.12 is the newest vetted release; v10.9 stays vetted. A new release deploys
+# only once firerpa_service_patch.py has an entry for it, and until then the
+# deploy fails on that host before touching the device.
 # Deployed via Ansible; no APK required.  Default: disabled.
 firerpa_enabled: false
 firerpa_version: "{{ hostvars['localhost']['firerpa_release_version'] }}"

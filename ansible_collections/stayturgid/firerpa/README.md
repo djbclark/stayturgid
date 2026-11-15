@@ -1,7 +1,9 @@
 # stayturgid.firerpa — FIRERPA/lamda Failsafe Daemon
 
-Deploy [FIRERPA/lamda](https://github.com/firerpa/lamda) v10.9 as an optional
-on-device failsafe daemon on stayturgid-managed Android devices.
+Deploy [FIRERPA/lamda](https://github.com/firerpa/lamda) as an optional
+on-device failsafe daemon on stayturgid-managed Android devices. The role
+tracks upstream's latest release and installs it once `SUPPORTED_DRIVERS` has
+an entry. v10.12 is the current vetted release; v10.9 remains vetted.
 
 ## What it does
 
@@ -53,17 +55,17 @@ firerpa_webui_enabled: false
   die with their binder session. If neither privileged bridge is usable, USB/wireless
   recovery must restore one before FIRERPA can start. `oneui-device` and `stock-android-device` are validated after
   granting Termux **Allow all the time** in Shizuku.
-- **Accessibility coexistence:** Upstream v10.9 bundles an `Instrumentation` subclass
+- **Accessibility coexistence:** Upstream bundles an `Instrumentation` subclass
   whose no-argument `getUiAutomation()` override connects with flags `0`, suppressing
   ordinary accessibility services. The role hash-guards and patches the bundled DEX so
   that override delegates to `getUiAutomation(1)`
-  (`FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`) — one chokepoint covering all four call
-  sites, and consistent with upstream's own `Configurator.uiAutomationFlags = 1`. It
-  starts with the signed original archive so FIRERPA's integrity check still passes, then
-  swaps the patched archive and restarts only the UI helpers. The pinned signed and
-  patched `aab.zip` SHA-256 values are
-  `74d2f1493025acdb92905d8cf5b5fa75a3978508b440049f81a1dd0eab2c7465` and
-  `3be26ac64d6532d1c8635737d4c186c976ea5c1c02e71c17b7207ab0cfbcb510`.
+  (`FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`) — one chokepoint, consistent with
+  upstream's own `Configurator.uiAutomationFlags = 1`. It starts with the signed
+  original archive so FIRERPA's integrity check still passes, then swaps the patched
+  archive and restarts only the UI helpers. Signed and patched `aab.zip` SHA-256
+  values live in `SUPPORTED_DRIVERS` (`firerpa_service_patch.py`). v10.12 keeps the
+  same instruction shape as v10.9; only the cache-field index and the
+  `getUiAutomation(I)` method index moved.
 - **SSH auth:** Inbound SSH works as user `shell` on port 65000. The private
   custom service certificate supplies both TLS and SSH trust; the role requires
   it and all Mac gRPC clients fail closed when it is missing.
@@ -76,10 +78,14 @@ firerpa_webui_enabled: false
   Fire OS 8 / API 30, ABI `32bit/64bit`. Generation is what decides this — the
   10th Gen (2020, `KFONWI`) genuinely is 32-bit-only — so check the model code
   rather than the product name. No `armeabi-v7a` archive is mirrored or needed.
-- **Server binary:** 204 MiB (arm64) closed-source native runtime with an embedded
-  Python 3.12. Pinned to v10.9 from stayturgid's fork at
-  https://github.com/djbclark/lamda — upstream deletes releases (both v10.0 and v10.2
-  are gone), so the fork mirror is the dependable source and the rollback target.
+- **Server binary:** closed-source arm64 runtime with an embedded Python 3.12
+  (v10.12's archive is 135 MiB). The role downloads the latest upstream release.
+  Upstream deletes releases (v10.0 and v10.2 are gone), so the arm64 server, its
+  checksum, and the Python client are mirrored on stayturgid's fork at
+  https://github.com/djbclark/lamda/releases/tag/v10.12-binaries. `v10.9-binaries`
+  and `v10.0-binaries` stay up as rollback copies. The mirrored client is named
+  `lamda-<version>.tar.gz`; those are the same bytes as upstream's
+  `lamda-client-py-<version>.tar.gz`.
 
 ## Related docs
 

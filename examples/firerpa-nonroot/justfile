@@ -46,7 +46,9 @@ DEVICE_CERTIFICATE := FIRERPA_ROOT + "/server/lamda.pem"
 
 # Everything tracks a moving target by default: the latest FIRERPA release,
 # upstream's default branch for tools/cert.py, and stayturgid master for the two
-# helper scripts. README.md "Pinning for reproducibility" shows how to fix each.
+# helper scripts. The arm64 server, its checksum, and the Python client fall
+# back to the djbclark/lamda mirror (tag v<version>-binaries) when upstream has
+# deleted the release. README.md "Pinning for reproducibility" shows how to fix each.
 UPSTREAM_SOURCE_REF := env_var_or_default("UPSTREAM_SOURCE_REF", "HEAD")
 STAYTURGID_REF := env_var_or_default("STAYTURGID_REF", "master")
 STAYTURGID_RAW := "https://raw.githubusercontent.com/djbclark/stayturgid/" + STAYTURGID_REF
@@ -124,31 +126,53 @@ fetch:
     set -euo pipefail
     mkdir -p "{{ WORKDIR }}"
     py="{{ FIRERPA_PYTHON }}"
-    fetch() { curl --fail --location --retry 3 --silent --show-error --output "$2" "$1"; }
+    # Quiet on a miss: callers try the next URL, and only the final failure is reported.
+    fetch_url() { curl --fail --location --retry 3 --silent --output "$2" "$1"; }
     digest() { "$py" -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
     require_sha256() {
       [[ "$2" =~ ^[0-9a-f]{64}$ ]] || { echo "ERROR: $1 has no usable SHA-256 (got '$2')" >&2; exit 1; }
     }
-    # fetch_verified URL DEST SHA256: reuse DEST when it already has those bytes.
-    fetch_verified() {
-      require_sha256 "$2" "$3"
-      if test ! -f "$2" || test "$(digest "$2")" != "$3"; then
-        fetch "$1" "$2"
+    # fetch_one DEST URL [URL...]: the first URL that answers. A miss is not fatal
+    # until every URL has missed, so an upstream deletion can fall through.
+    fetch_one() {
+      local dest="$1"
+      shift
+      local url
+      for url in "$@"; do
+        if fetch_url "$url" "$dest"; then
+          return 0
+        fi
+        rm -f "$dest"
+      done
+      echo "ERROR: could not download $dest" >&2
+      return 1
+    }
+    # fetch_verified_any DEST SHA256 URL [URL...]: reuse DEST when it already
+    # has those bytes; otherwise try each URL.
+    fetch_verified_any() {
+      local dest="$1" sha="$2"
+      shift 2
+      require_sha256 "$dest" "$sha"
+      if test ! -f "$dest" || test "$(digest "$dest")" != "$sha"; then
+        fetch_one "$dest" "$@"
       fi
-      actual="$(digest "$2")"
-      test "$actual" = "$3" || {
-        echo "ERROR: SHA-256 mismatch for $2: $actual (expected $3)" >&2
+      local actual
+      actual="$(digest "$dest")"
+      test "$actual" = "$sha" || {
+        echo "ERROR: SHA-256 mismatch for $dest: $actual (expected $sha)" >&2
         exit 1
       }
     }
-    # fetch_source URL DEST [SHA256]: source helpers follow a moving ref, so they
-    # are re-downloaded each time and verified only when a pin is set.
+    # fetch_source DEST SHA256 URL [URL...]: source helpers follow a moving ref,
+    # so they are re-downloaded each time and verified only when a pin is set.
     fetch_source() {
-      if test -n "$3"; then
-        fetch_verified "$1" "$2" "$3"
+      local dest="$1" sha="$2"
+      shift 2
+      if test -n "$sha"; then
+        fetch_verified_any "$dest" "$sha" "$@"
       else
-        fetch "$1" "$2"
-        echo "unpinned: $(digest "$2")  $2"
+        fetch_one "$dest" "$@"
+        echo "unpinned: $(digest "$dest")  $dest"
       fi
     }
     published_sha256() { awk 'NR == 1 {print $1}' "$1"; }
@@ -163,20 +187,35 @@ fetch:
       version="${version#v}"
     fi
     [[ "$version" =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "ERROR: FIRERPA version '$version' is not a dotted version" >&2; exit 1; }
-    release="https://github.com/firerpa/lamda/releases/download/v$version"
+    upstream="https://github.com/firerpa/lamda/releases/download/v$version"
+    # arm64-only mirror. The client asset there is renamed lamda-<version>.tar.gz
+    # (same bytes as upstream's lamda-client-py-<version>.tar.gz) so older uv
+    # accepts the filename. Upstream is always tried first.
+    mirror="https://github.com/djbclark/lamda/releases/download/v${version}-binaries"
     echo "FIRERPA $version"
 
     server_sha256="{{ SERVER_SHA256 }}"
+    server_sum_urls=("$upstream/{{ ARCHIVE_NAME }}.sha256sum")
+    server_urls=("$upstream/{{ ARCHIVE_NAME }}")
+    if test "{{ FIRERPA_ARCH }}" = "arm64-v8a"; then
+      server_sum_urls+=("$mirror/{{ ARCHIVE_NAME }}.sha256sum")
+      server_urls+=("$mirror/{{ ARCHIVE_NAME }}")
+    fi
     if test -z "$server_sha256"; then
-      fetch "$release/{{ ARCHIVE_NAME }}.sha256sum" "{{ ARCHIVE }}.sha256sum"
+      fetch_one "{{ ARCHIVE }}.sha256sum" "${server_sum_urls[@]}"
       server_sha256="$(published_sha256 "{{ ARCHIVE }}.sha256sum")"
     fi
-    fetch_verified "$release/{{ ARCHIVE_NAME }}" "{{ ARCHIVE }}" "$server_sha256"
+    fetch_verified_any "{{ ARCHIVE }}" "$server_sha256" "${server_urls[@]}"
 
     client_name="lamda-client-py-$version.tar.gz"
     client_sha256="{{ CLIENT_SHA256 }}"
-    if test -z "$client_sha256" && fetch "$release/$client_name.sha256sum" "{{ CLIENT_ARCHIVE }}.sha256sum" 2>/dev/null; then
-      client_sha256="$(published_sha256 "{{ CLIENT_ARCHIVE }}.sha256sum")"
+    if test -z "$client_sha256"; then
+      if fetch_url "$upstream/$client_name.sha256sum" "{{ CLIENT_ARCHIVE }}.sha256sum" \
+        || fetch_url "$mirror/lamda-$version.tar.gz.sha256sum" "{{ CLIENT_ARCHIVE }}.sha256sum"; then
+        client_sha256="$(published_sha256 "{{ CLIENT_ARCHIVE }}.sha256sum")"
+      else
+        rm -f "{{ CLIENT_ARCHIVE }}.sha256sum"
+      fi
     fi
     if test -z "$client_sha256"; then
       # The release publishes no client checksum, but PyPI serves the same sdist
@@ -184,11 +223,17 @@ fetch:
       client_sha256="$(curl --fail --location --retry 3 --silent --show-error "https://pypi.org/pypi/lamda/$version/json" |
         "$py" -c 'import json,sys; name=f"lamda-{sys.argv[1]}.tar.gz"; print(next((u["digests"]["sha256"] for u in json.load(sys.stdin)["urls"] if u["filename"] == name), ""))' "$version")"
     fi
-    fetch_verified "$release/$client_name" "{{ CLIENT_ARCHIVE }}" "$client_sha256"
+    fetch_verified_any "{{ CLIENT_ARCHIVE }}" "$client_sha256" \
+      "$upstream/$client_name" \
+      "$mirror/lamda-$version.tar.gz"
 
-    fetch_source "https://raw.githubusercontent.com/firerpa/lamda/{{ UPSTREAM_SOURCE_REF }}/tools/cert.py" "{{ WORKDIR }}/cert.py" "{{ CERT_TOOL_SHA256 }}"
-    fetch_source "{{ STAYTURGID_RAW }}/ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_service_patch.py" "{{ PATCH_SCRIPT }}" "{{ PATCH_SCRIPT_SHA256 }}"
-    fetch_source "{{ STAYTURGID_RAW }}/ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_lifecycle.py" "{{ LIFECYCLE_SCRIPT }}" "{{ LIFECYCLE_SCRIPT_SHA256 }}"
+    fetch_source "{{ WORKDIR }}/cert.py" "{{ CERT_TOOL_SHA256 }}" \
+      "https://raw.githubusercontent.com/firerpa/lamda/{{ UPSTREAM_SOURCE_REF }}/tools/cert.py" \
+      "https://raw.githubusercontent.com/djbclark/lamda/{{ UPSTREAM_SOURCE_REF }}/tools/cert.py"
+    fetch_source "{{ PATCH_SCRIPT }}" "{{ PATCH_SCRIPT_SHA256 }}" \
+      "{{ STAYTURGID_RAW }}/ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_service_patch.py"
+    fetch_source "{{ LIFECYCLE_SCRIPT }}" "{{ LIFECYCLE_SCRIPT_SHA256 }}" \
+      "{{ STAYTURGID_RAW }}/ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_lifecycle.py"
     chmod 0755 "{{ PATCH_SCRIPT }}" "{{ LIFECYCLE_SCRIPT }}"
     printf '%s\n' "$version" > "{{ VERSION_FILE }}"
     echo "OK: FIRERPA $version artifacts verified; helpers from stayturgid {{ STAYTURGID_REF }}"

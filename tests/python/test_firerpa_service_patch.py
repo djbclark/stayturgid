@@ -227,7 +227,16 @@ def test_main_fails_closed_on_an_unknown_version_without_writing_output(tmp_path
 
 # --- the vetted entries ------------------------------------------------------
 
-V10_9 = patcher.SUPPORTED_DRIVERS["10.9"]
+# method index of Ld/r;->getUiAutomation(I) in that release's classes.dex.
+# A new SUPPORTED_DRIVERS entry has to name its index here or this test fails.
+FLAG_AWARE_METHOD = {
+    "10.9": 0x0CF4,
+    "10.12": 0x0D00,
+}
+
+
+def test_every_vetted_release_has_a_decoded_prologue_expectation():
+    assert set(FLAG_AWARE_METHOD) == set(patcher.SUPPORTED_DRIVERS)
 
 
 def test_real_prologues_are_the_same_length_and_distinct():
@@ -238,23 +247,24 @@ def test_real_prologues_are_the_same_length_and_distinct():
         assert spec.original_prologue != spec.patched_prologue
 
 
-def test_real_patched_prologue_delegates_to_the_flag_aware_overload():
+@pytest.mark.parametrize("version", sorted(FLAG_AWARE_METHOD))
+def test_real_patched_prologue_delegates_to_the_flag_aware_overload(version):
     """Decode the hand-assembled bytes so they cannot drift from their intent.
 
-    const/4 v0, 1; invoke-virtual {v5, v0}, method@0cf4; move-result-object v0;
+    const/4 v0, 1; invoke-virtual {v5, v0}, getUiAutomation(I); move-result-object v0;
     return-object v0
     """
-    p = V10_9.patched_prologue
+    p = patcher.SUPPORTED_DRIVERS[version].patched_prologue
 
     # const/4 v0, #1  -> op 0x12, low nibble = register 0, high nibble = literal 1
     assert p[0] == 0x12
     assert p[1] & 0x0F == 0  # v0
     assert p[1] >> 4 == 1  # FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES
 
-    # invoke-virtual {v5, v0}, method@0cf4  (format 35c)
+    # invoke-virtual {v5, v0}, method@index  (format 35c)
     assert p[2] == 0x6E
     assert p[3] >> 4 == 2  # two argument registers
-    assert struct.unpack_from("<H", p, 4)[0] == 0x0CF4  # Ld/r;->getUiAutomation(I)
+    assert struct.unpack_from("<H", p, 4)[0] == FLAG_AWARE_METHOD[version]  # Ld/r;->getUiAutomation(I)
     assert p[6] & 0x0F == 5  # first register is v5 == this
     assert p[6] >> 4 == 0  # second register is v0, the flag
 
@@ -262,9 +272,10 @@ def test_real_patched_prologue_delegates_to_the_flag_aware_overload():
     assert p[10] == 0x11 and p[11] == 0x00  # return-object v0
 
 
-def test_real_original_prologue_is_the_cache_check_it_replaces():
+@pytest.mark.parametrize("version", sorted(FLAG_AWARE_METHOD))
+def test_real_original_prologue_is_the_cache_check_it_replaces(version):
     """const/4 v0, 0; iget-object v1, v5, b; if-eqz v1, +3; return-object v1."""
-    o = V10_9.original_prologue
+    o = patcher.SUPPORTED_DRIVERS[version].original_prologue
 
     assert o[0] == 0x12 and o[1] == 0x00  # const/4 v0, #0
     assert o[2] == 0x54  # iget-object

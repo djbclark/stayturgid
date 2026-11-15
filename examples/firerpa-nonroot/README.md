@@ -133,11 +133,16 @@ just ADB_TARGET=SERIAL FIRERPA_HOST=HOST FIRERPA_ARCH=armeabi-v7a install
 2. Resolves the latest upstream release (GitHub `releases/latest`) unless
    `FIRERPA_VERSION` is set, and records it in `.work/firerpa-version`.
 3. Downloads that release's server and Python-client tarballs, upstream `tools/cert.py`,
-   and the stayturgid patch/lifecycle helpers.
-4. Verifies the server archive against the release's published `.sha256sum`. The
-   release publishes none for the client, so it is verified against the SHA-256 that
-   PyPI publishes for the identical `lamda-<version>.tar.gz` sdist. Any pin you set
-   (below) replaces those checks.
+   and the stayturgid patch/lifecycle helpers. For `arm64-v8a`, a missing upstream
+   server asset falls back to the [djbclark/lamda](https://github.com/djbclark/lamda)
+   mirror at `v<version>-binaries`. The client falls back there too, under the name
+   `lamda-<version>.tar.gz` (the same bytes). `tools/cert.py` falls back to the same
+   path on the fork.
+4. Verifies the server archive against the release's published `.sha256sum` (or the
+   mirror's copy of that file). The upstream release publishes none for the client,
+   so it is verified against the mirror's `lamda-<version>.tar.gz.sha256sum` when
+   that exists, otherwise against the SHA-256 that PyPI publishes for the identical
+   `lamda-<version>.tar.gz` sdist. Any pin you set (below) replaces those checks.
 5. Creates `.work/venv`, installs `cryptography` and the matching lamda client.
 6. Runs upstream `cert.py` once in `certs/`, producing `certs/lamda.pem`.
 7. Creates the accessibility-compatible `aab.zip` with `--version <release>`.
@@ -150,11 +155,14 @@ just ADB_TARGET=SERIAL FIRERPA_HOST=HOST FIRERPA_ARCH=armeabi-v7a install
 11. Prints the listener, process ownership, and active driver hash.
 
 The patcher keeps an audited entry per release (`SUPPORTED_DRIVERS` in
-`firerpa_service_patch.py`). A release without one stops at step 7 with `FIRERPA
-<version> has no entry in SUPPORTED_DRIVERS`, before the device is touched, and a
-release whose driver bytes changed under an existing entry stops with a SHA-256
-mismatch. Neither guesses. Until stayturgid `master` audits the new release, pin
-`FIRERPA_VERSION` to the last audited one.
+`firerpa_service_patch.py`). v10.9 and v10.12 are vetted. v10.12 was checked by
+disassembling that release's `classes.dex`: the cache-check prologue and the
+12-byte delegation are the same shape as v10.9, with a new field index and a new
+`getUiAutomation(I)` method index. A release without an entry stops at step 7
+with `FIRERPA <version> has no entry in SUPPORTED_DRIVERS`, before the device is
+touched, and a release whose driver bytes changed under an existing entry stops
+with a SHA-256 mismatch. Neither guesses. Until stayturgid `master` audits a
+newer release, pin `FIRERPA_VERSION` to the last audited one.
 
 ## Pinning for reproducibility
 
@@ -164,9 +172,10 @@ helpers. Every one of them is an environment variable, so a reproducible deploym
 sets fixed values in `.env`:
 
 ```dotenv
-FIRERPA_VERSION=10.9
-STAYTURGID_REF=010ceaf
-UPSTREAM_SOURCE_REF=9a4736f327aa89be687ee7c411fee59730081a5e
+FIRERPA_VERSION=10.12
+# Full SHA of a stayturgid commit whose patcher lists this release. Branch names move.
+# STAYTURGID_REF=<sha>
+UPSTREAM_SOURCE_REF=e91a88f5e75793ca22a1349855ab0096e7d06ab3
 # Each pin replaces the published-checksum check, or adds one where none exists.
 SERVER_SHA256=<sha256 of lamda-server-<arch>.tar.gz>
 CLIENT_SHA256=<sha256 of lamda-client-py-<version>.tar.gz>
