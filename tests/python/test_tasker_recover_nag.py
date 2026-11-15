@@ -1,8 +1,9 @@
 """Tests for fleet_health_monitor.maybe_nag_tasker_recover.
 
-The Tasker SSHD_RECOVER profile is created by hand per phone, so the monitor
-self-tests it with a broadcast and nags the operator only when a broadcast
-from an earlier pass went unanswered.
+The Tasker SSHD_RECOVER profile is created by hand per phone. The monitor
+self-tests a stale marker with a broadcast and does not page when that
+profile is missing or the monitor is stopped. A recovery that ran and failed
+still notifies, at most daily.
 """
 
 from __future__ import annotations
@@ -76,36 +77,21 @@ def test_stale_first_pass_fires_broadcast_without_notify(env):
     assert env["probe"].exists()
 
 
-def test_stale_second_pass_notifies_once(env):
+def test_stale_later_passes_do_not_notify(env):
     monitor.maybe_nag_tasker_recover("hd8", STALE, TARGET)
     _age(env["probe"], 5 * 60)
     monitor.maybe_nag_tasker_recover("hd8", STALE, TARGET)
     # Probe cooldown (1h) holds the second broadcast back.
     assert len(env["adb"]) == 1
-    assert len(env["notify"]) == 1
-    title, message = env["notify"][0]
-    assert title == "stayturgid: action needed"
-    assert "hd8" in message and "Keyguard-proof sshd recovery" in message
+    assert env["notify"] == []
 
 
-def test_nag_cooldown_suppresses_third(env):
+def test_stale_selftest_repeats_after_probe_cooldown_without_notify(env):
     monitor.maybe_nag_tasker_recover("hd8", STALE, TARGET)
-    _age(env["probe"], 5 * 60)
-    monitor.maybe_nag_tasker_recover("hd8", STALE, TARGET)
-    _age(env["probe"], 10 * 60)
-    monitor.maybe_nag_tasker_recover("hd8", STALE, TARGET)
-    assert len(env["notify"]) == 1
-
-
-def test_nag_repeats_after_cooldown(env):
-    monitor.maybe_nag_tasker_recover("hd8", STALE, TARGET)
-    _age(env["probe"], 5 * 60)
-    monitor.maybe_nag_tasker_recover("hd8", STALE, TARGET)
-    _age(env["nag"], monitor.TASKER_RECOVER_NAG_COOLDOWN_SEC + 1)
     _age(env["probe"], 2 * 60 * 60)
     monitor.maybe_nag_tasker_recover("hd8", STALE, TARGET)
     assert len(env["adb"]) == 2
-    assert len(env["notify"]) == 2
+    assert env["notify"] == []
 
 
 def test_old_probe_from_last_weekly_selftest_does_not_nag(env):
@@ -184,15 +170,11 @@ def test_missing_result_does_not_nag(env):
     assert env["notify"] == []
 
 
-def test_stopped_monitor_nags_daily(env):
+def test_stopped_monitor_does_not_nag(env):
     report = dict(FRESH_OK, tasker_monitor="stopped")
     monitor.maybe_nag_tasker_recover("hd8", report, TARGET)
     monitor.maybe_nag_tasker_recover("hd8", report, TARGET)
-    assert len(env["notify"]) == 1
-    assert "monitor" in env["notify"][0][1]
-    _age(env["monitor_nag"], monitor.TASKER_RECOVER_NAG_COOLDOWN_SEC + 1)
-    monitor.maybe_nag_tasker_recover("hd8", report, TARGET)
-    assert len(env["notify"]) == 2
+    assert env["notify"] == []
 
 
 def test_unknown_or_absent_monitor_does_not_nag(env):
@@ -202,10 +184,11 @@ def test_unknown_or_absent_monitor_does_not_nag(env):
     assert env["notify"] == []
 
 
-def test_result_and_monitor_nags_have_separate_cooldowns(env):
+def test_failed_result_nags_even_when_the_monitor_is_stopped(env):
     report = dict(FRESH_OK, tasker_recover_result="failed", tasker_monitor="stopped")
     monitor.maybe_nag_tasker_recover("hd8", report, TARGET)
-    assert len(env["notify"]) == 2
+    assert len(env["notify"]) == 1
+    assert "tasker-sshd-recover.result" in env["notify"][0][1]
 
 
 def test_advisory_error_does_not_block_the_selftest(env, monkeypatch):

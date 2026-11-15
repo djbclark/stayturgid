@@ -84,6 +84,8 @@ DIVERGENCE_NOTIFY_COOLDOWN_SEC = 6 * 60 * 60
 DEVLOG_STATE_DIR = os.path.join(ROOT, "state", "device-log-failure")
 TASKER_RECOVER_PROBE_STATE_DIR = os.path.join(ROOT, "state", "tasker-recover-probe")
 TASKER_RECOVER_PROBE_COOLDOWN_SEC = 60 * 60
+# Absence no longer pages, so these dirs are unused. They stay so a running
+# monitor and the tests that point them at a temp dir keep the same names.
 TASKER_RECOVER_NAG_STATE_DIR = os.path.join(ROOT, "state", "tasker-recover-nag")
 TASKER_RECOVER_NAG_COOLDOWN_SEC = 24 * 60 * 60
 TASKER_RESULT_NAG_STATE_DIR = os.path.join(ROOT, "state", "tasker-result-nag")
@@ -685,7 +687,11 @@ def maybe_heal_sshd_via_tasker(name: str, path: str, report: dict, target: str |
 
 
 def _maybe_nag_tasker_advisory(name: str, report: dict) -> None:
-    """Daily nags for a recovery that ran and failed, and for a dead Tasker monitor."""
+    """Daily notice when a Tasker recovery ran and failed.
+
+    A missing profile and a stopped MonitorService are optional. Those states
+    stay on the health line and do not page.
+    """
     if fh.tasker_recover_failed(report) and _heal_cooldown_ok_dir(
         name, TASKER_RESULT_NAG_STATE_DIR, TASKER_RECOVER_NAG_COOLDOWN_SEC
     ):
@@ -697,27 +703,14 @@ def _maybe_nag_tasker_advisory(name: str, report: dict) -> None:
             sound="Basso",
         )
         _touch_heal_dir(name, TASKER_RESULT_NAG_STATE_DIR)
-    if fh.tasker_monitor_stopped(report) and _heal_cooldown_ok_dir(
-        name, TASKER_MONITOR_NAG_STATE_DIR, TASKER_RECOVER_NAG_COOLDOWN_SEC
-    ):
-        _fleet_log(WARNING, "%s: Tasker is installed but its MonitorService is not running" % name)
-        notify(
-            "stayturgid: action needed",
-            "%s: Tasker's monitor is not running, so SSHD_RECOVER broadcasts are dropped. "
-            "Open Tasker once and check it is enabled." % name,
-            sound="Basso",
-        )
-        _touch_heal_dir(name, TASKER_MONITOR_NAG_STATE_DIR)
 
 
 def maybe_nag_tasker_recover(name: str, report: dict, target: str | None) -> None:
-    """Keep complaining until the Tasker SSHD_RECOVER path is proven on *name*.
+    """Self-test a stale Tasker profile, and notice a recovery that failed.
 
-    A stale or missing marker first gets a self-test broadcast; a phone with a
-    working profile refreshes the marker and the next pass sees it fresh. Only
-    a broadcast from an earlier pass that is still unanswered notifies the
-    operator (at most daily). A failed last recovery and a stopped Tasker
-    monitor each nag daily too. Advisory: never an issue, never raises.
+    A stale or missing marker gets a self-test broadcast so a phone with the
+    profile refreshes the marker. Absence does not page the operator. A failed
+    last recovery does, at most daily. Advisory: never an issue, never raises.
     """
     try:
         _maybe_nag_tasker_advisory(name, report)
@@ -726,12 +719,6 @@ def maybe_nag_tasker_recover(name: str, report: dict, target: str | None) -> Non
     try:
         if not fh.tasker_recover_stale(report):
             return
-        probe_path = os.path.join(TASKER_RECOVER_PROBE_STATE_DIR, name)
-        try:
-            prior_probe_age: float | None = time.time() - os.path.getmtime(probe_path)
-        except OSError:
-            prior_probe_age = None
-
         # The broadcast runs sshd-recover.sh (idempotent `sv up sshd`), so it is
         # a phone-side action and honours the same opt-out as the heals.
         if (
@@ -747,35 +734,13 @@ def maybe_nag_tasker_recover(name: str, report: dict, target: str | None) -> Non
                     _touch_heal_dir(name, TASKER_RECOVER_PROBE_STATE_DIR)
                     _fleet_log(INFO, "%s: tasker SSHD_RECOVER self-test broadcast sent" % name)
                 else:
-                    # Not stamped: an undelivered broadcast proves nothing about
-                    # the profile and must not lead to a nag.
+                    # Not stamped: an undelivered broadcast is not a completed self-test.
                     detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
                     _fleet_log(INFO, "%s: tasker SSHD_RECOVER broadcast rc=%s %s" % (name, r.returncode, detail[:200]))
             except Exception as e:
                 _fleet_log(INFO, "%s: tasker SSHD_RECOVER broadcast error: %s" % (name, e))
-
-        # A probe older than the freshness window is the last successful weekly
-        # self-test, not an unanswered one: had it worked recently, the marker
-        # would be younger than the probe and therefore fresh.
-        if prior_probe_age is None or prior_probe_age >= fh.TASKER_RECOVER_FRESH_SEC:
-            return
-        if not _heal_cooldown_ok_dir(name, TASKER_RECOVER_NAG_STATE_DIR, TASKER_RECOVER_NAG_COOLDOWN_SEC):
-            return
-        _fleet_log(
-            WARNING,
-            "%s: Tasker SSHD_RECOVER profile not set up or not working (tasker_recover_age=%s, self-test %ds ago)"
-            % (name, report.get("tasker_recover_age"), int(prior_probe_age)),
-        )
-        notify(
-            "stayturgid: action needed",
-            '%s: Tasker SSHD_RECOVER profile is not set up or not working. See README "Keyguard-proof sshd recovery".'
-            % name,
-            sound="Basso",
-        )
-        _touch_heal_dir(name, TASKER_RECOVER_NAG_STATE_DIR)
     except Exception as e:
         _fleet_log(WARNING, "%s: tasker SSHD_RECOVER check failed: %s" % (name, e))
-
 
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     state_file = os.path.join(STATE_DIR, name)

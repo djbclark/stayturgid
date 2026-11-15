@@ -143,10 +143,11 @@ wrapper `~/.termux/tasker/sshd-recover-tasker.sh`, which stamps
 `~/.stayturgid/state/tasker-sshd-recover.ts` and then runs `sshd-recover.sh`;
 steps in [README § Keyguard-proof sshd recovery (Tasker)](../README.md#keyguard-proof-sshd-recovery-tasker)),
 after which `adb shell am broadcast -a com.stayturgid.SSHD_RECOVER` recovers
-sshd with the keyguard locked. A phone without a working profile is now nagged:
-fleet-health self-tests the broadcast when that stamp is missing or older than
-7 days, then posts an advisory "stayturgid: action needed" notification at most
-daily until it works. The native-agent leg is coded in agent 0.9.12
+sshd with the keyguard locked. Tasker is optional: a missing profile or a
+stopped monitor stays on the health line and does not page. Fleet-health
+still self-tests the broadcast when that stamp is missing or older than 7
+days, and posts an advisory "stayturgid: action needed" notification at most
+daily only when the last recovery ran and failed. The native-agent leg is coded in agent 0.9.12
 (`SshdRecover.kt`: on two consecutive `sshd=down` co-monitor probes the agent
 sends RUN_COMMAND itself, 5-minute cooldown; the deploy grants it the
 permission), released as `agent-v0.9.12` and running on s24. The recovery
@@ -162,9 +163,10 @@ with its own timeout; a failure does not stop the rest; `10-sshd` runs
 (end epoch, overall exit, per-step exit codes, `sv status sshd`, `tty`).
 **The remaining legs of this item (agent and Shizuku kickers) become new
 `recover.d/` files, not new Tasker profiles.** fleet-health now fires the
-broadcast during a real outage (SSH down, adb up; 10-minute cooldown) and nags
-on a failed last result or a stopped Tasker MonitorService. Still untested: the
-case it exists for (all Termux processes dead, phone locked and dozing).
+broadcast during a real outage (SSH down, adb up; 10-minute cooldown) and
+notices a failed last result. A stopped MonitorService does not page. Still
+untested: the case it exists for (all Termux processes dead, phone locked and
+dozing).
 
 #### 45 — Termux `sshd -D` if freeze returns (agent) · Risk: **Latent / Medium** · Trigger: sshd freeze
 

@@ -125,8 +125,8 @@ logs `sshd-recover broadcast` in `~/.config/stayturgid/logs/fleet-health.log`.
 (`control/lib/fleet_app_profiles.json`).
 
 **Manual step, once per phone: install the Tasker project.** Nothing in the
-deploy can do this; until it is done the recovery does not work and
-fleet-health nags daily.
+deploy can do this. Until it is done the recovery does not work. Fleet-health
+does not page for that.
 
 1. Copy [`device/tasker/StayTurgid_SSHD_Recover.prj.xml`](device/tasker/StayTurgid_SSHD_Recover.prj.xml)
    to `/sdcard/Tasker/projects/` (`adb push` works).
@@ -187,17 +187,15 @@ unless `sv status sshd` shows `run:` after a bounded wait, and serialises its
 then on the phone `cat ~/.stayturgid/state/tasker-sshd-recover.ts` shows a fresh
 epoch and `cat ~/.stayturgid/state/tasker-sshd-recover.result` shows `exit=0`.
 
-**Nag:** `control/bin/fleet_health_monitor.py` (every 5 min) reports the stamp's
-age as `tasker_recover_age`. If it is missing or older than 7 days on a phone
-with Tasker installed, the monitor fires the broadcast itself (at most hourly);
-if the stamp is still stale on a later pass, it sends a Hermes notice
-"stayturgid: action needed" and a WARNING in
-`~/.config/stayturgid/logs/fleet-health.log`, at most daily, until the profile
-works. It nags the same way, also at most daily, when
-`tasker_recover_result=failed` (the last dispatcher run reached Termux but a
-recovery failed) and when `tasker_monitor=stopped` (Tasker is installed but
-its MonitorService is not running, so the broadcast is silently dropped).
-All of these are advisory only: none counts as a health issue.
+**Nag:** `control/bin/fleet_health_monitor.py` reports the stamp's age as
+`tasker_recover_age` and the monitor as `tasker_monitor`. Tasker is optional.
+A missing profile or a stopped MonitorService stays on the health line and
+does not page. When the stamp is missing or older than 7 days on a phone with
+Tasker installed, the monitor still fires the broadcast itself (at most
+hourly) so a phone that has the profile can refresh the stamp. The one Hermes
+notice, at most daily, is `tasker_recover_result=failed`: the last dispatcher
+run reached Termux but a recovery failed. None of this counts as a health
+issue.
 
 The native agent (0.9.12+) has its own leg that needs no Tasker profile: when
 its co-monitor sees `sshd=down` on two consecutive probes it sends the same
