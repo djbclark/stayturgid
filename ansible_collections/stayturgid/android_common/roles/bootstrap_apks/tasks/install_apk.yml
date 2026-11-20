@@ -97,6 +97,19 @@
       delegate_to: localhost
       register: _apk_install
 
+# Exempt the package from background restrictions BEFORE the start broadcast: on a
+# freshly installed app (m11, ZUI/Android 16) startForegroundService() from the
+# receiver is otherwise refused ("mAllowStartForeground false") and the agent crashes.
+- name: Whitelist package from device idle (battery optimization) — {{ _apk.id }}
+  ansible.builtin.shell: |
+    adb -s "{{ _bootstrap_adb }}" shell dumpsys deviceidle whitelist +{{ _apk.id }}
+    adb -s "{{ _bootstrap_adb }}" shell cmd appops set {{ _apk.id }} RUN_ANY_IN_BACKGROUND allow || true
+    adb -s "{{ _bootstrap_adb }}" shell cmd appops set {{ _apk.id }} RUN_IN_BACKGROUND allow || true
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  when: _apk.battery_unrestricted | default(false)
+
 - name: Trigger required application service headlessly — {{ _apk.id }}
   ansible.builtin.command:
     argv:
@@ -215,13 +228,3 @@
     - _apk.shizuku_grant | default(false)
     - _shizuku_present.rc | default(1) == 0
     - "'package:' in (_shizuku_present.stdout | default(''))"
-
-- name: Whitelist package from device idle (battery optimization) — {{ _apk.id }}
-  ansible.builtin.shell: |
-    adb -s "{{ _bootstrap_adb }}" shell dumpsys deviceidle whitelist +{{ _apk.id }}
-    adb -s "{{ _bootstrap_adb }}" shell cmd appops set {{ _apk.id }} RUN_ANY_IN_BACKGROUND allow || true
-    adb -s "{{ _bootstrap_adb }}" shell cmd appops set {{ _apk.id }} RUN_IN_BACKGROUND allow || true
-  changed_when: false
-  failed_when: false
-  delegate_to: localhost
-  when: _apk.battery_unrestricted | default(false)
