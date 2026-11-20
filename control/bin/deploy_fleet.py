@@ -57,6 +57,7 @@ from control.lib.ansible_context import (
     resolve_ansible_context,
     resolved_env,
 )
+from control.lib.devices_conf_sync import ensure_aliases
 from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
 from control.lib.fleet_targets import FLEET_STATUS_VAR, offline_hosts, parse_inventory_hosts
 from control.lib.fleet_targets import inventory_list as _inventory_list
@@ -342,6 +343,11 @@ def deploy_mac(*, check: bool, tags: str = "mac", verbose: int = 0) -> int:
     )
 
 
+def ensure_device_aliases(targets: list[str]) -> list[str]:
+    """Add devices.conf rows for target hosts the control-node pass has not rendered yet."""
+    return ensure_aliases(_inventory_list(REPO_ROOT), targets)
+
+
 def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0, devices_only: bool = False) -> int:
     require_ansible()
     context = resolve_ansible_context(REPO_ROOT)
@@ -388,6 +394,11 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0, dev
             )
         else:
             apply_site_preflight(context.site_dir, REPO_ROOT, resolved_env(REPO_ROOT), activate_vector=not devices_only)
+            # A host just added to the inventory is not in the rendered devices.conf until the
+            # control-node pass has run; the heal tools read it, so add its row now.
+            _added = ensure_device_aliases(targets)
+            if _added:
+                print(f"devices.conf: added row(s) for {', '.join(_added)} (re-rendered by the next control-node pass)")
         with tempfile.TemporaryDirectory(prefix="stayturgid-deploy-") as tmp:
             withheld_file = Path(tmp) / "shizuku-withheld"
             rc = run_playbook(
