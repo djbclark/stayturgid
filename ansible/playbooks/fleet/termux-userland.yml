@@ -44,6 +44,20 @@
               pm grant com.termux android.permission.READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE,
               then appops set com.termux MANAGE_EXTERNAL_STORAGE allow.
 
+# A fresh Termux has sshd (installed over adb) but no Python, and every Ansible module
+# below needs one. raw runs without it. Idempotent: no change once python exists.
+- name: Termux Python for Ansible modules (raw, before the role)
+  hosts: stayturgid
+  gather_facts: false
+  tags: [always]
+  tasks:
+    - name: Install Python in Termux when missing
+      ansible.builtin.raw: |
+        if command -v python >/dev/null 2>&1; then echo python_present; else pkg install -y python && echo python_installed; fi
+      register: _termux_python
+      changed_when: "'python_installed' in (_termux_python.stdout | default(''))"
+      when: not ansible_check_mode
+
 - name: stayturgid Termux userland
   hosts: stayturgid
   gather_facts: false
