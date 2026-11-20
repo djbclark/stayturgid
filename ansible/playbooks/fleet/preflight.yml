@@ -13,8 +13,9 @@
     stayturgid_repo_root: "{{ lookup('env', 'STAYTURGID_ROOT') | default(playbook_dir | dirname | dirname | dirname, true) }}"
   tasks:
     - name: Probe Termux SSH
-      ansible.builtin.command:
-        argv: [echo, termux_ssh_ok]
+      # raw, not command: a freshly bootstrapped Termux has sshd but no Python yet,
+      # and the command module would fail there for want of an interpreter.
+      ansible.builtin.raw: echo termux_ssh_ok
       register: _preflight_ssh_probe
       changed_when: false
       ignore_unreachable: true
@@ -147,8 +148,7 @@
         - not (_ssh_preflight_ok | default(false) | bool)
 
     - name: Re-probe Termux SSH after bootstrap
-      ansible.builtin.command:
-        argv: [echo, termux_ssh_ok]
+      ansible.builtin.raw: echo termux_ssh_ok
       register: _preflight_ssh_reprobe
       changed_when: false
       ignore_unreachable: true
