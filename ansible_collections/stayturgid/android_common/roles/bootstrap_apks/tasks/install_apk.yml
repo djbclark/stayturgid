@@ -78,7 +78,7 @@
         package: "{{ _apk.id }}"
         gh_repo: "{{ _apk.gh_repo }}"
         gh_tag: "{{ _apk.gh_tag | default(omit) }}"
-        gh_latest: "{{ _apk.gh_latest | default(false) }}"
+        gh_latest: "{{ _apk.gh_latest | default(omit) }}"
         gh_pattern: "{{ _apk.gh_pattern }}"
         checksum: "{{ _apk.checksum | default(omit) }}"
         resign: "{{ _apk.resign | default(false) }}"
