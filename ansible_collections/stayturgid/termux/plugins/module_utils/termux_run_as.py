@@ -426,6 +426,48 @@ def ensure_sshd(run_command, device, check_mode=False, host=None):
     return True
 
 
+TERMUX_FIRST_RUN_TIMEOUT_S = 300
+TERMUX_FIRST_RUN_POLL_S = 5
+
+
+def termux_userland_present(run_command, device, termux_pkg=TERMUX_PKG, termux_bash=TERMUX_BASH):
+    rc, _out, _err = adb_cmd(run_command, device, "shell", "run-as", termux_pkg, "test", "-x", termux_bash)
+    return rc == 0
+
+
+def ensure_termux_userland(
+    run_command,
+    device,
+    termux_pkg=TERMUX_PKG,
+    termux_bash=TERMUX_BASH,
+    timeout_s=TERMUX_FIRST_RUN_TIMEOUT_S,
+    poll_s=TERMUX_FIRST_RUN_POLL_S,
+    sleep=None,
+    clock=None,
+):
+    """A freshly installed Termux has no userland until its app has run once.
+
+    The first launch unpacks the bootstrap (bash, pkg, coreutils); until then run-as
+    works but every script below fails with "bash: No such file". Start the activity
+    and wait for bash, instead of someone opening the app by hand (m11, 2026-11-20).
+    Returns True when it had to launch the app.
+    """
+    if termux_userland_present(run_command, device, termux_pkg, termux_bash):
+        return False
+    sleep = sleep or time.sleep
+    clock = clock or time.monotonic
+    adb_cmd(run_command, device, "shell", "am", "start", "-n", "%s/.app.TermuxActivity" % termux_pkg)
+    deadline = clock() + timeout_s
+    while clock() < deadline:
+        sleep(poll_s)
+        if termux_userland_present(run_command, device, termux_pkg, termux_bash):
+            return True
+    raise RuntimeError(
+        "Termux on %s did not unpack its userland within %d s after launch (needs network and an unlocked screen)"
+        % (device, timeout_s)
+    )
+
+
 def bootstrap_device(
     run_command,
     device,
@@ -453,6 +495,7 @@ def bootstrap_device(
 
     if not check_mode:
         wait_for_unlocked_screen(run_command, device, host=host)
+        ensure_termux_userland(run_command, device, termux_pkg)
 
     openssh_changed = install_openssh_pkg and ensure_openssh(run_command, device, check_mode=check_mode)
     keys_changed = push_authorized_keys(run_command, device, lines, check_mode=check_mode)

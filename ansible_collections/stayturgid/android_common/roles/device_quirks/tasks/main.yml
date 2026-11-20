@@ -1,0 +1,53 @@
+---
+# Per-model/host device quirks as data: read a value over the control node's adb,
+# set it only when it differs, read it back. The quirks come from the
+# stayturgid_device_quirks list (group_vars/model_*.yml or host vars), so a new
+# device's fixes are code in git rather than adb commands typed once by hand.
+# @heals: DEVICE-QUIRKS
+#
+# Each item: name, get (shell command on the device, prints the value), expect (the
+# trimmed value wanted), set (shell command on the device). reboot_required: true
+# marks a setting that only takes effect after the next boot (reported, not forced).
+
+- name: Resolve fleet alias to adb target (USB serial preferred)
+  ansible.builtin.set_fact:
+    _quirk_adb: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+  when: stayturgid_device_quirks | default([]) | length > 0
+
+- name: Read current value of each device quirk
+  ansible.builtin.command:
+    argv: [adb, -s, "{{ _quirk_adb }}", shell, "{{ item.get }}"]
+  loop: "{{ stayturgid_device_quirks | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _quirk_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  delegate_to: localhost
+
+- name: Apply each device quirk that differs
+  ansible.builtin.command:
+    argv: [adb, -s, "{{ _quirk_adb }}", shell, "{{ item.item.set }}"]
+  loop: "{{ _quirk_state.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - item.rc is defined
+    - (item.stdout | default('') | trim) != (item.item.expect | string)
+  register: _quirk_set
+  changed_when: true
+  delegate_to: localhost
+
+- name: Read back each device quirk that was applied
+  ansible.builtin.command:
+    argv: [adb, -s, "{{ _quirk_adb }}", shell, "{{ item.item.item.get }}"]
+  loop: "{{ _quirk_set.results | default([]) | rejectattr('skipped', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.item.item.name }}"
+  register: _quirk_verify
+  changed_when: false
+  failed_when: (_quirk_verify.stdout | default('') | trim) != (item.item.item.expect | string)
+  check_mode: false
+  when: not ansible_check_mode
+  delegate_to: localhost

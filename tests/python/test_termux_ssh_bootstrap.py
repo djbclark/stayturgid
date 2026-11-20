@@ -205,3 +205,43 @@ def test_wedge_diagnostics_are_printed_before_force_stop(monkeypatch, capsys):
     boot.bootstrap_serial("serial", forward=True, verify_alias="", install_openssh=False)
 
     assert "wedge-diagnostic" in capsys.readouterr().out
+
+
+def test_ensure_termux_userland_noop_when_bash_present(monkeypatch):
+    calls = []
+    monkeypatch.setattr(tr, "adb_cmd", lambda run_command, device, *args: (calls.append(args), (0, "", ""))[1])
+    assert tr.ensure_termux_userland(lambda c: (0, "", ""), "serial") is False
+    assert all("start" not in args for args in calls)
+
+
+def test_ensure_termux_userland_launches_termux_then_waits_for_bash(monkeypatch):
+    state = {"bash": False, "started": False, "tests": 0}
+
+    def fake_adb(run_command, device, *args):
+        if args[:3] == ("shell", "am", "start"):
+            state["started"] = True
+            return 0, "", ""
+        if "test" in args:
+            state["tests"] += 1
+            state["bash"] = state["started"] and state["tests"] >= 3
+            return (0 if state["bash"] else 1), "", ""
+        return 0, "", ""
+
+    monkeypatch.setattr(tr, "adb_cmd", fake_adb)
+    clock = iter(range(0, 1000, 5))
+    assert (
+        tr.ensure_termux_userland(lambda c: (0, "", ""), "serial", sleep=lambda s: None, clock=lambda: next(clock))
+        is True
+    )
+    assert state["started"] is True
+
+
+def test_ensure_termux_userland_times_out(monkeypatch):
+    monkeypatch.setattr(
+        tr, "adb_cmd", lambda run_command, device, *args: (1, "", "") if "test" in args else (0, "", "")
+    )
+    clock = iter(range(0, 10000, 100))
+    with pytest.raises(RuntimeError, match="did not unpack"):
+        tr.ensure_termux_userland(
+            lambda c: (0, "", ""), "serial", timeout_s=300, sleep=lambda s: None, clock=lambda: next(clock)
+        )

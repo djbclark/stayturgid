@@ -36,6 +36,7 @@ from ansible.utils.display import Display
 
 try:
     from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_resolve import (
+        device_row,
         resolve_adb,
     )
     from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_timeout import (
@@ -51,7 +52,7 @@ except ImportError:
         sys.path.insert(0, _mod_utils)
     # Same names as the collection import above (non-collection load path); mypy
     # would flag the rebinding as no-redef.
-    from adb_resolve import resolve_adb  # type: ignore[no-redef]
+    from adb_resolve import device_row, resolve_adb  # type: ignore[no-redef]
     from adb_timeout import DEFAULT_FAST_TIMEOUT, run_command_with_timeout  # type: ignore[no-redef]
 
 display = Display()
@@ -102,6 +103,14 @@ class LookupModule(LookupBase):
     def run(self, terms, variables=None, **kwargs):
         ret = []
         for term in terms:
-            alias = self._templar.template(term)
-            ret.append(resolve_adb(str(alias), run_command=_run_command))
+            alias = str(self._templar.template(term))
+            # A host added to the inventory is not in the rendered devices.conf until the
+            # next control-node pass; resolve it from its own device_usb_serial meanwhile
+            # (an unknown alias passes through resolve_adb unchanged, as a raw serial).
+            if device_row(alias) is None:
+                serial = (((variables or {}).get("hostvars") or {}).get(alias) or {}).get("device_usb_serial")
+                if serial and str(serial) != "-":
+                    display.vv("adb_device: %s not in devices.conf; using inventory device_usb_serial" % alias)
+                    alias = str(serial)
+            ret.append(resolve_adb(alias, run_command=_run_command))
         return ret

@@ -34,6 +34,10 @@
       tags: [app-privileges, full, bootstrap-apks]
       vars:
         target_device: "{{ inventory_hostname }}"
+    # Per-model/host adb quirks (rotation lock, vendor memory cleaner, Doze whitelist...)
+    # from stayturgid_device_quirks; a no-op where none are defined.
+    - role: stayturgid.android_common.device_quirks
+      tags: [device-quirks, full]
 
 # F5: helpers get ForceCommand keys after Fire published peerhelp pubs.
 - name: Import peer-help ForceCommand install

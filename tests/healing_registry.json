@@ -44,6 +44,7 @@
         "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/control_et.yml",
         "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml",
         "ansible_collections/stayturgid/fleet/roles/validate/tasks/main.yml",
+        "ansible_collections/stayturgid/android_common/roles/device_quirks/tasks/main.yml",
         "ansible_collections/stayturgid/android_common/roles/tailscale_vpn/tasks/main.yml",
         "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml",
         "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/native_agent.yml",
@@ -212,6 +213,12 @@
       "description": "Native-agent release package is the sole installed variant and HostService is running after deploy or upgrade",
       "must_cover": ["ansible_deploy", "fleet_health"],
       "should_cover": ["cfengine"]
+    },
+
+    "DEVICE-QUIRKS": {
+      "description": "Per-model device quirks (rotation lock, vendor memory cleaner, Doze whitelist, phantom-process limits) come from stayturgid_device_quirks and are applied idempotently with read-back",
+      "must_cover": ["ansible_deploy"],
+      "should_cover": []
     },
 
     "NORMAL-DEPLOY-SINGLE-PASS": {

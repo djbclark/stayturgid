@@ -1,7 +1,15 @@
 ---
+# Resolve the adb target like the other roles do (USB serial first, then LAN/Tailscale),
+# not ansible_host:5555: a USB-only device such as m11 has no wireless adb endpoint, and
+# the stop below then failed the whole deploy for a service that was never installed.
+- name: Resolve the adb target for the FIRERPA uninstall
+  ansible.builtin.set_fact:
+    _firerpa_uninstall_adb: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+  delegate_to: localhost
+
 - name: Stop FIRERPA server via adb
   ansible.builtin.shell: |
-    adb -s {{ _firerpa_adb_target }} shell '
+    adb -s {{ _firerpa_uninstall_adb }} shell '
       pkill -9 -x lamda 2>/dev/null || true
       for proc in /proc/[0-9]*; do
         exe=$(readlink "$proc/exe" 2>/dev/null) || continue
@@ -21,7 +29,7 @@
 
 - name: Remove FIRERPA install directory via adb
   ansible.builtin.shell: |
-    adb -s {{ _firerpa_adb_target }} shell "rm -rf {{ firerpa_install_dir }} /data/local/tmp/usr 2>/dev/null; echo removed"
+    adb -s {{ _firerpa_uninstall_adb }} shell "rm -rf {{ firerpa_install_dir }} /data/local/tmp/usr 2>/dev/null; echo removed"
   args:
     executable: /bin/bash
   delegate_to: localhost

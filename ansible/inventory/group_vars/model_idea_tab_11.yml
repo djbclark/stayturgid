@@ -1,0 +1,48 @@
+---
+# Lenovo Idea Tab 11 (TB336FU), Android 16, ZUI 17.5. Facts and sources:
+# site-public docs/plans/new-devices-2026-11-20/PLAN.md (III, tickets M1-M4).
+# Applied by the android_common.device_quirks role (get / expect / set per item).
+stayturgid_device_quirks:
+  # Rotation lock that survives boot (2026-11-20 reboot test): the fixed lock lives in
+  # WindowManager, not in an app. 0 degrees for now; 180 on power is a later design.
+  - name: accelerometer rotation off
+    get: settings get system accelerometer_rotation
+    expect: "0"
+    set: settings put system accelerometer_rotation 0
+  - name: user rotation 0
+    get: settings get system user_rotation
+    expect: "0"
+    set: wm user-rotation lock 0
+  - name: fixed-to-user rotation
+    get: wm fixed-to-user-rotation
+    expect: enabled
+    set: wm fixed-to-user-rotation enabled
+  - name: camera autorotate off
+    get: settings get secure camera_autorotate
+    expect: "0"
+    set: settings put secure camera_autorotate 0
+  # M1: ZuiMemoryCleaner force-stops background apps (Termux, Shizuku, Tailscale).
+  # persist.* is read at boot, so a change here takes effect after the next reboot.
+  - name: ZUI memory cleaner off
+    get: getprop persist.debug.zuimemory.enable
+    expect: "false"
+    set: setprop persist.debug.zuimemory.enable false
+    reboot_required: true
+  # M2: keep the fleet apps out of Doze.
+  - name: Termux out of Doze
+    get: "dumpsys deviceidle whitelist | grep -cF ',com.termux,'"
+    expect: "1"
+    set: cmd deviceidle whitelist +com.termux
+  - name: Tailscale out of Doze
+    get: "dumpsys deviceidle whitelist | grep -cF ',com.tailscale.ipn,'"
+    expect: "1"
+    set: cmd deviceidle whitelist +com.tailscale.ipn
+  # M4: Termux children killed by Android's phantom-process limit (signal 9).
+  - name: phantom process monitor off
+    get: settings get global settings_enable_monitor_phantom_procs
+    expect: "false"
+    set: settings put global settings_enable_monitor_phantom_procs false
+  - name: phantom process limit raised
+    get: device_config get activity_manager max_phantom_processes
+    expect: "2147483647"
+    set: device_config put activity_manager max_phantom_processes 2147483647
