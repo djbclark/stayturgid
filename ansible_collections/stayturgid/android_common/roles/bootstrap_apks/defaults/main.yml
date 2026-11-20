@@ -114,7 +114,12 @@ stayturgid_bootstrap_apks:
   - id: com.termux.x11
     gh_repo: termux/termux-x11
     gh_latest: true
-    gh_pattern: termux-x11-universal-debug.apk
+    # Upstream renamed the nightly asset from termux-x11-universal-debug.apk on
+    # 2026-11-15; the release asset carries the same signer as the fleet's installed
+    # build (SHA-256 b6da0148...), so it updates in place. The fleet's previous build
+    # (sha256 4774472f..., 1.03.01-29d4460-25.10.26) stays in ~/.cache/stayturgid/apks;
+    # to install exactly that build instead, pin gh_tag/version_name/checksum to it.
+    gh_pattern: termux-x11-universal-release.apk
   # ShizukuTendCF Drop-In flavor: package id stays moe.shizuku.privileged.api
   # (a true drop-in for stock Shizuku), manager namespace is af.shizuku.manager.
   # resign is FALSE here, unlike every other fork entry: the release is signed
