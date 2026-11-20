@@ -186,12 +186,35 @@
     # Only where `cmd package unstop` is unavailable (pre-Android 15, Fire OS).
     - (_apk_unstop.rc | default(1)) != 0 or 'Unknown command' in (_apk_unstop.stdout | default(''))
 
+# A fresh device has no Shizuku yet when the agent entry (first in the list) is
+# reconciled, and the grant then fails with "Unknown permission". Skip it until
+# Shizuku is installed; the next pass of this role grants it.
+- name: Check Shizuku is installed before granting — {{ _apk.id }}
+  ansible.builtin.command:
+    argv:
+      - adb
+      - -s
+      - "{{ _bootstrap_adb }}"
+      - shell
+      - pm
+      - path
+      - "{{ stayturgid_native_agent_shizuku_package }}"
+  register: _shizuku_present
+  check_mode: false
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  when: _apk.shizuku_grant | default(false)
+
 - name: Grant Shizuku permission — {{ _apk.id }}
   delegate_to: localhost
   stayturgid.android_common.shizuku_grant:
     device: "{{ _bootstrap_adb }}"
     package: "{{ _apk.id }}"
-  when: _apk.shizuku_grant | default(false)
+  when:
+    - _apk.shizuku_grant | default(false)
+    - _shizuku_present.rc | default(1) == 0
+    - "'package:' in (_shizuku_present.stdout | default(''))"
 
 - name: Whitelist package from device idle (battery optimization) — {{ _apk.id }}
   ansible.builtin.shell: |
