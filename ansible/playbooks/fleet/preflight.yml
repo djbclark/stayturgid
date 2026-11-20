@@ -175,3 +175,17 @@
           Try: ./control/bin/bootstrap_ssh.py {{ inventory_hostname }}
         quiet: true
       when: not ansible_check_mode
+
+# A fresh Termux has sshd (installed over adb) but no Python, and every Ansible module
+# in the playbooks after this one needs one. raw runs without it. Idempotent.
+- name: Termux Python for Ansible modules
+  hosts: stayturgid
+  gather_facts: false
+  tags: [always, preflight]
+  tasks:
+    - name: Install Python in Termux when missing
+      ansible.builtin.raw: |
+        if command -v python >/dev/null 2>&1; then echo python_present; else pkg install -y python && echo python_installed; fi
+      register: _termux_python
+      changed_when: "'python_installed' in (_termux_python.stdout | default(''))"
+      when: not ansible_check_mode
