@@ -11,6 +11,7 @@ import subprocess
 
 import access_monitor as am
 import adb_reconnect as ar
+import fire_help_monitor as fhm
 import fleet_health as fh
 import stayturgid_device as sd
 
@@ -206,3 +207,39 @@ def test_adb_reconnect_does_not_call_a_stale_address_connected(tmp_path, monkeyp
     assert tried == [STALE_LAN, HD8_TS]  # the stale LAN address was tried, rejected, never cached
     cached = tmp_path / ".config" / "stayturgid" / "state" / ("device_ip_%s" % HD8_USB)
     assert cached.read_text() == HD8_TS
+
+
+# --------------------------------------------------------------------------
+# control/bin/fire_help_monitor.py: the unattended 15-minute job that repairs hd8
+# --------------------------------------------------------------------------
+def test_fire_help_never_guesses_the_raw_lan_address_of_a_device_with_a_serial(monkeypatch):
+    monkeypatch.setattr(fhm.dev, "resolve_adb", lambda name: name)  # nothing reachable: bare alias
+    monkeypatch.setattr(fhm.dev, "usb_serial_for", lambda name: HD8_USB)
+    assert fhm.adb_targets("hd8", "100.64.0.8", "192.168.1.157") == ["hd8"]
+
+
+def test_fire_help_keeps_the_raw_endpoints_for_a_row_without_a_serial(monkeypatch):
+    monkeypatch.setattr(fhm.dev, "resolve_adb", lambda name: name)
+    monkeypatch.setattr(fhm.dev, "usb_serial_for", lambda name: "-")
+    assert fhm.adb_targets("x", "100.64.0.8", "192.168.1.157") == ["x", "192.168.1.157:5555", "100.64.0.8:5555"]
+
+
+def test_fire_help_does_not_repair_the_tablet_that_answers_on_a_stale_address(monkeypatch):
+    """The wrong tablet answers adb connect: no wireless-debug toggle, no Shizuku/Handsets start on it."""
+    monkeypatch.setattr(fhm, "adb_targets", lambda *a: [STALE_LAN])
+    monkeypatch.setattr(fhm.fph, "_ensure_connected", lambda t: None)  # connected fine
+    monkeypatch.setattr(fhm.dev, "usb_serial_for", lambda name: HD8_USB)
+    monkeypatch.setattr(sd, "_run", lambda args, **kw: fake_adb({STALE_LAN: M11_USB})(args))
+    logged: list[str] = []
+    monkeypatch.setattr(fhm, "log", logged.append)
+    monkeypatch.setattr(fhm, "read_state", lambda name: 0)
+    monkeypatch.setattr(fhm, "write_state", lambda name, n: None)
+    touched: list[str] = []
+    for fn in ("ensure_wireless_debugging", "needs_help"):
+        monkeypatch.setattr(fhm, fn, lambda *a, _fn=fn: touched.append(_fn) or ("up", "x"))
+    monkeypatch.setattr(fhm.fph, "cmd_shizuku_start", lambda t: touched.append("shizuku") or 0)
+    monkeypatch.setattr(fhm.fph, "cmd_handsets_start", lambda t, p: touched.append("handsets") or 0)
+    fhm.help_host("hd8", "100.64.0.8", "192.168.1.157")
+    assert touched == []
+    assert any("adb connect failed all targets" in m for m in logged)
+    assert any(M11_USB in m for m in logged)

@@ -1311,7 +1311,9 @@ def test_gh_tag_prefix_without_gh_latest_is_refused(mocker):
 SIGNER = "35bbc3d1a93c2a726df14bcc066bdc791f7f55f21b57d9455da27439c5ff9b6a"
 
 
-def _run_signed(mocker, tmp_path, monkeypatch, certs, package="org.stayturgid.agent", tools=True, present=False):
+def _run_signed(
+    mocker, tmp_path, monkeypatch, certs, package="org.stayturgid.agent", tools=True, present=False, code="101"
+):
     monkeypatch.setattr(mod, "APK_CACHE_DIR", str(tmp_path / "cache"))
     sdk = tmp_path / "sdk"
     sdk.mkdir()
@@ -1330,7 +1332,7 @@ def _run_signed(mocker, tmp_path, monkeypatch, certs, package="org.stayturgid.ag
         if "apksigner verify" in joined:
             return (0, "".join("Signer #%d certificate SHA-256 digest: %s\n" % (i, c) for i, c in enumerate(certs)), "")
         if "dump badging" in joined:
-            return (0, "package: name='%s' versionCode='101'\n" % package, "")
+            return (0, "package: name='%s' versionCode='%s'\n" % (package, code), "")
         if "pm list packages" in joined:
             return (0, "package:org.stayturgid.agent\n" if present else "", "")
         if " install" in joined:
@@ -1388,3 +1390,18 @@ def test_signer_sha256_fails_closed_without_the_sdk_tools(mocker, tmp_path, monk
     assert out["failed"] is True
     assert "needs" in out["msg"]
     assert not any(" install " in c for c in seen)
+
+
+def test_signer_sha256_binds_the_apk_versioncode_to_the_release_tag(mocker, tmp_path, monkeypatch):
+    # A genuine, fleet-signed older build attached to a newer tag must not install.
+    out, seen = _run_signed(mocker, tmp_path, monkeypatch, [SIGNER], code="77")
+    assert out["failed"] is True
+    assert "versionCode 77" in out["msg"] and "says 101" in out["msg"]
+    assert not any(" install " in c for c in seen)
+
+
+def test_select_gh_release_takes_the_highest_tag_number_not_the_first_listed():
+    # A release re-created on an old tag is listed first (newest created) but is not the newest build.
+    releases = [_rel("agent-r105", None, None), _rel("agent-r120", None, None), _rel("agent-r99", None, None)]
+    assert mod.select_gh_release(releases, tag_prefix="agent-r")["tag_name"] == "agent-r120"
+    assert mod.select_gh_release([_rel("agent-r\u0661\u0660\u0661", None, None)], tag_prefix="agent-r") is None

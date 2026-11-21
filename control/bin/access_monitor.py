@@ -90,20 +90,16 @@ def read_devices(conf_path):
 
 
 def _usb_serial(name):
-    try:
-        from stayturgid_device import usb_serial_for
+    # No try/except: a broken import must stop the monitor, not silently switch the identity check off.
+    from stayturgid_device import usb_serial_for
 
-        return usb_serial_for(name, CONF)
-    except Exception:
-        return "-"
+    return usb_serial_for(name, CONF)
 
 
 def _identity_ok(addr, usb_serial):
     """The device at ``addr`` is the inventory's (ro.serialno == usb_serial); see stayturgid_device."""
-    try:
-        from stayturgid_device import endpoint_identity_ok
-    except Exception:
-        return not usb_serial or usb_serial == "-"
+    from stayturgid_device import endpoint_identity_ok
+
     return endpoint_identity_ok(addr, usb_serial, report=lambda m: _access_log(WARNING, m))
 
 

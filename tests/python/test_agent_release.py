@@ -1,7 +1,10 @@
 """scripts/ci/agent_release.py: rolling version, tag and prune rules of the agent release workflow."""
 
+import argparse
+import hashlib
 import importlib.util
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -66,7 +69,7 @@ def test_workflow_never_runs_on_pull_requests_or_other_branches():
 
 def test_only_the_sign_job_sees_the_signing_secrets_and_only_build_runs_gradle():
     jobs = _workflow()["jobs"]
-    assert set(jobs) == {"build", "check", "sign", "release"}
+    assert set(jobs) == {"build", "check", "sign", "verify", "release"}
     for name, job in jobs.items():
         dumped = yaml.safe_dump(job)
         assert ("secrets." in dumped) == (name == "sign"), name
@@ -94,9 +97,24 @@ def test_jobs_run_in_the_order_check_sign_release_and_only_on_master():
     jobs = _workflow()["jobs"]
     assert jobs["check"]["needs"] == "build" and "refs/heads/master" in jobs["check"]["if"]
     assert "inputs.sign" in jobs["check"]["if"]
-    assert "check" in jobs["sign"]["needs"] and "sign" in jobs["release"]["needs"]  # a skipped check skips the rest
-    # the one parser of the Gradle-built APK that holds a secret never runs before `check` passed
-    assert "release" not in jobs["sign"]["needs"]
+    # a skipped check skips the rest: each job needs the one before it
+    assert (
+        "check" in jobs["sign"]["needs"] and "sign" in jobs["verify"]["needs"] and "verify" in jobs["release"]["needs"]
+    )
+    assert "sign" not in jobs["release"]["needs"]  # the token job never runs unless verify approved a digest
+    assert "inputs.sign" in jobs["check"]["if"]
+
+
+def test_the_token_job_parses_nothing_and_publishes_only_the_approved_digest():
+    text = (ROOT / "scripts/ci/agent_release.py").read_text(encoding="utf-8")
+    release_cmd = text[text.index("def cmd_release") : text.index("def main")]
+    for parser in ("apk_badging", "check_signer", "check_badging"):
+        assert parser not in release_cmd
+    assert "args.sha256" in release_cmd
+    jobs = _workflow()["jobs"]
+    assert "--sha256" in yaml.safe_dump(jobs["release"]) and "needs.verify.outputs.sha256" in yaml.safe_dump(
+        jobs["release"]
+    )
 
 
 def test_signing_job_signs_and_parses_nothing():
@@ -166,13 +184,7 @@ def test_sign_refuses_to_run_without_the_secrets(monkeypatch, tmp_path):
     assert not list(tmp_path.glob("*.jks"))
 
 
-def _release_args(apk, code=101):
-    import argparse
-
-    return argparse.Namespace(apk=str(apk), code=code)
-
-
-def _fake_release_world(monkeypatch, tmp_path, releases, *, signer_ok=True, badging=("org.stayturgid.agent", 101)):
+def _fake_release_world(monkeypatch, tmp_path, releases, *, tag_sha=None):
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_SHA", "a" * 40)
     monkeypatch.setenv("GITHUB_RUN_ID", "9")
@@ -180,12 +192,17 @@ def _fake_release_world(monkeypatch, tmp_path, releases, *, signer_ok=True, badg
     apk.write_bytes(b"signed")
     calls = []
     monkeypatch.setattr(agent_release, "all_releases", lambda repo: releases)
-    monkeypatch.setattr(agent_release, "apk_badging", lambda path: badging)
-    if signer_ok:
-        monkeypatch.setattr(agent_release, "check_signer", lambda path: None)
-    else:
-        monkeypatch.setattr(agent_release, "check_signer", lambda path: (_ for _ in ()).throw(SystemExit("bad signer")))
     monkeypatch.setattr(agent_release, "run", lambda argv, **kw: calls.append(argv))
+    if tag_sha is not None:
+        monkeypatch.setattr(
+            agent_release.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0, tag_sha + "\n", "")
+        )
+    else:
+        monkeypatch.setattr(
+            agent_release.subprocess,
+            "run",
+            lambda *a, **k: subprocess.CompletedProcess(a, 1, "", "gh: Not Found (HTTP 404)"),
+        )
     return apk, calls
 
 
@@ -193,24 +210,51 @@ def _rel(code, draft=False, assets=("app-release.apk",)):
     return {"tag_name": f"agent-r{code}", "draft": draft, "assets": [{"name": n} for n in assets]}
 
 
-def test_release_binds_the_apk_to_its_tag_before_calling_gh(monkeypatch, tmp_path):
-    apk, calls = _fake_release_world(monkeypatch, tmp_path, [], badging=("org.stayturgid.agent", 99))
+def test_verify_binds_the_apk_to_its_tag(monkeypatch, tmp_path, capsys):
+    apk = tmp_path / "app-release.apk"
+    apk.write_bytes(b"signed")
+    monkeypatch.setattr(agent_release, "check_signer", lambda path: None)
+    monkeypatch.setattr(agent_release, "apk_badging", lambda path: ("org.stayturgid.agent", 101))
+    agent_release.cmd_verify(argparse.Namespace(apk=str(apk), code=101))
+    assert capsys.readouterr().out.strip() == "sha256=" + hashlib.sha256(b"signed").hexdigest()
+    monkeypatch.setattr(agent_release, "apk_badging", lambda path: ("org.stayturgid.agent", 99))
     with pytest.raises(SystemExit, match="versionCode 99, expected 101"):
-        agent_release.cmd_release(_release_args(apk))
-    apk, calls = _fake_release_world(monkeypatch, tmp_path, [], badging=("com.evil", 101))
+        agent_release.cmd_verify(argparse.Namespace(apk=str(apk), code=101))
+    monkeypatch.setattr(agent_release, "apk_badging", lambda path: ("com.evil", 101))
     with pytest.raises(SystemExit, match="package"):
-        agent_release.cmd_release(_release_args(apk))
-    apk, calls = _fake_release_world(monkeypatch, tmp_path, [], signer_ok=False)
+        agent_release.cmd_verify(argparse.Namespace(apk=str(apk), code=101))
+    monkeypatch.setattr(agent_release, "check_signer", lambda path: (_ for _ in ()).throw(SystemExit("bad signer")))
     with pytest.raises(SystemExit, match="bad signer"):
-        agent_release.cmd_release(_release_args(apk))
+        agent_release.cmd_verify(argparse.Namespace(apk=str(apk), code=101))
+
+
+def _args(apk, code=101, sha=None):
+    digest = sha or hashlib.sha256(Path(apk).read_bytes()).hexdigest()
+    return argparse.Namespace(apk=str(apk), code=code, sha256=digest)
+
+
+def test_release_publishes_only_the_approved_file(monkeypatch, tmp_path):
+    apk, calls = _fake_release_world(monkeypatch, tmp_path, [])
+    with pytest.raises(SystemExit, match="not the .* the verify job approved"):
+        agent_release.cmd_release(_args(apk, sha="0" * 64))
     assert calls == []
+
+
+def test_release_refuses_a_tag_that_already_points_at_another_commit(monkeypatch, tmp_path):
+    apk, calls = _fake_release_world(monkeypatch, tmp_path, [], tag_sha="b" * 40)
+    with pytest.raises(SystemExit, match="already points at"):
+        agent_release.cmd_release(_args(apk))
+    assert calls == []
+    apk, calls = _fake_release_world(monkeypatch, tmp_path, [], tag_sha="a" * 40)  # the same commit: fine
+    agent_release.cmd_release(_args(apk))
+    assert any(c[:3] == ["gh", "release", "create"] for c in calls)
 
 
 def test_release_never_deletes_or_moves_a_tag(monkeypatch, tmp_path):
     # An incomplete published release is replaced, and the oldest are pruned; neither touches git tags.
     existing = [_rel(code) for code in range(101, 90, -1)]
     apk, calls = _fake_release_world(monkeypatch, tmp_path, [_rel(101, assets=())] + existing[1:])
-    agent_release.cmd_release(_release_args(apk))
+    agent_release.cmd_release(_args(apk))
     assert not any("--cleanup-tag" in c for c in calls)
     verbs = [c[2] for c in calls if c[:2] == ["gh", "release"]]
     assert verbs[0] == "delete" and verbs[1] == "create"
@@ -220,7 +264,7 @@ def test_release_never_deletes_or_moves_a_tag(monkeypatch, tmp_path):
 def test_release_refuses_a_downgrade_and_skips_a_finished_release(monkeypatch, tmp_path):
     apk, calls = _fake_release_world(monkeypatch, tmp_path, [_rel(105)])
     with pytest.raises(SystemExit, match="older than"):
-        agent_release.cmd_release(_release_args(apk))
+        agent_release.cmd_release(_args(apk))
     apk, calls = _fake_release_world(monkeypatch, tmp_path, [_rel(101)])
-    agent_release.cmd_release(_release_args(apk))
+    agent_release.cmd_release(_args(apk))
     assert calls == []

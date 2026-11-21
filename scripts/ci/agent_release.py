@@ -9,10 +9,13 @@ runner and the job that first parses the Gradle-built APK holds neither:
   check   --apk F --code N         `check` job, no secrets: F must carry versionCode N and our package.
   sign    --apk F --out G          `sign` job, the key and no token: sign F as G and nothing else (no
                                    parsing of the result with the key in the environment).
-  release --apk G --code N         `release` job, the token and no key: re-verify G (signer is exactly
-                                   the fleet certificate, package, versionCode == N == the tag's number),
-                                   publish it as the GitHub release agent-r<N> with one asset,
-                                   app-release.apk, then prune old ones.
+  verify  --apk G --code N         `verify` job, no secret and no token: G is signed by exactly the fleet
+                                   certificate, is our package and its versionCode is N (the number in
+                                   the tag); prints `sha256=<digest of G>` for the release job.
+  release --apk G --code N --sha256 D
+                                   `release` job, the token and no key, parses nothing: G must hash to D,
+                                   the digest `verify` approved. Publishes it as the GitHub release
+                                   agent-r<N> with one asset, app-release.apk, then prunes old ones.
 
 Versioning: versionCode = GITHUB_RUN_NUMBER + CODE_OFFSET, so every build is newer than the last
 and newer than the hand-made agent-v0.9.19 (versionCode 37); versionName = 0.9.<code>+<sha8>.
@@ -23,9 +26,10 @@ fleet's release certificate (signer_sha256), so a rolling build never needs a pi
 `sign` reads the key from the environment of the `agent-release` Actions environment (master only),
 writes it to a 0600 file in a fresh temporary directory, hands apksigner the passwords through the
 environment (never argv) and removes the file again. Every other subprocess runs without the key.
-`release` refuses an APK whose signer is not exactly the fleet's release certificate, whose package is
-not ours, or whose versionCode is not the number in the tag it is about to create, and one older than
-a release already published. The key never reaches the Gradle build.
+`verify` refuses an APK whose signer is not exactly the fleet's release certificate, whose package is
+not ours, or whose versionCode is not the number in the tag; `release` refuses one that is not the
+approved file, one older than a release already published, and a tag that already points at another
+commit. The key never reaches the Gradle build.
 """
 
 from __future__ import annotations
@@ -216,12 +220,37 @@ def cmd_check(args: argparse.Namespace) -> None:
     print(f"{PACKAGE} versionCode {args.code} ok")
 
 
+def file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def cmd_verify(args: argparse.Namespace) -> None:
+    apk = Path(args.apk)
+    check_signer(apk)
+    check_badging(apk, args.code)
+    print(f"sha256={file_sha256(apk)}")
+
+
 def cmd_sign(args: argparse.Namespace) -> None:
     # Nothing here parses the result: the key is in this job's environment. The release job
     # verifies the signer, package and versionCode before anything is published.
     out = Path(args.out)
     sign(Path(args.apk), out)
     print(f"signed {out.name}")
+
+
+def check_tag_commit(repo: str, tag: str, sha: str) -> None:
+    """An existing git tag must already point at this run's commit (a pre-planted tag would bind the release to another)."""
+    result = subprocess.run(
+        ["gh", "api", f"repos/{repo}/git/ref/tags/{tag}", "--jq", ".object.sha"],
+        capture_output=True, text=True, env=scrubbed_env(), check=False,
+    )  # fmt: skip
+    if result.returncode != 0:
+        if "Not Found" in (result.stderr + result.stdout):
+            return  # no tag yet: gh creates it at sha
+        sys.exit(f"could not read the tag {tag}: {(result.stderr or result.stdout)[:300]}")
+    if result.stdout.strip() != sha:
+        sys.exit(f"the tag {tag} already points at {result.stdout.strip()[:12]}, not at {sha[:12]}; not publishing")
 
 
 def cmd_release(args: argparse.Namespace) -> None:
@@ -231,9 +260,12 @@ def cmd_release(args: argparse.Namespace) -> None:
     apk = Path(args.apk)
     if apk.name != ASSET_NAME:
         sys.exit(f"the release asset must be named {ASSET_NAME}, not {apk.name}")
-    # Bind content to tag before anything is created: fleet cert, our package, versionCode == tag number.
-    check_signer(apk)
-    check_badging(apk, code)
+    # This job holds the write token and parses nothing: the `verify` job already bound the content
+    # (fleet certificate, our package, versionCode == tag number) to this exact digest.
+    digest = file_sha256(apk)
+    if digest != args.sha256:
+        sys.exit(f"{apk} hashes to {digest}, not the {args.sha256} the verify job approved; not publishing")
+    check_tag_commit(repo, tag, sha)
     releases = all_releases(repo)
     existing = [r for r in releases if r["tag_name"] == tag]
     if any(is_complete(r) for r in existing):
@@ -246,7 +278,6 @@ def cmd_release(args: argparse.Namespace) -> None:
         # The release goes, the git tag stays: agent-r* tags are protected (no delete, no update) and a
         # re-created release reuses the tag, which names the same run and commit.
         run(["gh", "release", "delete", tag, "--repo", repo, "--yes"])
-    digest = hashlib.sha256(apk.read_bytes()).hexdigest()
     server = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
     notes = (
         f"stayturgid-agent {name} (versionCode {code}), built from {sha} and signed by CI.\n\n"
@@ -274,13 +305,20 @@ def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("version").set_defaults(fn=cmd_version)
-    for name, fn, needs_out in (("check", cmd_check, False), ("sign", cmd_sign, True), ("release", cmd_release, False)):
+    for name, fn, needs_out in (
+        ("check", cmd_check, False),
+        ("sign", cmd_sign, True),
+        ("verify", cmd_verify, False),
+        ("release", cmd_release, False),
+    ):
         p = sub.add_parser(name)
         p.add_argument("--apk", required=True)
         if name != "sign":
             p.add_argument("--code", type=int, required=True)
         if needs_out:
             p.add_argument("--out", required=True)
+        if name == "release":
+            p.add_argument("--sha256", required=True)
         p.set_defaults(fn=fn)
     args = parser.parse_args(argv)
     args.fn(args)

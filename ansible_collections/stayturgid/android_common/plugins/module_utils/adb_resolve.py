@@ -238,7 +238,8 @@ def discover_mdns_endpoint(run_command, usb_serial, timeout=DEFAULT_FAST_TIMEOUT
     rc, out, _err = run_command_with_timeout(run_command, ["adb", "mdns", "services"], timeout=timeout)
     if rc != 0:
         return None
-    needle = "adb-%s" % usb_serial
+    # The instance name is adb-<serial>-<random>: match the whole serial, not a prefix of another one.
+    needle = "adb-%s-" % usb_serial
     for line in (out or "").splitlines():
         if needle not in line or "_adb-tls-connect" not in line:
             continue
@@ -273,8 +274,11 @@ def resolve_adb(alias, run_command=None, conf_path=None):
     # plain TCP probe — mDNS TLS endpoints often fail socket connect but work
     # with ``adb connect``.
     mdns = discover_mdns_endpoint(run_command, usb)
-    # The mDNS service name carries the serial (adb-<serial>-...), so it needs no ro.serialno check.
-    if mdns and (adb_online(devices, mdns) or connect_wireless(run_command, mdns, require_probe=False)):
+    if (
+        mdns
+        and (adb_online(devices, mdns) or connect_wireless(run_command, mdns, require_probe=False))
+        and endpoint_identity_ok(run_command, mdns, usb)
+    ):
         return mdns
 
     for endpoint in wireless_endpoints(row):

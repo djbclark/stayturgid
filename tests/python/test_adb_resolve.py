@@ -123,6 +123,8 @@ def test_resolve_adb_prefers_mdns_wireless_debug(tmp_path, monkeypatch):
             )
         if raw_cmd[:2] == ["adb", "connect"]:
             return 0, "connected", ""
+        if raw_cmd[:2] == ["adb", "-s"] and raw_cmd[3:6] == ["shell", "getprop", "ro.serialno"]:
+            return 0, "EXAMPLE-SERIAL-FIRE\n", ""
         return 0, "", ""
 
     assert adb_resolve.resolve_adb("fireos-device", run, str(conf)) == "192.0.2.68:39081"

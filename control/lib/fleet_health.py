@@ -710,10 +710,8 @@ def tcp_open(host: str, port: int, timeout: float = 5) -> bool:
 
 def _identity_ok(addr: str, usb_serial: str) -> bool:
     """The device at ``addr`` is the inventory's (ro.serialno == usb_serial); see stayturgid_device."""
-    try:
-        from stayturgid_device import endpoint_identity_ok
-    except ImportError:
-        return not usb_serial or usb_serial == "-"
+    from stayturgid_device import endpoint_identity_ok
+
     return endpoint_identity_ok(addr, usb_serial)
 
 
@@ -742,10 +740,9 @@ def adb_reachable(addrs: list[str], usb_serial: str = "-") -> str | None:
 
 
 def _usb_serial(name: str) -> str:
-    try:
-        from stayturgid_device import usb_serial_for
-    except ImportError:
-        return "-"
+    # No try/except: a broken import must stop the monitor, not silently switch the identity check off.
+    from stayturgid_device import usb_serial_for
+
     return usb_serial_for(name)
 
 

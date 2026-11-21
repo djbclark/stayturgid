@@ -522,17 +522,31 @@ def _pinned_gh_release(module, repo, pattern, tag_prefix=None, skip_prereleases=
     return tag, digest
 
 
+def _tag_version(tag, tag_prefix):
+    """Version tuple of a tag that is exactly tag_prefix + a version number, else None (ASCII digits only)."""
+    if not re.fullmatch(re.escape(tag_prefix) + r"[0-9][0-9.]*", tag, re.ASCII):
+        return None
+    return tuple(int(part) for part in tag[len(tag_prefix) :].split(".") if part)
+
+
 def select_gh_release(releases, tag_prefix=None, skip_prereleases=False):
-    """The newest published release that passes the filters, from a newest-first release list, or None."""
+    """The newest published release that passes the filters, from a newest-first release list, or None.
+
+    With tag_prefix "newest" is the highest version number in the tag, not the first the API lists, so
+    a release re-created on an old tag (listed first because it is recent) never beats the real newest.
+    """
+    best, best_version = None, None
     for release in releases:
         if release.get("draft"):
             continue
         if skip_prereleases and release.get("prerelease"):
             continue
-        if tag_prefix and not re.fullmatch(re.escape(tag_prefix) + r"\d[\d.]*", str(release.get("tag_name") or "")):
-            continue
-        return release
-    return None
+        if not tag_prefix:
+            return release
+        version = _tag_version(str(release.get("tag_name") or ""), tag_prefix)
+        if version is not None and (best_version is None or version > best_version):
+            best, best_version = release, version
+    return best
 
 
 def gh_newest_release(
@@ -842,7 +856,7 @@ def verify_sha256(module, apk_path, expected):
         module.fail_json(msg="APK checksum mismatch: expected sha256:%s, got sha256:%s" % (wanted, actual))
 
 
-def verify_signer_and_package(module, apk_path):
+def verify_signer_and_package(module, apk_path, expected_version_code=None):
     """Refuse an APK whose signer is not signer_sha256 or whose package is not the one being installed."""
     wanted = (module.params.get("signer_sha256") or "").lower()
     if not wanted:
@@ -868,11 +882,16 @@ def verify_signer_and_package(module, apk_path):
             % (wanted, ", ".join(sorted(signers)) or "none")
         )
     rc, out, err = module.run_command([aapt2, "dump", "badging", apk_path])
-    found = re.search(r"package: name='([^']+)'", out) if rc == 0 else None
+    found = re.search(r"package: name='([^']+)'(?: versionCode='(\d+)')?", out) if rc == 0 else None
     if not found or found.group(1) != module.params["package"]:
         module.fail_json(
             msg="the downloaded APK is package %r, not %r; not installing"
             % (found.group(1) if found else "unreadable", module.params["package"])
+        )
+    if expected_version_code is not None and found.group(2) != str(expected_version_code):
+        module.fail_json(
+            msg="the downloaded APK has versionCode %s but its release tag says %s (an old build under a new tag?); "
+            "not installing" % (found.group(2), expected_version_code)
         )
 
 
@@ -1047,7 +1066,12 @@ def main():
         )
 
     verify_sha256(module, apk, module.params["checksum"])
-    verify_signer_and_package(module, apk)
+    # A release tag that is the prefix plus a plain number (agent-r101) names the build's versionCode.
+    tag_code = None
+    prefix = module.params["gh_tag_prefix"]
+    if latest_tag and prefix and re.fullmatch(r"[0-9]+", str(latest_tag)[len(prefix) :], re.ASCII):
+        tag_code = int(str(latest_tag)[len(prefix) :])
+    verify_signer_and_package(module, apk, tag_code)
 
     if latest_tag and not digest:
         module.warn(

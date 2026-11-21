@@ -11,16 +11,17 @@ name: stayturgid-agent release
 #     master and a manual dispatch by someone with write access.
 #   - The `build` job runs Gradle (repo code and third-party plugins) with no secret at all and a
 #     read-only token. It produces an unsigned APK.
-#   - Three jobs after the build, so no runner ever holds two of the three things worth stealing:
-#     `check` reads the Gradle-built APK first and has no secret; `sign` has the release key and no
-#     write token (the `agent-release` environment, which GitHub restricts to the master branch, so a
-#     dispatch from any other branch cannot read it); `release` has the contents:write token and no
-#     key, and re-verifies the signed APK (exact fleet certificate, package, versionCode == tag)
-#     before it publishes. Jobs run scripts/ci/agent_release.py and first-party actions pinned by
+#   - Four jobs after the build, so no runner ever holds two of the three things worth stealing and
+#     the job with the write token parses nothing: `check` reads the Gradle-built APK first and has no
+#     secret; `sign` has the release key and no write token (the `agent-release` environment, which
+#     GitHub restricts to the master branch, so a dispatch from any other branch cannot read it);
+#     `verify` reads the signed APK with no secret (exact fleet certificate, package, versionCode ==
+#     tag number) and approves its digest; `release` has the contents:write token and no key, and
+#     publishes only the file with that digest. Jobs run scripts/ci/agent_release.py and first-party actions pinned by
 #     commit; none of them runs Gradle. A crafted APK that exploits apksigner itself in `sign` could
 #     still reach the key there: that is the one parser of untrusted bytes that holds it.
-#   - The tag ruleset on `agent-r*` (docs: device/native-agent/README.md) lets only this workflow and
-#     a repository admin create those tags and lets nobody move or delete them.
+#   - Tag rulesets on `agent-r*` (device/native-agent/README.md) restrict who creates those tags (Actions
+#     tokens and admins) and let nobody move or delete them.
 #   - Phones do not trust this workflow alone: bootstrap_apks installs an agent-r* release only if
 #     its signer is the fleet certificate (signer_sha256) and its package is org.stayturgid.agent.
 #   - Dispatch with sign=false (just agent-ci-run) builds and tests any branch and uploads the
@@ -164,10 +165,39 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  release:
-    # The only job with a write token, and it has no key and no environment secret. It re-verifies the
-    # signed APK (fleet certificate, our package, versionCode == the tag's number) before publishing.
+  verify:
+    # Reads the signed APK, as `check` read the unsigned one. No secret, no environment, read-only token.
+    # It binds the content to the tag (fleet certificate, our package, versionCode == the tag's number) and
+    # hands the digest it approved to `release`, so the job with the write token never parses the APK.
     needs: [build, sign]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sha256: ${{ steps.verify.outputs.sha256 }}
+    steps:
+      - name: Checkout the script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Fetch the signed APK
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: agent-signed
+          path: ${{ runner.temp }}/signed
+      - name: Verify the signed APK
+        id: verify
+        env:
+          BUILD_CODE: ${{ needs.build.outputs.code }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/agent_release.py verify --apk "$RUNNER_TEMP/signed/app-release.apk" --code "$BUILD_CODE" | tee -a "$GITHUB_OUTPUT"
+
+  release:
+    # The only job with a write token, and it has no key and no environment secret. It publishes the file
+    # `verify` approved (same SHA-256) and parses nothing.
+    needs: [build, verify]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -186,6 +216,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BUILD_CODE: ${{ needs.build.outputs.code }}
+          APPROVED_SHA256: ${{ needs.verify.outputs.sha256 }}
         run: |
           set -euo pipefail
-          python3 scripts/ci/agent_release.py release --apk "$RUNNER_TEMP/signed/app-release.apk" --code "$BUILD_CODE"
+          python3 scripts/ci/agent_release.py release --apk "$RUNNER_TEMP/signed/app-release.apk" --code "$BUILD_CODE" --sha256 "$APPROVED_SHA256"

@@ -164,7 +164,7 @@ def discover_mdns(serial):
     if not r:
         return None
     for line in r.stdout.splitlines():
-        if ("adb-%s" % serial) in line and "_adb-tls-connect" in line:
+        if ("adb-%s-" % serial) in line and "_adb-tls-connect" in line:
             m = IP_PORT_RE.search(line)
             if m:
                 return m.group(0)
