@@ -204,7 +204,7 @@ def endpoint_identity_ok(endpoint, usb_serial, timeout=10, report=None):
     Every wireless endpoint a monitor or resolver is about to trust goes
     through this check; a mismatch or an unreadable serial rejects it and is
     reported. With no known USB serial there is nothing to compare, so the
-    endpoint is refused as well: no wireless endpoint skips the check.
+    endpoint is refused as well: no endpoint passed to this check skips it.
     Mirrors ansible_collections/.../adb_resolve.py endpoint_identity_ok().
     """
     if not usb_serial or usb_serial == "-":

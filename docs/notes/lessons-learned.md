@@ -613,7 +613,7 @@ On 2026-11-21 `resolve_adb('hd8')` returned m11 and an install landed on the wro
 
 **How to apply:**
 
-1. Every wireless adb endpoint is checked against the inventory USB serial (`ro.serialno`) before it is used; a mismatch or an unreadable serial skips the endpoint and logs it. The check lives in `adb_resolve.endpoint_identity_ok` (collection resolver) and `stayturgid_device.endpoint_identity_ok` (fleet-health, access-monitor, adb_reconnect). A device with no USB serial in the inventory cannot be checked, so none of its wireless endpoints is used (item 2).
+1. Every wireless adb endpoint the Mac resolves from `devices.conf` (scope: item 9) is checked against the inventory USB serial (`ro.serialno`) before it is used; a mismatch or an unreadable serial skips the endpoint and logs it. The check lives in `adb_resolve.endpoint_identity_ok` (collection resolver) and `stayturgid_device.endpoint_identity_ok` (fleet-health, access-monitor, adb_reconnect). A device with no USB serial in the inventory cannot be checked, so none of its wireless endpoints is used (item 2).
 2. With a known USB serial the last-resort guess is the Tailscale address (one address per device for good) or the bare alias, never an unconfirmed LAN address. A `devices.conf` row without a USB serial (`-`) is refused for wireless adb altogether: `endpoint_identity_ok` returns false, `resolve_adb` answers the bare alias without probing or connecting, `fire_help_monitor` has no target, and the `control_node` role and `devices_conf_sync.render_row` refuse to render such a row (none exists in the live inventory).
 3. A new resolver or monitor that picks an adb endpoint must call the same check. mDNS endpoints are exempt because the service name carries the serial.
 
