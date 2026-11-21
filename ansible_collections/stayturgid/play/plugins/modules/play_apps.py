@@ -52,10 +52,10 @@ options:
     type: str
     default: arch=arm64-v8a
   apkeep_bin:
-    type: str
+    type: path
     default: apkeep
   gplaycli_bin:
-    type: str
+    type: path
     default: control/tools/play/gplaycli.py
   gplaycli_config:
     type: str
@@ -379,12 +379,12 @@ def main():
             ),
             apkeep_source=dict(type="str", default="apk-pure"),
             apkeep_options=dict(type="str", default="arch=arm64-v8a"),
-            apkeep_bin=dict(type="str", default="apkeep"),
+            apkeep_bin=dict(type="path", default="apkeep"),
             apkeep_accept_tos=dict(type="bool", default=False),
-            gplaycli_bin=dict(type="str", default="control/tools/play/gplaycli.py"),
+            gplaycli_bin=dict(type="path", default="control/tools/play/gplaycli.py"),
             gplaycli_config=dict(type="str", default=""),
             repo_root=dict(
-                type="str",
+                type="path",
                 default="",
                 description="Repo root when gplaycli_bin is a relative path.",
             ),

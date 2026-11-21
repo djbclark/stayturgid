@@ -24,7 +24,7 @@ PLAIN_MARK = "_stayturgid_plain_run_command"
 def plain_run_command(module):
     """Make ``module.run_command`` default to ``expand_user_and_vars=False``; returns *module*."""
     original = module.run_command
-    if getattr(original, PLAIN_MARK, False):
+    if getattr(original, PLAIN_MARK, False) is True:
         return module
 
     def run_command(args, *positional, **kwargs):

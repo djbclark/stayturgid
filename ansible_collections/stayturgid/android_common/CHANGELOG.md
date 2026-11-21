@@ -1,6 +1,6 @@
 # Changelog — stayturgid.android_common
 
-## Unreleased (galaxy.yml still says 1.5.0; recorded 2026-10-09 from git history)
+## Unreleased (galaxy.yml says 1.6.0, the release that adds plain_run; older entries recorded 2026-10-09 from git history)
 
 - New module_util `plain_run` (2026-11-21): `plain_run_command(module)` makes `module.run_command` stop
   expanding `$VAR` and `~` in argv (Ansible's default expands them on the control node). Every module
