@@ -66,6 +66,19 @@ def installed() -> bool:
     return os.path.isfile(WRAPPER) and os.path.isfile(dex) and os.access(WRAPPER, os.X_OK)
 
 
+def _wrapper_body() -> str:
+    return _WRAPPER_BODY.format(rish_dir=RISH_DIR, dex=DEX_NAME, pkg=SHIZUKU_PKG)
+
+
+def _wrapper_current() -> bool:
+    """True when the wrapper on disk is byte-identical to what this version would write."""
+    try:
+        with open(WRAPPER) as f:
+            return f.read() == _wrapper_body()
+    except OSError:
+        return False
+
+
 def install(*, force: bool = False) -> str:
     """Extract dex + write wrapper. Returns path to ``rish`` wrapper."""
     return install_changed(force=force)[0]
@@ -77,6 +90,8 @@ def install_changed(*, force: bool = False) -> tuple[str, bool]:
     Re-extracts whenever the installed APK's dex differs from the one on disk: the dex's
     loader names a class inside the manager APK, so a dex left over from an older build
     fails with "Class not found" after an app update (seen fleet-wide 2026-10-06).
+    The wrapper is rewritten whenever its body differs from this version's, so a wrapper
+    fix reaches devices whose dex is already current (2026-11-21: the LD_LIBRARY_PATH fix).
     """
     apk = shizuku_apk_path()
     if not apk:
@@ -92,7 +107,7 @@ def install_changed(*, force: bool = False) -> tuple[str, bool]:
     if installed() and not force:
         try:
             with open(dex_dest, "rb") as f:
-                if f.read() == data:
+                if f.read() == data and _wrapper_current():
                     return WRAPPER, False
         except OSError:
             pass
@@ -104,9 +119,8 @@ def install_changed(*, force: bool = False) -> tuple[str, bool]:
         f.write(data)
     os.replace(tmp, dex_dest)
     os.chmod(dex_dest, 0o400)
-    body = _WRAPPER_BODY.format(rish_dir=RISH_DIR, dex=DEX_NAME, pkg=SHIZUKU_PKG)
     with open(WRAPPER, "w") as f:
-        f.write(body)
+        f.write(_wrapper_body())
     os.chmod(WRAPPER, 0o755)  # nosemgrep  # nosec B103  # wrapper is a shell script that must be executable
     return WRAPPER, True
 
