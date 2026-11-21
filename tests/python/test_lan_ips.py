@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import base64
 import datetime
+import hashlib
+import hmac
 import json
+import re
 import sys
 from pathlib import Path
 
 import jinja2
+import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
@@ -182,7 +187,7 @@ def test_rewrite_ssh_config_creates_missing_lan_alias_from_the_device_block():
     out = lan_ips.rewrite_ssh_config(text, {"t2e": "192.168.68.58", "ghost": "192.168.68.99"})
     assert out.endswith(
         "Host t2e-lan\n  HostName 192.168.68.58\n  HostKeyAlias t2e\n"
-        "  Port 8022\n  User u0_a1\n  IdentityFile ~/.ssh/termux_key\n"
+        "  Port 8022\n  User u0_a1\n  IdentityFile ~/.ssh/termux_key\n  StrictHostKeyChecking yes\n"
     )
     assert "ghost" not in out  # no device block to clone: nothing invented
     assert out.count("Host t2e-firerpa\n  HostName 100.73.253.10\n  Port 65000\n") == 1
@@ -196,3 +201,283 @@ def test_devices_from_env_parses_inventory_pairs():
         ("s24", "100.123.218.30"),
         ("t2e", "100.73.253.10"),
     ]
+
+
+# --- M1 (adversary): one address, one device; ssh -lan keys pinned per device ---
+
+_LIVE = {"ip": "192.168.1.157", "source": "adb"}
+
+
+def _entry(ip, seen, source="adb"):
+    return {"ip": ip, "source": source, "seen": seen}
+
+
+def test_dedupe_keeps_the_most_recent_claim_to_an_address():
+    state = {
+        "hd8": _entry("192.168.1.157", _ago(hours=3)),
+        "m11": _entry("192.168.1.157", _ago(minutes=1)),
+        "t2e": _entry("192.168.68.62", _ago(minutes=1)),
+    }
+    assert lan_ips.dedupe_state(state) == {"hd8": "192.168.1.157"}
+    assert set(state) == {"m11", "t2e"}
+
+
+def test_dedupe_tie_prefers_the_adb_reading_then_the_name():
+    seen = _ago(minutes=1)
+    state = {"a": _entry("10.0.0.5", seen, "tailscale"), "b": _entry("10.0.0.5", seen, "adb")}
+    assert lan_ips.dedupe_state(state) == {"a": "10.0.0.5"}
+    state = {"a": _entry("10.0.0.5", seen), "b": _entry("10.0.0.5", seen)}
+    lan_ips.dedupe_state(state)
+    assert list(state) == ["b"]
+
+
+def test_ssh_config_drops_a_lan_block_whose_address_another_device_holds():
+    text = (
+        "Host hd8 100.124.55.39\n  HostName 100.124.55.39\n  Port 8022\n"
+        "Host hd8-lan\n  HostName 192.168.1.157\n  HostKeyAlias hd8\n  Port 8022\n  StrictHostKeyChecking yes\n"
+        "Host m11-lan\n  HostName 192.168.1.150\n  HostKeyAlias m11\n  Port 8022\n  StrictHostKeyChecking yes\n"
+        "Host t2e-firerpa\n  HostName 100.73.253.10\n"
+    )
+    out = lan_ips.rewrite_ssh_config(text, {"m11": "192.168.1.157"})
+    assert "Host hd8-lan" not in out
+    assert "Host hd8 100.124.55.39" in out and "Host t2e-firerpa" in out
+    assert "Host m11-lan\n  HostName 192.168.1.157\n" in out
+    # A device nobody else holds keeps its (unconfirmed) block.
+    kept = lan_ips.rewrite_ssh_config(text, {"m11": "192.168.1.158"})
+    assert "Host hd8-lan" in kept
+
+
+def test_ssh_config_forces_strict_host_key_checking_on_every_lan_block_once():
+    text = (
+        "Host t2e-lan\n  HostName 192.168.68.63\n  HostKeyAlias t2e\n  StrictHostKeyChecking accept-new\n  Port 8022\n"
+        "Host s24-lan\n  HostName 192.168.68.54\n  Port 8022\n"
+        "Host s24 100.1.1.1\n  HostName 100.1.1.1\n  StrictHostKeyChecking accept-new\n"
+    )
+    out = lan_ips.rewrite_ssh_config(text, {})
+    for name in ("t2e", "s24"):
+        block = out.split("Host %s-lan\n" % name)[1].split("Host ")[0]
+        assert block.count("StrictHostKeyChecking") == 1 and "StrictHostKeyChecking yes" in block
+        assert "HostKeyAlias %s" % name in block
+    assert "Host s24 100.1.1.1\n  HostName 100.1.1.1\n  StrictHostKeyChecking accept-new\n" in out
+    assert lan_ips.rewrite_ssh_config(out, {}) == out  # idempotent
+
+
+def test_devices_conf_blanks_an_address_another_device_holds():
+    conf = (
+        "hd8 GN43 100.124.55.39 192.168.1.157 Kindle -\n"
+        "m11 HA2PMV18 100.1.1.2 192.168.1.150 Lenovo -\n"
+        "t2e TITAN 100.73.253.10 192.168.68.63 Titan -\n"
+    )
+    out = lan_ips.rewrite_devices_conf(conf, {"m11": "192.168.1.157", "t2e": "192.168.68.62"})
+    assert "hd8 GN43 100.124.55.39 - Kindle -\n" in out
+    assert "m11 HA2PMV18 100.1.1.2 192.168.1.157 Lenovo -\n" in out
+    assert "t2e TITAN 100.73.253.10 192.168.68.62 Titan -\n" in out
+
+
+def test_refresh_evicts_the_older_claim_end_to_end(tmp_path, monkeypatch):
+    state = tmp_path / "state" / "lan_ips.json"
+    state.parent.mkdir()
+    state.write_text(json.dumps({"hd8": _entry("192.168.1.157", _ago(hours=2))}))
+    ssh, conf, kh = tmp_path / "ssh", tmp_path / "devices.conf", tmp_path / "known_hosts"
+    ssh.write_text("Host hd8-lan\n  HostName 192.168.1.157\n  HostKeyAlias hd8\n  Port 8022\n")
+    conf.write_text("hd8 GN43 100.124.55.39 192.168.1.157 Kindle -\nm11 HA2PMV18 100.1.1.2 - Lenovo -\n")
+    monkeypatch.setattr(lan_ips, "discover", lambda devices, adb="adb": {"m11": ("192.168.1.157", "adb")})
+    changes = lan_ips.refresh(
+        [("hd8", "100.124.55.39"), ("m11", "100.1.1.2")], str(state), str(ssh), str(conf), known_hosts_path=str(kh)
+    )
+    assert changes["hd8"] == ("192.168.1.157", None)
+    assert "hd8" not in json.loads(state.read_text())
+    assert "Host hd8-lan" not in ssh.read_text()
+    assert "hd8 GN43 100.124.55.39 - Kindle -" in conf.read_text()
+    assert "m11 HA2PMV18 100.1.1.2 192.168.1.157 Lenovo -" in conf.read_text()
+
+
+def test_templates_skip_an_inventory_fallback_another_device_holds():
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(REPO / "ansible/roles/control_node/templates")))
+    ctx = {
+        "groups": {"stayturgid": ["hd8", "m11"]},
+        "hostvars": {
+            "hd8": {"ansible_host": "100.124.55.39", "device_lan_ip": "192.168.1.157"},
+            "m11": {"ansible_host": "100.1.1.2", "device_lan_ip": "192.168.1.150"},
+        },
+        "stayturgid_ssh_identity_files": ["/k"],
+        "stayturgid_firerpa_certificate_path": "/k",
+        "stayturgid_live_lan_ips": {"m11": {"ip": "192.168.1.157"}},
+    }
+    ssh = env.get_template("ssh_config_stayturgid.j2").render(**ctx)
+    assert "Host hd8-lan" not in ssh
+    assert "Host m11-lan\n" in ssh and "HostName 192.168.1.157" in ssh
+    conf = env.get_template("devices.conf.j2").render(**ctx)
+    assert "hd8 - 100.124.55.39 - hd8 -" in conf
+    assert "m11 - 100.1.1.2 192.168.1.157 m11 -" in conf
+    # No live entry anywhere: the inventory value still applies.
+    ctx["stayturgid_live_lan_ips"] = {}
+    assert "Host hd8-lan" in env.get_template("ssh_config_stayturgid.j2").render(**ctx)
+
+
+def test_template_lan_blocks_are_strict_but_tailscale_blocks_still_accept_new():
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(REPO / "ansible/roles/control_node/templates")))
+    ssh = env.get_template("ssh_config_stayturgid.j2").render(
+        groups={"stayturgid": ["t2e"]},
+        hostvars={"t2e": {"ansible_host": "100.73.253.10", "device_lan_ip": "192.168.68.62"}},
+        stayturgid_ssh_identity_files=["/k"],
+        stayturgid_firerpa_certificate_path="/k",
+        stayturgid_live_lan_ips={},
+    )
+    lan = ssh.split("Host t2e-lan\n")[1].split("Host ")[0]
+    assert "StrictHostKeyChecking yes" in lan and "accept-new" not in lan and "HostKeyAlias t2e" in lan
+    assert "StrictHostKeyChecking accept-new" in ssh.split("Host t2e-lan")[0]
+
+
+_KEY_A = "AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+_KEY_B = "AAAAC3NzaC1lZDI1NTE5AAAAIBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+_FRAG = "Host hd8 100.124.55.39\n  HostName 100.124.55.39\n  Port 8022\nHost hd8-lan\n  HostName 192.168.1.50\n  HostKeyAlias hd8\n"
+
+
+def test_pin_known_hosts_copies_the_tailscale_key_to_the_alias(tmp_path):
+    kh = tmp_path / "known_hosts"
+    kh.write_text("@cert-authority * ssh-ed25519 CAKEY stayturgid-ca\n[100.124.55.39]:8022 ssh-ed25519 %s\n" % _KEY_A)
+    kh.chmod(0o640)
+    said = []
+    assert lan_ips.pin_known_hosts(_FRAG, str(kh), report=said.append) == ["hd8"]
+    text = kh.read_text()
+    assert "hd8 ssh-ed25519 %s\n" % _KEY_A in text
+    assert "@cert-authority * ssh-ed25519 CAKEY stayturgid-ca" in text
+    assert kh.stat().st_mode & 0o777 == 0o640 and said
+    # Already pinned: nothing changes.
+    assert lan_ips.pin_known_hosts(_FRAG, str(kh)) == []
+    assert kh.read_text() == text
+
+
+def _hashed(name: str, ktype: str, key: str) -> str:
+    salt = b"0123456789abcdefghij"
+    mac = hmac.new(salt, name.encode(), hashlib.sha1).digest()
+    return "|1|%s|%s %s %s" % (base64.b64encode(salt).decode(), base64.b64encode(mac).decode(), ktype, key)
+
+
+def test_pin_known_hosts_makes_the_alias_hold_exactly_the_trusted_keys(tmp_path):
+    kh = tmp_path / "known_hosts"
+    kh.write_text(
+        "\n".join(
+            [
+                "@cert-authority * ssh-ed25519 CAKEY stayturgid-ca",
+                "hd8 ssh-ed25519 %s" % _KEY_B,  # another phone's key, same type
+                "hd8 ssh-ed25519 %s" % _KEY_A,  # a duplicate next to the right one
+                "hd8 ecdsa-sha2-nistp256 %s" % _KEY_B,  # another key type nobody scanned
+                _hashed("hd8", "ssh-ed25519", _KEY_B),  # accept-new under HashKnownHosts
+                _hashed("t2e", "ssh-ed25519", _KEY_B),  # someone else's hashed line stays
+                "hd8,otherhost ssh-ed25519 %s" % _KEY_B,  # list entry: only the alias goes
+                "[100.124.55.39]:8022 ssh-ed25519 %s" % _KEY_A,
+                "unrelated ssh-ed25519 %s" % _KEY_B,
+            ]
+        )
+        + "\n"
+    )
+    assert lan_ips.pin_known_hosts(_FRAG, str(kh)) == ["hd8"]
+    lines = kh.read_text().splitlines()
+    assert [ln for ln in lines if ln.split()[0] == "hd8"] == ["hd8 ssh-ed25519 %s" % _KEY_A]
+    assert not any("ecdsa" in ln for ln in lines)
+    assert _hashed("hd8", "ssh-ed25519", _KEY_B) not in lines
+    assert _hashed("t2e", "ssh-ed25519", _KEY_B) in lines
+    assert "otherhost ssh-ed25519 %s" % _KEY_B in lines
+    assert "@cert-authority * ssh-ed25519 CAKEY stayturgid-ca" in lines
+    assert "[100.124.55.39]:8022 ssh-ed25519 %s" % _KEY_A in lines
+    assert "unrelated ssh-ed25519 %s" % _KEY_B in lines
+    again = kh.read_text()
+    assert lan_ips.pin_known_hosts(_FRAG, str(kh)) == [] and kh.read_text() == again
+
+
+def test_pin_known_hosts_removes_alias_entries_it_cannot_confirm(tmp_path):
+    kh = tmp_path / "known_hosts"
+    kh.write_text("somewhere-else ssh-ed25519 %s\nhd8 ssh-ed25519 %s\n" % (_KEY_A, _KEY_B))
+    assert lan_ips.pin_known_hosts(_FRAG, str(kh)) == ["hd8"]  # no Tailscale entry: fail closed
+    assert kh.read_text() == "somewhere-else ssh-ed25519 %s\n" % _KEY_A
+    assert lan_ips.pin_known_hosts(_FRAG, str(tmp_path / "missing")) == []
+    # A device without a Host block keeps its alias lines (nothing says what is trusted).
+    kh.write_text("ghost ssh-ed25519 %s\n" % _KEY_B)
+    assert lan_ips.pin_known_hosts(_FRAG, str(kh)) == [] and "ghost" in kh.read_text()
+
+
+def test_pin_known_hosts_keeps_a_symlinked_known_hosts_a_symlink(tmp_path):
+    real = tmp_path / "dotfiles_known_hosts"
+    real.write_text("[100.124.55.39]:8022 ssh-ed25519 %s\n" % _KEY_A)
+    link = tmp_path / "known_hosts"
+    link.symlink_to(real)
+    assert lan_ips.pin_known_hosts(_FRAG, str(link)) == ["hd8"]
+    assert link.is_symlink() and "hd8 ssh-ed25519 %s" % _KEY_A in real.read_text()
+
+
+def test_ssh_config_rewrite_handles_equals_and_lowercase_keywords():
+    text = "Host t2e-lan\n  hostname=192.168.68.63\n  stricthostkeychecking=accept-new\n  Port 8022\n"
+    out = lan_ips.rewrite_ssh_config(text, {"t2e": "192.168.68.62"})
+    block = out.split("Host t2e-lan\n")[1].lower()
+    assert "192.168.68.62" in block and "accept-new" not in block and "stricthostkeychecking yes" in block
+    assert "192.168.68.63" not in out and "HostKeyAlias t2e" in out
+
+
+def test_deploy_pins_the_alias_key_from_the_tailscale_scan():
+    tasks = yaml.safe_load((REPO / "ansible/roles/control_node/tasks/agents.yml").read_text())
+    names = [t.get("name", "") for t in tasks]
+    pin = next(t for t in tasks if t.get("name", "").startswith("Pin fleet SSH host keys under each device alias"))
+    assert names.index("Trust fleet SSH host keys on Mac (ansible.builtin.known_hosts)") < names.index(pin["name"])
+    drop = next(
+        t for t in tasks if t.get("name", "").startswith("Drop every known_hosts line under each scanned device alias")
+    )
+    assert names.index(drop["name"]) < names.index(pin["name"])
+    assert (
+        drop["ansible.builtin.known_hosts"]["state"] == "absent"
+        and drop["ansible.builtin.known_hosts"]["name"] == "{{ item.item }}"
+    )
+    args = pin["ansible.builtin.known_hosts"]
+    assert args["name"] == "{{ item.item }}" and args["state"] == "present"
+    assert "regex_replace" in args["key"]
+
+
+def test_deploy_pin_task_key_expression_rewrites_the_scanned_host_field():
+    tasks = yaml.safe_load((REPO / "ansible/roles/control_node/tasks/agents.yml").read_text())
+    pin = next(t for t in tasks if t.get("name", "").startswith("Pin fleet SSH host keys under each device alias"))
+    env = jinja2.Environment()
+    env.filters["regex_replace"] = lambda v, pat, repl: re.sub(pat, repl, v)
+    env.tests["match"] = lambda v, pat: re.match(pat, v) is not None
+    env.filters["select"] = lambda seq, test, *a: [x for x in seq if env.tests[test](x, *a)]
+    item = {
+        "item": "hd8",
+        "stdout_lines": ["# 100.124.55.39:8022 SSH-2.0-x", "[100.124.55.39]:8022 ssh-ed25519 %s" % _KEY_A],
+    }
+    out = env.from_string(pin["ansible.builtin.known_hosts"]["key"]).render(item=item)
+    assert out == "hd8 ssh-ed25519 %s" % _KEY_A
+
+
+def test_refresh_pins_the_alias_end_to_end_and_never_uses_the_real_known_hosts(tmp_path, monkeypatch):
+    assert lan_ips.KNOWN_HOSTS == str(tmp_path / "known_hosts")  # conftest redirect
+    state = tmp_path / "state" / "lan_ips.json"
+    state.parent.mkdir()
+    ssh, conf, kh = tmp_path / "ssh", tmp_path / "devices.conf", tmp_path / "kh"
+    ssh.write_text(_FRAG)
+    conf.write_text("hd8 GN43 100.124.55.39 192.168.1.50 Kindle -\n")
+    kh.write_text("[100.124.55.39]:8022 ssh-ed25519 %s\nhd8 ssh-ed25519 %s\n" % (_KEY_A, _KEY_B))
+    monkeypatch.setattr(lan_ips, "discover", lambda devices, adb="adb": {"hd8": ("192.168.1.50", "adb")})
+    said = []
+    lan_ips.refresh(
+        [("hd8", "100.124.55.39")], str(state), str(ssh), str(conf), known_hosts_path=str(kh), report=said.append
+    )
+    assert kh.read_text().splitlines() == [
+        "[100.124.55.39]:8022 ssh-ed25519 %s" % _KEY_A,
+        "hd8 ssh-ed25519 %s" % _KEY_A,
+    ]
+    assert said and not (tmp_path / "known_hosts").exists()
+
+
+def test_pin_known_hosts_also_removes_indented_uppercase_and_wildcard_alias_lines(tmp_path):
+    kh = tmp_path / "known_hosts"
+    kh.write_text(
+        "[100.124.55.39]:8022 ssh-ed25519 %s\n  hd8 ssh-ed25519 %s\nHD8 ssh-ed25519 %s\nhd? ssh-ed25519 %s\n"
+        "hd*,other ssh-ed25519 %s\nm11 ssh-ed25519 %s\n" % (_KEY_A, _KEY_B, _KEY_B, _KEY_B, _KEY_B, _KEY_B)
+    )
+    frag = _FRAG.replace("Port 8022", "port=8022")
+    assert lan_ips.pin_known_hosts(frag, str(kh)) == ["hd8"]
+    lines = kh.read_text().splitlines()
+    assert "hd8 ssh-ed25519 %s" % _KEY_A in lines and "m11 ssh-ed25519 %s" % _KEY_B in lines
+    assert "other ssh-ed25519 %s" % _KEY_B in lines
+    assert not any(ln.split()[0].lower() in ("hd8", "hd?") for ln in lines if "ssh-ed25519 %s" % _KEY_B in ln)
+    assert len(lines) == 4  # SRC, other, m11, pinned alias

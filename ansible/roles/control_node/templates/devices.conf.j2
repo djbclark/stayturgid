@@ -3,6 +3,12 @@
 # Schema: devices.conf v3
 # Regenerate: just deploy-mac
 # alias usb_serial tailscale_ip lan_ip device_label phone_number
+{% set live = stayturgid_live_lan_ips | default({}) %}
 {% for h in groups['stayturgid'] %}
-{{ h }} {{ hostvars[h].device_usb_serial | default('-') }} {{ hostvars[h].ansible_host }} {{ ((stayturgid_live_lan_ips | default({})).get(h) or {}).get('ip') or hostvars[h].device_lan_ip | default('-') }} {{ hostvars[h].device_label | default(h) }} {{ hostvars[h].device_phone_number | default('-') }}
+{%   set lan_ip = (live.get(h) or {}).get('ip') or hostvars[h].device_lan_ip | default('-') %}
+{#   An inventory fallback another device's live entry holds is that device's now: '-' (unknown). #}
+{%   set held = [] %}
+{%   for o in live if o != h %}{% if (live[o] or {}).get('ip') == lan_ip %}{% set _ = held.append(o) %}{% endif %}{% endfor %}
+{%   if held and not (live.get(h) or {}).get('ip') %}{% set lan_ip = '-' %}{% endif %}
+{{ h }} {{ hostvars[h].device_usb_serial | default('-') }} {{ hostvars[h].ansible_host }} {{ lan_ip }} {{ hostvars[h].device_label | default(h) }} {{ hostvars[h].device_phone_number | default('-') }}
 {% endfor %}

@@ -141,6 +141,29 @@
   loop: "{{ _fleet_host_keyscan.results }}"
   when: item.stdout_lines | select('match', '^\\[') | list | length > 0
 
+# `ssh <dev>-lan` uses HostKeyAlias <dev> with StrictHostKeyChecking yes, so a
+# reassigned LAN address fails the key check. Give that alias the key just
+# scanned over Tailscale, and nothing else: every older line under the alias
+# (another phone's key learned while a reassigned LAN address answered, other
+# key types, duplicates) goes first. fleet-health re-checks this every 15 min
+# (control/lib/lan_ips.py pin_known_hosts, which also removes hashed lines).
+- name: Drop every known_hosts line under each scanned device alias
+  ansible.builtin.known_hosts:
+    path: "{{ ssh_config_dir }}/known_hosts"
+    name: "{{ item.item }}"
+    state: absent
+  loop: "{{ _fleet_host_keyscan.results }}"
+  when: item.stdout_lines | select('match', '^\\[') | list | length > 0
+
+- name: Pin fleet SSH host keys under each device alias (HostKeyAlias for <dev>-lan)
+  ansible.builtin.known_hosts:
+    path: "{{ ssh_config_dir }}/known_hosts"
+    name: "{{ item.item }}"
+    key: "{{ item.stdout_lines | select('match', '^\\[') | first | trim | regex_replace('^\\S+', item.item) }}"
+    state: present
+  loop: "{{ _fleet_host_keyscan.results }}"
+  when: item.stdout_lines | select('match', '^\\[') | list | length > 0
+
 - name: Add @cert-authority for stayturgid CA to Mac known_hosts
   ansible.builtin.lineinfile:
     path: "{{ ssh_config_dir }}/known_hosts"

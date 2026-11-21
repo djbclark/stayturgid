@@ -8,6 +8,7 @@
 # block falls through to a global `Host *` IdentityAgent (1Password) and pops
 # the prompt (t2e, 2026-10-17).
 # Host certificates signed by the stayturgid CA eliminate host-key warnings.
+{% set live = stayturgid_live_lan_ips | default({}) %}
 {% for h in groups['stayturgid'] %}
 Host {{ h }} {{ hostvars[h].ansible_host }}
   HostName {{ hostvars[h].ansible_host }}
@@ -20,19 +21,25 @@ Host {{ h }} {{ hostvars[h].ansible_host }}
 {%   for key in stayturgid_ssh_identity_files %}
   IdentityFile {{ key }}
 {%   endfor %}
-{%   set lan_ip = ((stayturgid_live_lan_ips | default({})).get(h) or {}).get('ip') or hostvars[h].device_lan_ip | default('') %}
-{%   if lan_ip | length > 0 and lan_ip != '-' %}
+{%   set lan_ip = (live.get(h) or {}).get('ip') or hostvars[h].device_lan_ip | default('') %}
+{#   An inventory fallback that another device's live entry holds belongs to that device now (hd8's old address is m11's): no block. #}
+{%   set held = [] %}
+{%   for o in live if o != h %}{% if (live[o] or {}).get('ip') == lan_ip %}{% set _ = held.append(o) %}{% endif %}{% endfor %}
+{%   if lan_ip | length > 0 and lan_ip != '-' and (held | length == 0 or (live.get(h) or {}).get('ip')) %}
 Host {{ h }}-lan
   # Live DHCP address (control/lib/lan_ips.py); fleet-health rewrites it when
-  # it changes. HostKeyAlias makes the CA host cert (principal: {{ h }}) valid
-  # whatever the current IP is.
+  # it changes. HostKeyAlias pins the host key (or the CA host cert, principal
+  # {{ h }}) to the device, not the address: a reassigned LAN IP fails the key
+  # check (StrictHostKeyChecking yes) instead of trusting a new key. The
+  # known_hosts alias entry is written by the control_node role and by
+  # lan_ips.pin_known_hosts from the Tailscale entry.
   HostName {{ lan_ip }}
   HostKeyAlias {{ h }}
   Port {{ hostvars[h].ansible_port | default(8022) }}
   User {{ hostvars[h].ansible_user | default(inventory_hostname) }}
   IdentityAgent none
   IdentitiesOnly yes
-  StrictHostKeyChecking accept-new
+  StrictHostKeyChecking yes
   UserKnownHostsFile ~/.ssh/known_hosts
 {%     for key in stayturgid_ssh_identity_files %}
   IdentityFile {{ key }}
