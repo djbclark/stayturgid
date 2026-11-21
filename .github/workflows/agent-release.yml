@@ -1,0 +1,121 @@
+name: stayturgid-agent release
+
+# Rolling agent releases, no pins: every push to master that touches device/native-agent builds the
+# agent on a free GitHub runner, signs it with the fleet release key and publishes the GitHub
+# release agent-r<versionCode> with one asset, app-release.apk. bootstrap_apks follows the newest
+# agent-r* release (gh_latest + gh_tag_prefix), so nothing is pinned and nothing is signed by hand.
+# Design and secrets: device/native-agent/README.md, "Rolling releases".
+#
+# Trust boundaries (a public repository, so read them before changing this file):
+#   - No pull_request trigger, so a fork can never reach a secret. The only triggers are a push to
+#     master and a manual dispatch by someone with write access.
+#   - The `build` job runs Gradle (repo code and third-party plugins) with no secret at all and a
+#     read-only token. It produces an unsigned APK.
+#   - Only the `publish` job holds the release key, and it never runs Gradle. The key lives in the
+#     `agent-release` environment, which GitHub restricts to the master branch, so a dispatch from
+#     any other branch cannot read it. The job runs scripts/ci/agent_release.py and first-party
+#     actions pinned by commit.
+#   - Dispatch with sign=false (just agent-ci-run) builds and tests any branch and uploads the
+#     unsigned APK as an artifact only; just agent-ci-fetch signs it on the Mac.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "device/native-agent/**"
+      - "!device/native-agent/**/*.md"
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: Sign and publish a release (master only); false = build and test, keep the unsigned APK as an artifact
+        type: boolean
+        default: true
+
+# One build and one publish at a time, in run order, so a slower older run can never publish after a
+# newer one. A run waiting behind the active one is replaced by a newer one, which is the point.
+concurrency:
+  group: agent-release
+  cancel-in-progress: false
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    container:
+      image: ghcr.io/djbclark/ci-image-plektra@sha256:90a5de59e4a7efaa70b4de6af3221023151a2087cfb2689cecfe18a6a1cf602e
+    outputs:
+      code: ${{ steps.version.outputs.code }}
+      name: ${{ steps.version.outputs.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Rolling version
+        id: version
+        run: python3 scripts/ci/agent_release.py version | tee -a "$GITHUB_OUTPUT"
+      - name: Test, detekt and assemble the unsigned release APK
+        timeout-minutes: 45
+        env:
+          AGENT_VERSION_CODE: ${{ steps.version.outputs.code }}
+          AGENT_VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/device/native-agent"
+          java -version
+          ./gradlew --no-daemon :app:test :app:detekt :app:assembleRelease
+          ls -l app/build/outputs/apk/release/
+          test -f app/build/outputs/apk/release/app-release-unsigned.apk
+          # A workspace-relative path: runner.temp names the host path, not the container's.
+          mkdir -p "$GITHUB_WORKSPACE/agent-unsigned"
+          cp app/build/outputs/apk/release/app-release-unsigned.apk "$GITHUB_WORKSPACE/agent-unsigned/"
+          (cd "$GITHUB_WORKSPACE/agent-unsigned" && sha256sum app-release-unsigned.apk > app-release-unsigned.apk.sha256)
+      - name: Keep the unsigned APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: agent-unsigned
+          path: agent-unsigned/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    # A manual run can opt out (sign=false); anything off master never signs, whatever the input says.
+    if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || inputs.sign)
+    runs-on: ubuntu-latest
+    environment: agent-release
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Fetch the unsigned APK
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: agent-unsigned
+          path: ${{ runner.temp }}/unsigned
+      - name: Sign and publish agent-r${{ needs.build.outputs.code }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_CODE: ${{ needs.build.outputs.code }}
+          STAYTURGID_AGENT_KEYSTORE_B64: ${{ secrets.STAYTURGID_AGENT_KEYSTORE_B64 }}
+          STAYTURGID_AGENT_KEYSTORE_PASSWORD: ${{ secrets.STAYTURGID_AGENT_KEYSTORE_PASSWORD }}
+          STAYTURGID_AGENT_KEY_PASSWORD: ${{ secrets.STAYTURGID_AGENT_KEY_PASSWORD }}
+          STAYTURGID_AGENT_KEY_ALIAS: ${{ secrets.STAYTURGID_AGENT_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          (cd "$RUNNER_TEMP/unsigned" && sha256sum --check app-release-unsigned.apk.sha256)
+          python3 scripts/ci/agent_release.py publish \
+            --apk "$RUNNER_TEMP/unsigned/app-release-unsigned.apk" \
+            --code "$BUILD_CODE"

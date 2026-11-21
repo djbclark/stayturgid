@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Fetch the CI-built stayturgid-agent APK from GitHub and sign it with the release key.
+"""Fetch the unsigned CI build of stayturgid-agent and sign it on the Mac with the release key.
 
-stayturgid-agent is built only on GitHub CI (free runners: branch ci/base + ci/run/**,
-.github/workflows/agent-ci.yml on ci/base), never on this Mac (djbclark, 2026-10-18; Forgejo
-before that). CI publishes an unsigned release APK as the GitHub prerelease
-agent-ci-<versionName>-<sha8> on djbclark/stayturgid; this script downloads it,
-checks its SHA-256, signs it with device/native-agent/agent-release.jks (which never leaves the
-Mac) and checks the signer, writing the result where a local release build would:
+This is the fallback to the rolling releases. Normally .github/workflows/agent-release.yml signs
+every build of master in CI and publishes it as the GitHub release agent-r<versionCode>
+(device/native-agent/README.md, "Rolling releases"); nothing needs fetching. Use this script when CI
+cannot sign (the signing secrets are gone, or a branch must be built without publishing): run
+`just agent-ci-run BRANCH` (a workflow dispatch with sign=false), which keeps the unsigned APK as the
+workflow artifact `agent-unsigned`; this script downloads it, checks its SHA-256, signs it with
+device/native-agent/agent-release.jks (the gitignored local copy of the same key CI holds) and
+checks the signer, writing the result where a local release build would:
 device/native-agent/app/build/outputs/apk/release/app-release.apk.
 
 Usage:
-  ci_fetch_sign.py            # the build of HEAD (push master to origin and run `just agent-ci-run` first)
-  ci_fetch_sign.py SHA        # the build of another commit
+  ci_fetch_sign.py            # the CI run of HEAD (push the branch and `just agent-ci-run` first)
+  ci_fetch_sign.py SHA        # the CI run of another full 40-character commit
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
@@ -28,6 +31,9 @@ AGENT = REPO / "device" / "native-agent"
 OUT = AGENT / "app" / "build" / "outputs" / "apk" / "release"
 KEYSTORE = AGENT / "agent-release.jks"
 GITHUB_REPO = "djbclark/stayturgid"
+WORKFLOW = "agent-release.yml"
+ARTIFACT = "agent-unsigned"
+UNSIGNED = "app-release-unsigned.apk"
 # Release signing certificate (keytool -list -v on agent-release.jks, alias agent).
 SIGNER_SHA256 = "35bbc3d1a93c2a726df14bcc066bdc791f7f55f21b57d9455da27439c5ff9b6a"
 
@@ -50,28 +56,47 @@ def apksigner() -> Path:
     return tools[-1]
 
 
+def run_for(sha: str) -> int:
+    """Newest successful agent-release.yml run of the exact commit; gh only matches a full SHA."""
+    runs = json.loads(
+        gh(
+            "run",
+            "list",
+            "-R",
+            GITHUB_REPO,
+            "--workflow",
+            WORKFLOW,
+            "--commit",
+            sha,
+            "--status",
+            "success",
+            "--limit",
+            "5",
+            "--json",
+            "databaseId",
+        )  # fmt: skip
+    )
+    if not runs:
+        sys.exit(f"no successful {WORKFLOW} run for {sha[:8]}: is the run finished and green?")
+    return int(runs[0]["databaseId"])
+
+
 def main(argv: list[str]) -> int:
     sha = argv[0] if argv else subprocess.check_output(["git", "-C", str(REPO), "rev-parse", "HEAD"], text=True).strip()
-    releases = json.loads(gh("release", "list", "-R", GITHUB_REPO, "--limit", "100", "--json", "tagName"))
-    tag = next(
-        (r["tagName"] for r in releases if r["tagName"].startswith("agent-ci-") and r["tagName"].endswith(sha[:8])),
-        None,
-    )
-    if tag is None:
-        sys.exit(f"no agent-ci-*-{sha[:8]} release yet: is the CI run for {sha[:8]} finished and green?")
-    assets = [
-        a["name"] for a in json.loads(gh("release", "view", tag, "-R", GITHUB_REPO, "--json", "assets"))["assets"]
-    ]
-    name = next(n for n in assets if n.endswith("-release-unsigned.apk"))
+    if len(sha) != 40:
+        sys.exit(f"{sha!r} is not a full 40-character commit")
+    run_id = run_for(sha)
     OUT.mkdir(parents=True, exist_ok=True)
-    unsigned = OUT / name
-    gh("release", "download", tag, "-R", GITHUB_REPO, "--clobber", "-D", str(OUT), "-p", name, "-p", name + ".sha256")
-    want = (OUT / (name + ".sha256")).read_text().split()[0]
+    with tempfile.TemporaryDirectory() as tmp:
+        gh("run", "download", str(run_id), "-R", GITHUB_REPO, "-n", ARTIFACT, "-D", tmp)
+        unsigned = OUT / UNSIGNED
+        unsigned.write_bytes((Path(tmp) / UNSIGNED).read_bytes())
+        want = (Path(tmp) / (UNSIGNED + ".sha256")).read_text().split()[0]
     got = hashlib.sha256(unsigned.read_bytes()).hexdigest()
     if got != want:
-        sys.exit(f"SHA-256 mismatch for {name}: got {got}, release says {want}")
+        sys.exit(f"SHA-256 mismatch for {UNSIGNED}: got {got}, the run says {want}")
     if not KEYSTORE.is_file():
-        sys.exit(f"missing {KEYSTORE} (the release key lives only on djbclark's Mac)")
+        sys.exit(f"missing {KEYSTORE} (the gitignored local copy of the release key)")
     signed = OUT / "app-release.apk"
     signer = apksigner()
     subprocess.run(
@@ -86,7 +111,7 @@ def main(argv: list[str]) -> int:
     if f"certificate SHA-256 digest: {SIGNER_SHA256}" not in certs:
         sys.exit(f"signed APK has the wrong signer:\n{certs}")
     digest = hashlib.sha256(signed.read_bytes()).hexdigest()
-    print(f"{tag}: signed {signed}")
+    print(f"run {run_id}: signed {signed}")
     print(f"sha256:{digest}")
     return 0
 

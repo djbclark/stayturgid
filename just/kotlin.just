@@ -44,29 +44,31 @@ kt-detekt-generate-config:
     @echo "(Your custom overrides are merged via buildUponDefaultConfig = true)"
 
 # stayturgid-agent is built and tested only on GitHub CI (free runners), never on this Mac
-# (djbclark, 2026-10-17 Forgejo, 2026-10-18 GitHub): push master to origin, `just agent-ci-run`,
-# then `just agent-ci-fetch`. Formatting and detekt (above) stay local; they are what the
-# pre-commit hooks run.
+# (djbclark, 2026-10-17 Forgejo, 2026-10-18 GitHub). Since 2026-11-21 every push to master that
+# touches device/native-agent builds, signs and publishes the release agent-r<versionCode>
+# (.github/workflows/agent-release.yml); bootstrap_apks follows the newest one, so a deploy needs no
+# fetch step. Formatting and detekt (above) stay local; they are what the pre-commit hooks run.
 _kt-ci-only:
     #!/usr/bin/env bash
     if [[ "${STAYTURGID_LOCAL_GRADLE:-0}" != 1 ]]; then
-      echo "stayturgid-agent builds and tests run on GitHub CI only (github.com/djbclark/stayturgid, ci/base)." >&2
-      echo "Push: git -C {{ repo }} push origin master; then: just agent-ci-run; then: just agent-ci-fetch" >&2
+      echo "stayturgid-agent builds and tests run on GitHub CI only (github.com/djbclark/stayturgid, agent-release.yml)." >&2
+      echo "Push: git -C {{ repo }} push origin master (the release is built and published by CI); a branch: just agent-ci-run BRANCH" >&2
       echo "See device/native-agent/README.md, Build." >&2
       exit 3
     fi
 
-# Run the GitHub CI Android build of REF (default origin/master): overlay ci/base, push ci/run/agent-<slug>, print the branch URL
-# (the run: gh run list -R djbclark/stayturgid --branch ci/run/agent-<slug>).
-agent-ci-run ref="origin/master":
+# Build and test BRANCH (default master) on GitHub CI without signing or publishing: a workflow_dispatch of
+# agent-release.yml with sign=false keeps the unsigned APK as the artifact `agent-unsigned`.
+# BRANCH must be pushed to origin. Then `just agent-ci-fetch` signs that APK here.
+# (A push to master needs none of this: CI signs and publishes by itself.)
+agent-ci-run branch="master":
     #!/usr/bin/env bash
     set -euo pipefail
-    git -C "{{ repo }}" fetch origin ci/base master
-    tmp="$(mktemp -t github-ci-run.XXXXXX)"
-    git -C "{{ repo }}" show origin/ci/base:scripts/github-ci-run > "$tmp"
-    cd "{{ repo }}" && bash "$tmp" --no-wait --agent "{{ ref }}"
+    gh workflow run agent-release.yml -R djbclark/stayturgid --ref "{{ branch }}" -f sign=false
+    echo "started; the run: gh run list -R djbclark/stayturgid --workflow agent-release.yml --branch {{ branch }}"
 
-# Fetch the CI-built APK for HEAD (or SHA) from GitHub releases and sign it with the release key.
+# Fallback signing on the Mac: download the unsigned APK of the successful CI run of HEAD (or the full
+# SHA) and sign it with agent-release.jks. Normal builds are signed by CI; see agent-ci-run.
 agent-ci-fetch sha="":
     python3 "{{ repo }}/control/tools/native-agent/ci_fetch_sign.py" {{ sha }}
 
