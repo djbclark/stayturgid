@@ -23,6 +23,17 @@
   loop_control:
     label: "{{ item.name }}"
 
+# An agent the operator disabled in launchd (`launchctl disable`, e.g. the reconnect
+# agents of offline phones, the FIRERPA bridges) cannot be bootstrapped: loading,
+# reloading or restarting it fails the whole play ("Unable to start ..."), and every
+# deploy then exits 2. A deliberate override is left alone: such labels are not targets.
+- name: Read launchd's disabled-service overrides
+  ansible.builtin.shell: launchctl print-disabled "gui/$(id -u)"
+  register: _mac_launchd_disabled_raw
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
 - name: Build installed launchd ensure targets
   ansible.builtin.set_fact:
     _mac_launchd_installed: >-
@@ -30,6 +41,15 @@
         _mac_launchd_plist_stats.results
         | selectattr('stat.exists')
         | map(attribute='item')
+        | rejectattr('name', 'in', _mac_launchd_disabled_labels)
+        | list
+      }}
+  vars:
+    _mac_launchd_disabled_labels: >-
+      {{
+        _mac_launchd_disabled_raw.stdout_lines | default([])
+        | select('search', '=> disabled')
+        | map('regex_replace', '^.*?"([^"]+)".*$', '\\1')
         | list
       }}
 
@@ -40,14 +60,7 @@
     label="{{ item.name }}"
     line="$(launchctl list 2>/dev/null | gawk -v l="$label" '$3 == l {print; exit}')"
     if [ -z "$line" ]; then
-      # An agent the operator disabled in launchd (launchctl disable) cannot be bootstrapped:
-      # starting it fails the whole play ("Unable to start ..."). Report it separately so the
-      # load task leaves a deliberate override alone (offline phones: p7a, hd8, s24).
-      if launchctl print-disabled "gui/$(id -u)" 2>/dev/null | grep -qF "\"$label\" => disabled"; then
-        echo disabled
-      else
-        echo unloaded
-      fi
+      echo unloaded
       exit 0
     fi
     pid="$(echo "$line" | gawk '{print $1}')"

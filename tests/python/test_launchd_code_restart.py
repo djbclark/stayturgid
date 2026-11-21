@@ -320,45 +320,37 @@ def test_control_node_records_the_hash_only_after_the_health_wait() -> None:
     assert tasks.index(record) == len(tasks) - 1
 
 
-def _state_probe_script() -> str:
-    task = _find(_control_node_tasks(), "Probe configured launchd job states")
-    return (
-        task["ansible.builtin.shell"]
-        if isinstance(task["ansible.builtin.shell"], str)
-        else task["ansible.builtin.shell"]["cmd"]
+def test_disabled_launchd_agents_are_not_ensure_targets() -> None:
+    """A launchctl-disabled agent (offline phone, FIRERPA bridge) cannot be bootstrapped: any load/reload/
+    restart of it fails the play, so it must be filtered out before the probes and restarts run."""
+    tasks = _control_node_tasks()
+    read = _find(tasks, "Read launchd's disabled-service overrides")
+    assert read["failed_when"] is False and read["check_mode"] is False
+    build = _find(tasks, "Build installed launchd ensure targets")
+    expr = build["ansible.builtin.set_fact"]["_mac_launchd_installed"]
+    disabled_expr = build["vars"]["_mac_launchd_disabled_labels"]
+    stdout_lines = [
+        "disabled services = {",
+        '\t"com.stayturgid.adb-reconnect-hd8" => disabled',
+        '\t"com.stayturgid.dashboard" => enabled',
+        '\t"com.stayturgid.firerpa-mcp" => disabled',
+        "}",
+    ]
+    names = ["adb-reconnect-hd8", "dashboard", "firerpa-mcp", "adb-reconnect-m11"]
+    stats = {"results": [{"stat": {"exists": True}, "item": {"name": f"com.stayturgid.{n}"}} for n in names]}
+    import ast
+    import re
+
+    import jinja2
+
+    env = jinja2.Environment(undefined=jinja2.StrictUndefined)
+    # Ansible's own search test and regex_replace filter, which plain jinja2 lacks.
+    env.tests["search"] = lambda value, pattern: re.search(pattern, value) is not None
+    env.filters["regex_replace"] = lambda value, pattern, repl: re.sub(pattern, repl, value)
+    disabled = ast.literal_eval(
+        env.from_string(disabled_expr).render(_mac_launchd_disabled_raw={"stdout_lines": stdout_lines})
     )
-
-
-def _run_state_probe(tmp_path: Path, label: str, listed: str, disabled: str) -> str:
-    """Run the state probe verbatim against a fake launchctl (list / print-disabled)."""
-    fake = tmp_path / "bin"
-    fake.mkdir(exist_ok=True)
-    (fake / "launchctl").write_text(
-        "#!/bin/sh\n"
-        'case "$1" in\n'
-        f"  list) printf '%s' '{listed}' ;;\n"
-        f"  print-disabled) printf '%s' '{disabled}' ;;\n"
-        "esac\n"
-    )
-    (fake / "launchctl").chmod(0o755)
-    script = _state_probe_script().replace("{{ item.name }}", label)
-    env = {**os.environ, "PATH": f"{fake}:{os.environ['PATH']}"}
-    out = subprocess.run(
-        ["bash", "-c", script.replace('export PATH="/opt/homebrew/bin:$PATH"', "")],
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    assert out.returncode == 0, out.stderr
-    return out.stdout.strip()
-
-
-def test_state_probe_reports_a_launchd_disabled_agent_as_disabled(tmp_path: Path) -> None:
-    """An agent the operator disabled (offline phone) is not 'unloaded': the load task would fail the play on it."""
-    label = "com.stayturgid.adb-reconnect-hd8"
-    disabled = f'disabled services = {{\n\t"{label}" => disabled\n\t"com.other" => enabled\n}}\n'
-    assert _run_state_probe(tmp_path, label, "", disabled) == "disabled"
-    assert _run_state_probe(tmp_path, label, "", 'disabled services = {\n\t"com.other" => enabled\n}\n') == "unloaded"
-    # The load task only acts on 'unloaded', so 'disabled' is left alone.
-    load = _find(_control_node_tasks(), "Load configured launchd agents when unloaded")
-    assert "item.stdout | trim == 'unloaded'" in load["when"]
+    assert disabled == ["com.stayturgid.adb-reconnect-hd8", "com.stayturgid.firerpa-mcp"]
+    rendered = env.from_string(expr).render(_mac_launchd_plist_stats=stats, _mac_launchd_disabled_labels=disabled)
+    assert "com.stayturgid.dashboard" in rendered and "com.stayturgid.adb-reconnect-m11" in rendered
+    assert "adb-reconnect-hd8" not in rendered and "firerpa-mcp" not in rendered
