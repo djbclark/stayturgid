@@ -5,10 +5,15 @@ Runs on a helper phone (oneui-device/stock-android-device) that already has a tr
 target. Invoked over SSH from a Fire OS device that cannot self-ADB.
 
 Usage:
-  stayturgid_peer_help.py handsets-start --target IP:5555 [--port N]
-  stayturgid_peer_help.py shizuku-start --target IP:5555
-  stayturgid_peer_help.py ping --target IP:5555
-  stayturgid_peer_help.py status --target IP:5555
+  stayturgid_peer_help.py handsets-start --target IP:5555 --serial USB_SERIAL [--port N]
+  stayturgid_peer_help.py shizuku-start --target IP:5555 --serial USB_SERIAL
+  stayturgid_peer_help.py ping --target IP:5555 --serial USB_SERIAL
+  stayturgid_peer_help.py status --target IP:5555 --serial USB_SERIAL
+
+``--serial`` is the requester's own USB serial (``peers.json`` ``self.usb_serial``). After
+``adb connect`` the helper reads ``ro.serialno`` from the target and refuses, disconnecting,
+on a mismatch or an unreadable serial (#328). Over the ForceCommand key the arguments arrive
+in ``SSH_ORIGINAL_COMMAND``.
 
 Env:
   STAYTURGID_HS_JAR   local path to push (default ~/.stayturgid/lib/hs.jar)
@@ -19,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -104,6 +110,40 @@ def _ensure_connected(target: str, timeout: float = 20) -> None:
     if state == "offline":
         raise SystemExit("adb %s offline" % target)
     raise SystemExit("adb connect %s failed (state=%s): %s" % (target, state, (r.stdout or r.stderr or "").strip()))
+
+
+# A USB serial is alphanumeric plus a few separators; anything else is refused before adb runs.
+_SERIAL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}")
+
+
+def valid_serial(serial: str | None) -> bool:
+    return serial is not None and _SERIAL_RE.fullmatch(serial) is not None
+
+
+def verify_identity(target: str, serial: str | None) -> None:
+    """Exit unless the device at adb ``target`` reports ``ro.serialno == serial`` (fail closed).
+
+    An unknown serial, an unreadable serial and a mismatch all disconnect ``target`` (#328):
+    a drifted DHCP address may now answer for another phone. Mirrors the Mac-side
+    ``endpoint_identity_ok``. Runs for every peer-requested verb, before any of them acts.
+    """
+    if not valid_serial(serial):
+        _adb("disconnect", target, timeout=10)
+        raise SystemExit("refusing %s: no valid requester USB serial to identity-check it against" % target)
+    r = _adb("-s", target, "shell", "getprop", "ro.serialno", timeout=15)
+    found = (r.stdout or "").replace("\r", "").strip() if r.returncode == 0 else ""
+    if found == serial:
+        return
+    _adb("disconnect", target, timeout=10)
+    if found:
+        raise SystemExit("refusing %s: its ro.serialno is %r, expected %r" % (target, found, serial))
+    raise SystemExit("refusing %s: could not read ro.serialno to confirm it is %r" % (target, serial))
+
+
+def _identity_checked(target: str, serial: str | None) -> None:
+    """Connect to ``target`` and prove it is the requester before any verb touches it."""
+    _ensure_connected(target)
+    verify_identity(target, serial)
 
 
 def _shell(target: str, cmd: str, timeout: float = 30) -> subprocess.CompletedProcess:
@@ -229,7 +269,24 @@ def cmd_shizuku_start(target: str) -> int:
     return 1
 
 
+def _force_command_argv() -> list[str] | None:
+    """Arguments from ``SSH_ORIGINAL_COMMAND`` when run under the ForceCommand wrapper.
+
+    sshd sets it only for a forced command and the wrapper passes it as one quoted word, so it
+    is split here. A malformed value is denied rather than guessed at.
+    """
+    raw = os.environ.get("SSH_ORIGINAL_COMMAND")
+    if not raw:
+        return None
+    try:
+        return shlex.split(raw)
+    except ValueError:
+        raise SystemExit("denied: bad SSH_ORIGINAL_COMMAND")
+
+
 def main(argv=None) -> int:
+    if argv is None:
+        argv = _force_command_argv()
     argv = argv if argv is not None else sys.argv[1:]
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
@@ -238,12 +295,18 @@ def main(argv=None) -> int:
     )
     p.add_argument("--target", required=True, help="host:port of target adbd")
     p.add_argument(
+        "--serial",
+        required=True,
+        help="USB serial the target must report as ro.serialno (the requester's peers.json self.usb_serial)",
+    )
+    p.add_argument(
         "--port",
         type=int,
         default=int(os.environ.get("STAYTURGID_HANDSETS_PORT", "9012")),
         help="Handsets daemon port on target (default from STAYTURGID_HANDSETS_PORT, else 9012)",
     )
     args = p.parse_args(argv)
+    _identity_checked(args.target, args.serial)
     if args.verb == "ping":
         return cmd_ping(args.target)
     if args.verb == "status":

@@ -19,19 +19,36 @@ import stayturgid_peer_help as dph
 def test_ssh_original_parses_verb(monkeypatch):
     monkeypatch.setenv(
         "SSH_ORIGINAL_COMMAND",
-        "handsets-start --target 192.0.2.13:5555 --port 9012",
+        "handsets-start --target 192.0.2.13:5555 --serial HD8SERIAL1 --port 9012",
     )
     seen = {}
 
-    def fake(verb, target, port):
+    def fake(verb, target, port, serial):
         seen["v"] = verb
         seen["t"] = target
         seen["p"] = port
+        seen["s"] = serial
         return 0
 
     monkeypatch.setattr(fph, "run_verb", fake)
     assert fph.main([]) == 0
-    assert seen == {"v": "handsets-start", "t": "192.0.2.13:5555", "p": 9012}
+    assert seen == {"v": "handsets-start", "t": "192.0.2.13:5555", "p": 9012, "s": "HD8SERIAL1"}
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "handsets-start --target 192.0.2.13:5555 --port 9012",
+        "handsets-start --target 192.0.2.13:5555 --serial '' --port 9012",
+        "handsets-start --target 192.0.2.13:5555 --serial '-' --port 9012",
+        "handsets-start --target 192.0.2.13:5555 --serial 'a;b' --port 9012",
+    ],
+)
+def test_ssh_original_without_a_usable_serial_is_denied(monkeypatch, raw, capsys):
+    monkeypatch.setenv("SSH_ORIGINAL_COMMAND", raw)
+    monkeypatch.setattr(fph, "run_verb", lambda *a, **k: pytest.fail("must be denied before any verb"))
+    assert fph.main([]) == 1
+    assert "denied" in capsys.readouterr().err
 
 
 def test_ssh_original_denies_empty(monkeypatch):
