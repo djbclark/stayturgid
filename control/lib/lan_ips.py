@@ -35,7 +35,10 @@ fails the key check instead of trusting whatever answers.
 
 from __future__ import annotations
 
+import base64
 import datetime
+import hashlib
+import hmac
 import ipaddress
 import json
 import os
@@ -134,7 +137,7 @@ def held_by_others(ips: dict[str, str], name: str) -> set[str]:
 
 def _strict_lines(body: list[str]) -> list[str]:
     """Body lines with one ``StrictHostKeyChecking yes`` (replacing any other value)."""
-    kept = [b for b in body if not re.match(r"^\s*StrictHostKeyChecking\s", b)]
+    kept = [b for b in body if not re.match(r"^\s*StrictHostKeyChecking(\s|=)", b, re.I)]
     return [*kept, "  StrictHostKeyChecking yes"]
 
 
@@ -171,7 +174,12 @@ def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
         ip = ips.get(name)
         if ip is None:
             current = next(
-                (re.match(r"^\s*HostName\s+(\S+)", b) for b in block if re.match(r"^\s*HostName\s", b)), None
+                (
+                    re.match(r"^\s*HostName(?:\s+|\s*=\s*)(\S+)", b, re.I)
+                    for b in block
+                    if re.match(r"^\s*HostName(\s|=)", b, re.I)
+                ),
+                None,
             )
             if current and current.group(1) in held_by_others(ips, name):
                 i = j
@@ -179,8 +187,11 @@ def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
         body = block
         if ip:
             new_ip = ip
-            body = [re.sub(r"^(\s*HostName\s+)\S+", lambda mm: mm.group(1) + new_ip, b) for b in block]
-        has_alias = any(re.match(r"^\s*HostKeyAlias\s", b) for b in body)
+            body = [
+                re.sub(r"^(\s*HostName(?:\s+|\s*=\s*))\S+", lambda mm: mm.group(1) + new_ip, b, flags=re.I)
+                for b in block
+            ]
+        has_alias = any(re.match(r"^\s*HostKeyAlias(\s|=)", b, re.I) for b in body)
         if not has_alias:
             body = [*body, "  HostKeyAlias %s" % name]
         out.append(line)
@@ -197,7 +208,7 @@ def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
         source = next((body for patterns, body in blocks if name in patterns), None)
         if source is None:
             continue
-        keep = [b for b in source if not re.match(r"^\s*(HostName|HostKeyAlias)\s", b)]
+        keep = [b for b in source if not re.match(r"^\s*(HostName|HostKeyAlias)(\s|=)", b, re.I)]
         body = ["  HostName %s" % ip, "  HostKeyAlias %s" % name, *keep]
         extra.append("\n".join(["Host %s-lan" % name, *_strict_lines(body)]) + "\n")
     if extra:
@@ -227,56 +238,92 @@ def rewrite_devices_conf(text: str, ips: dict[str, str]) -> str:
 _KEY_LINE = re.compile(r"^(?P<hosts>\S+)\s+(?P<type>(?:ssh|ecdsa|sk)-\S+)\s+(?P<key>\S+)")
 
 
+def _names_host(hosts: str, name: str) -> bool:
+    """Whether a known_hosts host field names ``name`` (plain list entry or ``|1|`` hash)."""
+    if hosts.startswith("|1|"):
+        try:
+            _, _, salt, digest = hosts.split("|")
+            mac = hmac.new(base64.b64decode(salt), name.encode(), hashlib.sha1).digest()
+            return hmac.compare_digest(mac, base64.b64decode(digest))
+        except (ValueError, TypeError):
+            return False
+    return name in hosts.split(",")
+
+
+def _without_name(line: str, name: str) -> str | None:
+    """``line`` minus ``name``: None when nothing else is left on the line."""
+    km = _KEY_LINE.match(line)
+    if not km or "|" in km.group("hosts")[:1]:
+        return None
+    rest = [h for h in km.group("hosts").split(",") if h != name]
+    return ",".join(rest) + line[len(km.group("hosts")) :] if rest else None
+
+
 def pin_known_hosts(ssh_text: str, known_hosts_path: str = KNOWN_HOSTS, report=None) -> list[str]:
-    """Give each ``<name>-lan`` HostKeyAlias the host keys already trusted for the device.
+    """Make each ``<name>-lan`` HostKeyAlias trust exactly the keys trusted for the device.
 
     The ``Host <name> <ip>`` block says which ``[ip]:port`` entry in
-    ``known_hosts`` the Tailscale deploy scanned and trusted; copy its keys to
-    a ``<name>`` entry (what ``HostKeyAlias <name>`` looks up). An alias entry
-    with a different key of the same type is replaced: the Tailscale entry is
-    the authenticated one. Hashed or missing source entries change nothing
-    (the connection then fails closed, or the CA host certificate validates
-    it). Returns the aliases changed.
+    ``known_hosts`` the Tailscale deploy scanned and trusted. The ``<name>``
+    alias (what ``HostKeyAlias <name>`` looks up) is made to hold those keys and
+    nothing else: every other line naming the alias is removed whatever its key
+    type and also when hashed (an address DHCP handed to another phone left
+    that phone's keys there under the old accept-new setting), then the trusted
+    keys are appended. With no trusted entry to copy (missing or hashed) the
+    alias entries are removed too, so the strict check fails closed; the CA host
+    certificate (principal ``<name>``) still validates. Marker lines
+    (``@cert-authority``, ``@revoked``) are never touched. Returns the aliases
+    changed.
     """
-    try:
-        with open(known_hosts_path) as f:
-            old = f.read()
-    except OSError:
-        return []
-    trusted: dict[str, dict[str, str]] = {}
-    for patterns, body in _host_blocks(ssh_text):
-        if len(patterns) != 2 or patterns[0].endswith(("-lan", "-firerpa")):
-            continue
-        name, ip = patterns
-        port = next((m.group(1) for b in body if (m := re.match(r"^\s*Port\s+(\d+)", b))), "22")
-        source = "[%s]:%s" % (ip, port) if port != "22" else ip
-        for line in old.splitlines():
-            km = _KEY_LINE.match(line)
-            if km and source in km.group("hosts").split(","):
-                trusted.setdefault(name, {}).setdefault(km.group("type"), km.group("key"))
-    lines = old.splitlines()
-    changed: list[str] = []
-    for name, keys in sorted(trusted.items()):
-        for ktype, key in sorted(keys.items()):
-            have = [
-                (idx, km)
-                for idx, line in enumerate(lines)
-                if (km := _KEY_LINE.match(line)) and name in km.group("hosts").split(",") and km.group("type") == ktype
-            ]
-            if any(km.group("key") == key for _, km in have):
+    changed: set[str] = set()
+
+    def transform(old: str) -> str:
+        lines = old.splitlines()
+        plain = [(line, _KEY_LINE.match(line)) for line in lines]
+        trusted: dict[str, dict[str, str]] = {}
+        for patterns, body in _host_blocks(ssh_text):
+            if len(patterns) != 2 or patterns[0].endswith(("-lan", "-firerpa")):
                 continue
-            for idx, _ in reversed(have):
-                del lines[idx]
-            lines.append("%s %s %s" % (name, ktype, key))
-            changed.append(name)
-            if report:
-                report("host key pinned for %s (%s)%s" % (name, ktype, ", replaced a different key" if have else ""))
-    if changed:
-        _atomic_rewrite(known_hosts_path, lambda _t: "\n".join(lines) + "\n")
-    return sorted(set(changed))
+            name, ip = patterns
+            port = next((m.group(1) for b in body if (m := re.match(r"^\s*Port\s+(\d+)", b))), "22")
+            source = "[%s]:%s" % (ip, port) if port != "22" else ip
+            keys = trusted.setdefault(name, {})
+            for _line, km in plain:
+                if km and source in km.group("hosts").split(","):
+                    keys.setdefault(km.group("type"), km.group("key"))
+        for name, keys in sorted(trusted.items()):
+            kept: list[str] = []
+            have: set[tuple[str, str]] = set()
+            for line, km in [(ln, _KEY_LINE.match(ln)) for ln in lines]:
+                if not km or not _names_host(km.group("hosts"), name):
+                    kept.append(line)
+                    continue
+                if keys.get(km.group("type")) == km.group("key") and km.group("hosts") == name:
+                    kept.append(line)  # already the trusted key under the bare alias
+                    have.add((km.group("type"), km.group("key")))
+                    continue
+                rest = _without_name(line, name)
+                if rest is not None:
+                    kept.append(rest)
+                changed.add(name)
+                if report:
+                    report(
+                        "host key under alias %s (%s) removed: not the Tailscale-trusted key" % (name, km.group("type"))
+                    )
+            for ktype, key in sorted(keys.items()):
+                if (ktype, key) not in have:
+                    kept.append("%s %s %s" % (name, ktype, key))
+                    changed.add(name)
+                    if report:
+                        report("host key pinned for %s (%s)" % (name, ktype))
+            lines = kept
+        return "\n".join(lines) + "\n" if changed else old
+
+    _atomic_rewrite(known_hosts_path, transform)
+    return sorted(changed)
 
 
 def _atomic_rewrite(path: str, transform) -> bool:
+    path = os.path.realpath(path)  # keep a symlinked file (dotfiles) a symlink
     try:
         with open(path) as f:
             old = f.read()

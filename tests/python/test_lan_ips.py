@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 import datetime
+import hashlib
+import hmac
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -345,20 +349,70 @@ def test_pin_known_hosts_copies_the_tailscale_key_to_the_alias(tmp_path):
     assert kh.read_text() == text
 
 
-def test_pin_known_hosts_replaces_a_different_alias_key_and_ignores_unknown_hosts(tmp_path):
+def _hashed(name: str, ktype: str, key: str) -> str:
+    salt = b"0123456789abcdefghij"
+    mac = hmac.new(salt, name.encode(), hashlib.sha1).digest()
+    return "|1|%s|%s %s %s" % (base64.b64encode(salt).decode(), base64.b64encode(mac).decode(), ktype, key)
+
+
+def test_pin_known_hosts_makes_the_alias_hold_exactly_the_trusted_keys(tmp_path):
     kh = tmp_path / "known_hosts"
     kh.write_text(
-        "hd8 ssh-ed25519 %s\n[100.124.55.39]:8022 ssh-ed25519 %s\n|1|abc|def ssh-ed25519 %s\n"
-        % (_KEY_B, _KEY_A, _KEY_B)
+        "\n".join(
+            [
+                "@cert-authority * ssh-ed25519 CAKEY stayturgid-ca",
+                "hd8 ssh-ed25519 %s" % _KEY_B,  # another phone's key, same type
+                "hd8 ssh-ed25519 %s" % _KEY_A,  # a duplicate next to the right one
+                "hd8 ecdsa-sha2-nistp256 %s" % _KEY_B,  # another key type nobody scanned
+                _hashed("hd8", "ssh-ed25519", _KEY_B),  # accept-new under HashKnownHosts
+                _hashed("t2e", "ssh-ed25519", _KEY_B),  # someone else's hashed line stays
+                "hd8,otherhost ssh-ed25519 %s" % _KEY_B,  # list entry: only the alias goes
+                "[100.124.55.39]:8022 ssh-ed25519 %s" % _KEY_A,
+                "unrelated ssh-ed25519 %s" % _KEY_B,
+            ]
+        )
+        + "\n"
     )
     assert lan_ips.pin_known_hosts(_FRAG, str(kh)) == ["hd8"]
     lines = kh.read_text().splitlines()
-    assert "hd8 ssh-ed25519 %s" % _KEY_A in lines and "hd8 ssh-ed25519 %s" % _KEY_B not in lines
-    assert any(ln.startswith("|1|abc|def") for ln in lines)
-    # No Tailscale entry to copy from: the alias stays as it is (the strict check then fails closed).
-    kh.write_text("somewhere-else ssh-ed25519 %s\n" % _KEY_A)
-    assert lan_ips.pin_known_hosts(_FRAG, str(kh)) == []
+    assert [ln for ln in lines if ln.split()[0] == "hd8"] == ["hd8 ssh-ed25519 %s" % _KEY_A]
+    assert not any("ecdsa" in ln for ln in lines)
+    assert _hashed("hd8", "ssh-ed25519", _KEY_B) not in lines
+    assert _hashed("t2e", "ssh-ed25519", _KEY_B) in lines
+    assert "otherhost ssh-ed25519 %s" % _KEY_B in lines
+    assert "@cert-authority * ssh-ed25519 CAKEY stayturgid-ca" in lines
+    assert "[100.124.55.39]:8022 ssh-ed25519 %s" % _KEY_A in lines
+    assert "unrelated ssh-ed25519 %s" % _KEY_B in lines
+    again = kh.read_text()
+    assert lan_ips.pin_known_hosts(_FRAG, str(kh)) == [] and kh.read_text() == again
+
+
+def test_pin_known_hosts_removes_alias_entries_it_cannot_confirm(tmp_path):
+    kh = tmp_path / "known_hosts"
+    kh.write_text("somewhere-else ssh-ed25519 %s\nhd8 ssh-ed25519 %s\n" % (_KEY_A, _KEY_B))
+    assert lan_ips.pin_known_hosts(_FRAG, str(kh)) == ["hd8"]  # no Tailscale entry: fail closed
+    assert kh.read_text() == "somewhere-else ssh-ed25519 %s\n" % _KEY_A
     assert lan_ips.pin_known_hosts(_FRAG, str(tmp_path / "missing")) == []
+    # A device without a Host block keeps its alias lines (nothing says what is trusted).
+    kh.write_text("ghost ssh-ed25519 %s\n" % _KEY_B)
+    assert lan_ips.pin_known_hosts(_FRAG, str(kh)) == [] and "ghost" in kh.read_text()
+
+
+def test_pin_known_hosts_keeps_a_symlinked_known_hosts_a_symlink(tmp_path):
+    real = tmp_path / "dotfiles_known_hosts"
+    real.write_text("[100.124.55.39]:8022 ssh-ed25519 %s\n" % _KEY_A)
+    link = tmp_path / "known_hosts"
+    link.symlink_to(real)
+    assert lan_ips.pin_known_hosts(_FRAG, str(link)) == ["hd8"]
+    assert link.is_symlink() and "hd8 ssh-ed25519 %s" % _KEY_A in real.read_text()
+
+
+def test_ssh_config_rewrite_handles_equals_and_lowercase_keywords():
+    text = "Host t2e-lan\n  hostname=192.168.68.63\n  stricthostkeychecking=accept-new\n  Port 8022\n"
+    out = lan_ips.rewrite_ssh_config(text, {"t2e": "192.168.68.62"})
+    block = out.split("Host t2e-lan\n")[1].lower()
+    assert "192.168.68.62" in block and "accept-new" not in block and "stricthostkeychecking yes" in block
+    assert "192.168.68.63" not in out and "HostKeyAlias t2e" in out
 
 
 def test_deploy_pins_the_alias_key_from_the_tailscale_scan():
@@ -366,6 +420,29 @@ def test_deploy_pins_the_alias_key_from_the_tailscale_scan():
     names = [t.get("name", "") for t in tasks]
     pin = next(t for t in tasks if t.get("name", "").startswith("Pin fleet SSH host keys under each device alias"))
     assert names.index("Trust fleet SSH host keys on Mac (ansible.builtin.known_hosts)") < names.index(pin["name"])
+    drop = next(
+        t for t in tasks if t.get("name", "").startswith("Drop every known_hosts line under each scanned device alias")
+    )
+    assert names.index(drop["name"]) < names.index(pin["name"])
+    assert (
+        drop["ansible.builtin.known_hosts"]["state"] == "absent"
+        and drop["ansible.builtin.known_hosts"]["name"] == "{{ item.item }}"
+    )
     args = pin["ansible.builtin.known_hosts"]
     assert args["name"] == "{{ item.item }}" and args["state"] == "present"
     assert "regex_replace" in args["key"]
+
+
+def test_deploy_pin_task_key_expression_rewrites_the_scanned_host_field():
+    tasks = yaml.safe_load((REPO / "ansible/roles/control_node/tasks/agents.yml").read_text())
+    pin = next(t for t in tasks if t.get("name", "").startswith("Pin fleet SSH host keys under each device alias"))
+    env = jinja2.Environment()
+    env.filters["regex_replace"] = lambda v, pat, repl: re.sub(pat, repl, v)
+    env.tests["match"] = lambda v, pat: re.match(pat, v) is not None
+    env.filters["select"] = lambda seq, test, *a: [x for x in seq if env.tests[test](x, *a)]
+    item = {
+        "item": "hd8",
+        "stdout_lines": ["# 100.124.55.39:8022 SSH-2.0-x", "[100.124.55.39]:8022 ssh-ed25519 %s" % _KEY_A],
+    }
+    out = env.from_string(pin["ansible.builtin.known_hosts"]["key"]).render(item=item)
+    assert out == "hd8 ssh-ed25519 %s" % _KEY_A
