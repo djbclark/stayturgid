@@ -2,6 +2,12 @@
 
 ## Unreleased (galaxy.yml still says 1.5.0; recorded 2026-10-09 from git history)
 
+- Add `device_quirks` role (2026-11-20): reads each `stayturgid_device_quirks` item over adb,
+  applies only the ones that differ, reads them back and fails on a mismatch; healing ID
+  `DEVICE-QUIRKS`. First data: `model_idea_tab_11` (rotation lock, ZUI memory cleaner, Doze
+  whitelist, phantom-process limits).
+- `adb_device` lookup: a host missing from `devices.conf` resolves to its inventory
+  `device_usb_serial` (2026-11-20).
 - Remove the legacy project-deploy module and its util (87bf130, 2026-07-31, #162).
 - Add `native_agent_config` module (a9e07ce, 2026-07-26).
 - Add `shizuku_start` module and `bootstrap_apks` role (2026-07-13).

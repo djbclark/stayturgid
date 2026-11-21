@@ -23,6 +23,7 @@ as a dependency of `stayturgid.termux` or `stayturgid.play`.
 | `module`       | `shizuku_start`          | Start Shizuku over ADB and apply the fleet profile            |
 | `role`         | `bootstrap_apks`         | Release-locked, checksummed bootstrap APK install over ADB    |
 | `role`         | `app_privileges`         | Battery, unused-app and runtime grants for fleet apps         |
+| `role`         | `device_quirks`          | Per-model adb settings: get, expect, set, read back           |
 | `role`         | `ensure_apps`            | play/apk dispatch                                             |
 | `role`         | `tailscale_vpn`          | Always-on VPN via `android_settings`                          |
 
