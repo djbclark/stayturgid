@@ -1125,3 +1125,173 @@ def test_gh_latest_pin_to_cache_false_still_asks_github(mocker, tmp_path, monkey
     out, _downloads, seen = _run_pinned(mocker, tmp_path, monkeypatch, remembered=True, pin=False)
     assert any("api repos/termux/termux-x11/releases" in c for c in seen)
     assert any("using cached fleet-tag" in w for w in out["_warnings"])
+
+
+# gh_tag_prefix / gh_skip_prereleases ---------------------------------------------------------
+
+
+def _rel(tag, asset, digest, prerelease=False, draft=False):
+    return {
+        "tag_name": tag,
+        "draft": draft,
+        "prerelease": prerelease,
+        "assets": [{"name": asset, "digest": digest}] if asset else [],
+    }
+
+
+def test_select_gh_release_without_filters_takes_the_first_published_release():
+    releases = [
+        _rel("d", None, None, draft=True),
+        _rel("agent-ci-1", None, None, prerelease=True),
+        _rel("agent-r5", None, None),
+    ]
+    assert mod.select_gh_release(releases)["tag_name"] == "agent-ci-1"
+
+
+def test_select_gh_release_prefix_skips_other_tag_families():
+    releases = [
+        _rel("agent-ci-0.9-ab", None, None, prerelease=True),
+        _rel("agent-v0.9.19", None, None),
+        _rel("agent-r40", None, None),
+        _rel("agent-r39", None, None),
+    ]
+    assert mod.select_gh_release(releases, tag_prefix="agent-r")["tag_name"] == "agent-r40"
+    assert mod.select_gh_release(releases, tag_prefix="nope-") is None
+
+
+def test_select_gh_release_can_skip_prereleases():
+    releases = [_rel("v0.119.0-beta.3", None, None, prerelease=True), _rel("v0.118.3", None, None)]
+    assert mod.select_gh_release(releases)["tag_name"] == "v0.119.0-beta.3"
+    assert mod.select_gh_release(releases, skip_prereleases=True)["tag_name"] == "v0.118.3"
+
+
+def test_gh_memory_key_is_unchanged_without_filters_and_distinct_with_them():
+    plain = mod._gh_memory_path("o/r", "a.apk")
+    assert plain == mod._gh_memory_path("o/r", "a.apk", None, False)
+    assert mod._gh_memory_path("o/r", "a.apk", "agent-r") != plain
+    assert mod._gh_memory_path("o/r", "a.apk", "agent-r") != mod._gh_memory_path("o/r", "a.apk", "agent-v")
+    assert mod._gh_memory_path("o/r", "a.apk", None, True) != plain
+
+
+def _run_prefixed(mocker, tmp_path, monkeypatch, releases, device_sha="0" * 64, **extra):
+    monkeypatch.setattr(mod, "APK_CACHE_DIR", str(tmp_path / "cache"))
+    downloads = []
+
+    def fake_download(module, repo, pattern, tag):
+        downloads.append((repo, pattern, tag))
+        path = tmp_path / "dl.apk"
+        path.write_bytes(b"PK")
+        return str(path)
+
+    monkeypatch.setattr(mod, "download_gh_release", fake_download)
+    seen = []
+
+    def command_fn(cmd):
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        seen.append(joined)
+        if "api repos/djbclark/stayturgid/releases" in joined:
+            return (0, json.dumps(releases), "")
+        if "pm list packages" in joined:
+            return (0, "package:org.stayturgid.agent\n", "")
+        if "pm path" in joined:
+            return (0, "package:/data/app/~~x/org.stayturgid.agent-y/base.apk\n", "")
+        if "sha256sum" in joined:
+            return (0, "%s  /data/app/~~x/org.stayturgid.agent-y/base.apk\n" % device_sha, "")
+        if " install" in joined:
+            return (0, "Success\n", "")
+        return (0, "", "")
+
+    args = dict(
+        device="dev",
+        package="org.stayturgid.agent",
+        gh_repo="djbclark/stayturgid",
+        gh_latest=True,
+        gh_pattern="app-release.apk",
+        connect=False,
+        **extra,
+    )
+    return run_module(mocker, args, command_fn=command_fn), downloads, seen
+
+
+def test_gh_latest_tag_prefix_installs_the_newest_matching_release_not_the_newest_release(
+    mocker, tmp_path, monkeypatch
+):
+    digest = "sha256:" + sha256(b"PK").hexdigest()
+    releases = [
+        _rel("agent-ci-0.9.19-cdd76c47", "stayturgid-agent-0.9.19-release-unsigned.apk", digest, prerelease=True),
+        _rel("agent-r102", "app-release.apk", digest),
+        _rel("agent-v0.9.19", "app-release.apk", digest),
+    ]
+    out, downloads, seen = _run_prefixed(mocker, tmp_path, monkeypatch, releases, gh_tag_prefix="agent-r")
+    assert out.get("failed") is not True, out
+    assert out["changed"] is True
+    assert downloads == [("djbclark/stayturgid", "app-release.apk", "agent-r102")]
+    assert any("per_page=100" in c for c in seen)
+
+
+def test_gh_latest_without_tag_prefix_trips_on_the_unsigned_prerelease(mocker, tmp_path, monkeypatch):
+    digest = "sha256:" + sha256(b"PK").hexdigest()
+    releases = [
+        _rel("agent-ci-0.9.19-cdd76c47", "stayturgid-agent-0.9.19-release-unsigned.apk", digest, prerelease=True)
+    ]
+    out, _downloads, _seen = _run_prefixed(mocker, tmp_path, monkeypatch, releases)
+    assert out["failed"] is True
+    assert "expected 1" in out["msg"]
+
+
+def test_gh_latest_tag_prefix_with_no_such_release_fails_naming_the_prefix(mocker, tmp_path, monkeypatch):
+    out, downloads, _seen = _run_prefixed(
+        mocker, tmp_path, monkeypatch, [_rel("agent-v0.9.19", "app-release.apk", None)], gh_tag_prefix="agent-r"
+    )
+    assert out["failed"] is True
+    assert "tag prefix 'agent-r'" in out["msg"]
+    assert downloads == []
+
+
+def test_gh_latest_skip_prereleases_ignores_a_newer_beta(mocker, tmp_path, monkeypatch):
+    digest = "sha256:" + sha256(b"PK").hexdigest()
+    releases = [_rel("v2-beta", "app-release.apk", digest, prerelease=True), _rel("v1", "app-release.apk", digest)]
+    out, downloads, _seen = _run_prefixed(mocker, tmp_path, monkeypatch, releases, gh_skip_prereleases=True)
+    assert out.get("failed") is not True, out
+    assert downloads == [("djbclark/stayturgid", "app-release.apk", "v1")]
+
+
+def test_gh_latest_prefix_release_is_remembered_under_the_prefix_key(mocker, tmp_path, monkeypatch):
+    digest = sha256(b"PK").hexdigest()
+    _run_prefixed(
+        mocker,
+        tmp_path,
+        monkeypatch,
+        [_rel("agent-r7", "app-release.apk", "sha256:" + digest)],
+        gh_tag_prefix="agent-r",
+    )
+    assert mod._read_gh_memory("djbclark/stayturgid", "app-release.apk", "agent-r") == ("agent-r7", digest)
+    assert mod._read_gh_memory("djbclark/stayturgid", "app-release.apk") is None
+
+
+def test_gh_latest_prefix_outage_recalls_only_the_same_prefix(mocker, tmp_path, monkeypatch):
+    cache = tmp_path / "cache"
+    monkeypatch.setattr(mod, "APK_CACHE_DIR", str(cache))
+    cache.mkdir()
+    digest = sha256(b"PK").hexdigest()
+    (cache / (digest + ".apk")).write_bytes(b"PK")
+    mod._remember_gh_release("o/r", "a.apk", "agent-r9", digest, "agent-r")
+    assert mod._recall_gh_release("o/r", "a.apk", "agent-r") == ("agent-r9", digest)
+    assert mod._recall_gh_release("o/r", "a.apk", "agent-v") is None
+    assert mod._recall_gh_release("o/r", "a.apk") is None
+
+
+def test_gh_latest_prefix_pin_to_cache_uses_the_prefix_memory(mocker, tmp_path, monkeypatch):
+    out, downloads, seen = _run_prefixed(
+        mocker, tmp_path, monkeypatch, [], gh_tag_prefix="agent-r", gh_latest_pin_to_cache=True
+    )
+    assert out["failed"] is True
+    assert "no release remembered" in out["msg"]
+    assert not any("api repos/" in c for c in seen)
+
+
+def test_gh_tag_prefix_without_gh_latest_is_refused(mocker):
+    out = run_module(
+        mocker, dict(device="dev", package="p", gh_repo="o/r", gh_tag="v1", gh_tag_prefix="v", connect=False)
+    )
+    assert out["failed"] is True
