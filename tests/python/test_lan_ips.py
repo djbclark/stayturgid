@@ -446,3 +446,38 @@ def test_deploy_pin_task_key_expression_rewrites_the_scanned_host_field():
     }
     out = env.from_string(pin["ansible.builtin.known_hosts"]["key"]).render(item=item)
     assert out == "hd8 ssh-ed25519 %s" % _KEY_A
+
+
+def test_refresh_pins_the_alias_end_to_end_and_never_uses_the_real_known_hosts(tmp_path, monkeypatch):
+    assert lan_ips.KNOWN_HOSTS == str(tmp_path / "known_hosts")  # conftest redirect
+    state = tmp_path / "state" / "lan_ips.json"
+    state.parent.mkdir()
+    ssh, conf, kh = tmp_path / "ssh", tmp_path / "devices.conf", tmp_path / "kh"
+    ssh.write_text(_FRAG)
+    conf.write_text("hd8 GN43 100.124.55.39 192.168.1.50 Kindle -\n")
+    kh.write_text("[100.124.55.39]:8022 ssh-ed25519 %s\nhd8 ssh-ed25519 %s\n" % (_KEY_A, _KEY_B))
+    monkeypatch.setattr(lan_ips, "discover", lambda devices, adb="adb": {"hd8": ("192.168.1.50", "adb")})
+    said = []
+    lan_ips.refresh(
+        [("hd8", "100.124.55.39")], str(state), str(ssh), str(conf), known_hosts_path=str(kh), report=said.append
+    )
+    assert kh.read_text().splitlines() == [
+        "[100.124.55.39]:8022 ssh-ed25519 %s" % _KEY_A,
+        "hd8 ssh-ed25519 %s" % _KEY_A,
+    ]
+    assert said and not (tmp_path / "known_hosts").exists()
+
+
+def test_pin_known_hosts_also_removes_indented_uppercase_and_wildcard_alias_lines(tmp_path):
+    kh = tmp_path / "known_hosts"
+    kh.write_text(
+        "[100.124.55.39]:8022 ssh-ed25519 %s\n  hd8 ssh-ed25519 %s\nHD8 ssh-ed25519 %s\nhd? ssh-ed25519 %s\n"
+        "hd*,other ssh-ed25519 %s\nm11 ssh-ed25519 %s\n" % (_KEY_A, _KEY_B, _KEY_B, _KEY_B, _KEY_B, _KEY_B)
+    )
+    frag = _FRAG.replace("Port 8022", "port=8022")
+    assert lan_ips.pin_known_hosts(frag, str(kh)) == ["hd8"]
+    lines = kh.read_text().splitlines()
+    assert "hd8 ssh-ed25519 %s" % _KEY_A in lines and "m11 ssh-ed25519 %s" % _KEY_B in lines
+    assert "other ssh-ed25519 %s" % _KEY_B in lines
+    assert not any(ln.split()[0].lower() in ("hd8", "hd?") for ln in lines if "ssh-ed25519 %s" % _KEY_B in ln)
+    assert len(lines) == 4  # SRC, other, m11, pinned alias

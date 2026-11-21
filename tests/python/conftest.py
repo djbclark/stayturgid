@@ -86,6 +86,20 @@ def _stats_dir(tmp_path, monkeypatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _known_hosts_file(tmp_path, monkeypatch) -> None:
+    """Point control/lib/lan_ips.py at a per-test known_hosts file.
+
+    lan_ips.refresh() pins host keys in the operator's real ~/.ssh/known_hosts
+    unless told otherwise (adversary M-2, 2026-11-21): a test must never read or
+    rewrite that trust store. Both module spellings are patched, as above.
+    """
+    import importlib
+
+    for name in ("lan_ips", "control.lib.lan_ips"):
+        monkeypatch.setattr(importlib.import_module(name), "KNOWN_HOSTS", str(tmp_path / "known_hosts"))
+
+
+@pytest.fixture(autouse=True)
 def _secretspec_boundary_present(monkeypatch) -> Iterator[None]:
     """Pin secretspec_exec to the privilege-separated boundary path.
 

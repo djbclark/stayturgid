@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import base64
 import datetime
+import fnmatch
 import hashlib
 import hmac
 import ipaddress
@@ -235,7 +236,7 @@ def rewrite_devices_conf(text: str, ips: dict[str, str]) -> str:
     return "".join(out)
 
 
-_KEY_LINE = re.compile(r"^(?P<hosts>\S+)\s+(?P<type>(?:ssh|ecdsa|sk)-\S+)\s+(?P<key>\S+)")
+_KEY_LINE = re.compile(r"^\s*(?P<hosts>\S+)\s+(?P<type>(?:ssh|ecdsa|sk)-\S+)\s+(?P<key>\S+)")
 
 
 def _names_host(hosts: str, name: str) -> bool:
@@ -247,7 +248,11 @@ def _names_host(hosts: str, name: str) -> bool:
             return hmac.compare_digest(mac, base64.b64decode(digest))
         except (ValueError, TypeError):
             return False
-    return name in hosts.split(",")
+    wanted = name.lower()
+    entries = [h.lower() for h in hosts.split(",")]
+    if any(h.startswith("!") and fnmatch.fnmatchcase(wanted, h[1:]) for h in entries):
+        return False
+    return any(not h.startswith("!") and fnmatch.fnmatchcase(wanted, h) for h in entries)
 
 
 def _without_name(line: str, name: str) -> str | None:
@@ -255,11 +260,11 @@ def _without_name(line: str, name: str) -> str | None:
     km = _KEY_LINE.match(line)
     if not km or "|" in km.group("hosts")[:1]:
         return None
-    rest = [h for h in km.group("hosts").split(",") if h != name]
-    return ",".join(rest) + line[len(km.group("hosts")) :] if rest else None
+    rest = [h for h in km.group("hosts").split(",") if not _names_host(h, name)]
+    return line[: km.start("hosts")] + ",".join(rest) + line[km.end("hosts") :] if rest else None
 
 
-def pin_known_hosts(ssh_text: str, known_hosts_path: str = KNOWN_HOSTS, report=None) -> list[str]:
+def pin_known_hosts(ssh_text: str, known_hosts_path: str | None = None, report=None) -> list[str]:
     """Make each ``<name>-lan`` HostKeyAlias trust exactly the keys trusted for the device.
 
     The ``Host <name> <ip>`` block says which ``[ip]:port`` entry in
@@ -277,14 +282,16 @@ def pin_known_hosts(ssh_text: str, known_hosts_path: str = KNOWN_HOSTS, report=N
     changed: set[str] = set()
 
     def transform(old: str) -> str:
-        lines = old.splitlines()
+        lines = old.split("\n")
+        if lines and lines[-1] == "":
+            lines.pop()
         plain = [(line, _KEY_LINE.match(line)) for line in lines]
         trusted: dict[str, dict[str, str]] = {}
         for patterns, body in _host_blocks(ssh_text):
             if len(patterns) != 2 or patterns[0].endswith(("-lan", "-firerpa")):
                 continue
             name, ip = patterns
-            port = next((m.group(1) for b in body if (m := re.match(r"^\s*Port\s+(\d+)", b))), "22")
+            port = next((m.group(1) for b in body if (m := re.match(r"^\s*Port(?:\s+|\s*=\s*)(\d+)", b, re.I))), "22")
             source = "[%s]:%s" % (ip, port) if port != "22" else ip
             keys = trusted.setdefault(name, {})
             for _line, km in plain:
@@ -318,7 +325,7 @@ def pin_known_hosts(ssh_text: str, known_hosts_path: str = KNOWN_HOSTS, report=N
             lines = kept
         return "\n".join(lines) + "\n" if changed else old
 
-    _atomic_rewrite(known_hosts_path, transform)
+    _atomic_rewrite(known_hosts_path or KNOWN_HOSTS, transform)
     return sorted(changed)
 
 
