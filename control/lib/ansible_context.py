@@ -160,15 +160,23 @@ def resolve_ansible_context(
     return context
 
 
-def resolved_env(repo_root: Path, environ: Mapping[str, str] | None = None) -> dict[str, str]:
+def resolved_env(
+    repo_root: Path,
+    environ: Mapping[str, str] | None = None,
+    *,
+    context: AnsibleContext | None = None,
+) -> dict[str, str]:
     """Return a subprocess environment pinned to the resolved Ansible context.
 
     Shared by every fleet entry point so no script can silently substitute the
-    upstream config for the caller's selected site configuration.
+    upstream config for the caller's selected site configuration. A caller that
+    already holds the resolved *context* passes it so the selection is neither
+    resolved nor announced twice.
     """
 
     env = dict(os.environ if environ is None else environ)
-    context = resolve_ansible_context(repo_root, env)
+    if context is None:
+        context = resolve_ansible_context(repo_root, env)
     env["ANSIBLE_CONFIG"] = str(context.config)
     env["STAYTURGID_ROOT"] = str(repo_root)
     # Site configs intentionally contain no checkout-specific product paths.
