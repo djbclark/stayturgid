@@ -20,8 +20,8 @@ name: stayturgid-agent release
 #     publishes only the file with that digest. Jobs run scripts/ci/agent_release.py and first-party actions pinned by
 #     commit; none of them runs Gradle. A crafted APK that exploits apksigner itself in `sign` could
 #     still reach the key there: that is the one parser of untrusted bytes that holds it.
-#   - Tag rulesets on `agent-r*` (device/native-agent/README.md) restrict who creates those tags (Actions
-#     tokens and admins) and let nobody move or delete them.
+#   - A tag ruleset on `agent-r*` (device/native-agent/README.md) lets nobody move or delete those tags;
+#     it cannot restrict who creates them (GitHub allows the Actions bypass only in org-owned repos).
 #   - Phones do not trust this workflow alone: bootstrap_apks installs an agent-r* release only if
 #     its signer is the fleet certificate (signer_sha256) and its package is org.stayturgid.agent.
 #   - Dispatch with sign=false (just agent-ci-run) builds and tests any branch and uploads the
