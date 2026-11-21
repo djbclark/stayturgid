@@ -12,6 +12,7 @@ __metaclass__ = type
 import os
 import re
 import socket
+import sys
 
 DEFAULT_DEVICES_CONF = os.path.expanduser("~/.config/stayturgid/devices.conf")
 
@@ -157,12 +158,61 @@ def match_usb_serial(run_command, usb_serial, devices, timeout=DEFAULT_FAST_TIME
     return sorted(matches, key=transport_rank)[0]
 
 
+def usb_serial_known(usb_serial):
+    return bool(usb_serial) and usb_serial != "-"
+
+
+def endpoint_serial(run_command, endpoint, timeout=DEFAULT_FAST_TIMEOUT):
+    """``ro.serialno`` reported by the device behind an adb endpoint, or "" if unreadable."""
+    rc, out, _err = run_command_with_timeout(
+        run_command,
+        ["adb", "-s", endpoint, "shell", "getprop", "ro.serialno"],
+        timeout=timeout,
+    )
+    return normalize_adb_output(out) if rc == 0 else ""
+
+
+def _report_identity_mismatch(message):
+    sys.stderr.write("adb_resolve: %s\n" % message)
+
+
+def endpoint_identity_ok(run_command, endpoint, usb_serial, timeout=DEFAULT_FAST_TIMEOUT, report=None):
+    """True when the device at ``endpoint`` is the one the inventory means.
+
+    LAN addresses come from DHCP and drift: today's address for one phone may
+    be another phone's tomorrow (hd8's stale .157 now belongs to m11), and
+    ``adb connect`` happily attaches to whichever device answers. So every
+    wireless endpoint is checked against the inventory USB serial
+    (``ro.serialno``); a mismatch, or a serial that cannot be read, rejects
+    the endpoint and is reported. With no known USB serial there is nothing to
+    compare and the endpoint is accepted, as before.
+    """
+    if not usb_serial_known(usb_serial):
+        return True
+    found = endpoint_serial(run_command, endpoint, timeout=timeout)
+    if found == usb_serial:
+        return True
+    say = report or _report_identity_mismatch
+    if found:
+        say("skipping %s: its ro.serialno is %r, the inventory expects %r" % (endpoint, found, usb_serial))
+    else:
+        say("skipping %s: could not read ro.serialno to confirm it is %r" % (endpoint, usb_serial))
+    return False
+
+
 def static_fallback(row, alias):
     """Best-guess target when nothing is in adb devices yet.
 
     Prefer the first TCP-open wireless endpoint; if none respond, return
     Tailscale over LAN (LAN IPs drift when the phone changes Wi-Fi).
+
+    With a known USB serial the guess is Tailscale only (a Tailscale address
+    belongs to one device for good), or the bare alias: a LAN address cannot be
+    confirmed here and may now belong to another phone.
     """
+    if usb_serial_known(row[0]):
+        _usb, ts_ip, _lan = row
+        return "%s:5555" % ts_ip if ts_ip and ts_ip != "-" else alias
     endpoints = wireless_endpoints(row)
     for ep in endpoints:
         if tcp_reachable(ep):
@@ -223,11 +273,14 @@ def resolve_adb(alias, run_command=None, conf_path=None):
     # plain TCP probe — mDNS TLS endpoints often fail socket connect but work
     # with ``adb connect``.
     mdns = discover_mdns_endpoint(run_command, usb)
+    # The mDNS service name carries the serial (adb-<serial>-...), so it needs no ro.serialno check.
     if mdns and (adb_online(devices, mdns) or connect_wireless(run_command, mdns, require_probe=False)):
         return mdns
 
     for endpoint in wireless_endpoints(row):
-        if adb_online(devices, endpoint) or connect_wireless(run_command, endpoint):
+        if (adb_online(devices, endpoint) or connect_wireless(run_command, endpoint)) and endpoint_identity_ok(
+            run_command, endpoint, usb
+        ):
             return endpoint
 
     devices = adb_devices_output(run_command)

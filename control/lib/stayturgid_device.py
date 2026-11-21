@@ -182,9 +182,40 @@ def resolve_adb(alias, conf_path=None):
     if ts_ip not in ("", "-"):
         return "%s:5555" % ts_ip
     lan = row[2] if len(row) > 2 else "-"
-    if lan not in ("", "-"):
+    # A LAN address cannot be confirmed here and may now belong to another phone.
+    if lan not in ("", "-") and usb == "-":
         return "%s:5555" % lan
     return alias
+
+
+def usb_serial_for(alias, conf_path=None):
+    """Inventory USB serial of ``alias`` (devices.conf column 2), or "-" when unknown."""
+    row = device_row(alias, conf_path)
+    return row[0] if row else "-"
+
+
+def endpoint_identity_ok(endpoint, usb_serial, timeout=10, report=None):
+    """True when the device behind adb ``endpoint`` reports ro.serialno == ``usb_serial``.
+
+    DHCP LAN addresses drift: a stale inventory address can now belong to
+    another phone (hd8's .157 is m11's), and adb connects to whatever answers.
+    Every wireless endpoint a monitor or resolver is about to trust goes
+    through this check; a mismatch or an unreadable serial rejects it and is
+    reported. With no known USB serial there is nothing to compare: accepted.
+    Mirrors ansible_collections/.../adb_resolve.py endpoint_identity_ok().
+    """
+    if not usb_serial or usb_serial == "-":
+        return True
+    r = _run([adb_bin(), "-s", endpoint, "shell", "getprop", "ro.serialno"], timeout=timeout)
+    found = (r.stdout or "").replace("\r", "").strip() if r is not None and r.returncode == 0 else ""
+    if found == usb_serial:
+        return True
+    if found:
+        msg = "skipping %s: its ro.serialno is %r, the inventory expects %r" % (endpoint, found, usb_serial)
+    else:
+        msg = "skipping %s: could not read ro.serialno to confirm it is %r" % (endpoint, usb_serial)
+    (report or (lambda m: sys.stderr.write("stayturgid_device: %s\n" % m)))(msg)
+    return False
 
 
 def resolve_ssh_host(alias, conf_path=None):
