@@ -27,6 +27,13 @@ as a dependency of `stayturgid.termux` or `stayturgid.play`.
 | `role`         | `ensure_apps`            | play/apk dispatch                                             |
 | `role`         | `tailscale_vpn`          | Always-on VPN via `android_settings`                          |
 
+## Pin to what the fleet has
+
+`stayturgid_bootstrap_apks_pin_to_fleet=true` (module option `android_apk` `gh_latest_pin_to_cache`)
+installs the `gh_latest` release the fleet already runs from `~/.cache/stayturgid/apks` without asking
+GitHub, e.g. `just deploy ... -e stayturgid_bootstrap_apks_pin_to_fleet=true`. It fails, and never falls
+back to the newest release, when nothing was remembered or the cached APK is missing or differs.
+
 ## `devices.conf`
 
 Control-node file (default `~/.config/stayturgid/devices.conf`):

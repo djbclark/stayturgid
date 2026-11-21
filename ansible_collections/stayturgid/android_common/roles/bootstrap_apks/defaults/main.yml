@@ -8,6 +8,8 @@
 # therefore keeps deploying the same desired state even when a repository
 # publishes another release or has several independent release streams.
 # Set stayturgid_bootstrap_apks_force=true to skip version check and always reinstall.
+# Set stayturgid_bootstrap_apks_pin_to_fleet=true to install the gh_latest release the fleet already
+# runs (remembered in ~/.cache/stayturgid/apks/gh-latest) without asking GitHub; fails if none is cached.
 #
 # Obtainium may notify about newer versions, but a normal fleet deploy remains
 # authoritative and restores these locked versions.
@@ -39,6 +41,7 @@
 #   stayturgid_bootstrap_apks
 
 stayturgid_bootstrap_apks_force: false
+stayturgid_bootstrap_apks_pin_to_fleet: false
 
 # Deploy's download window. deploy_fleet.py passes this as an extra var from
 # STAYTURGID_DOWNLOAD_TIMEOUT_SECONDS, else STAYTURGID_DEPLOY_TIMEOUT_SECONDS.

@@ -1041,3 +1041,87 @@ def test_gh_latest_success_remembers_the_release_for_a_later_outage(mocker, tmp_
     memory = list((tmp_path / "cache" / "gh-latest").glob("*.json"))
     assert len(memory) == 1
     assert json.loads(memory[0].read_text()) == {"tag": "nightly", "sha256": digest}
+
+
+def _run_pinned(mocker, tmp_path, monkeypatch, remembered, apk_cached=True, tamper=False, pin=True, present=False):
+    cache = tmp_path / "cache"
+    monkeypatch.setattr(mod, "APK_CACHE_DIR", str(cache))
+    apk = b"PK-fleet"
+    digest = sha256(apk).hexdigest()
+    cache.mkdir()
+    if apk_cached:
+        (cache / (digest + ".apk")).write_bytes(b"tampered" if tamper else apk)
+    if remembered:
+        mod._remember_gh_release("termux/termux-x11", "termux-x11-universal-release.apk", "fleet-tag", digest)
+    downloads = []
+    monkeypatch.setattr(mod, "download_gh_release", lambda *a: downloads.append(a))
+    seen = []
+
+    def command_fn(cmd):
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        seen.append(joined)
+        if "api repos/termux/termux-x11/releases" in joined:
+            return (1, "", "must not be called")
+        if "pm list packages" in joined:
+            return (0, "package:com.termux.x11\n" if present else "", "")
+        if " install" in joined:
+            return (0, "Success\n", "")
+        return (0, "", "")
+
+    args = dict(
+        device="dev",
+        package="com.termux.x11",
+        gh_repo="termux/termux-x11",
+        gh_latest=True,
+        gh_pattern="termux-x11-universal-release.apk",
+        connect=False,
+    )
+    if pin:
+        args["gh_latest_pin_to_cache"] = True
+    return run_module(mocker, args, command_fn=command_fn), downloads, seen
+
+
+def test_gh_latest_pin_to_cache_installs_the_remembered_release_without_asking_github(mocker, tmp_path, monkeypatch):
+    out, downloads, seen = _run_pinned(mocker, tmp_path, monkeypatch, remembered=True)
+    assert out.get("failed") is not True, out
+    assert out["changed"] is True
+    assert downloads == []
+    assert not any("api repos/" in c for c in seen)
+    assert any(" install " in c for c in seen)
+    assert any("pinned to the cached fleet release fleet-tag" in w for w in out["_warnings"])
+
+
+def test_gh_latest_pin_to_cache_without_memory_fails_instead_of_resolving_latest(mocker, tmp_path, monkeypatch):
+    out, downloads, seen = _run_pinned(mocker, tmp_path, monkeypatch, remembered=False, apk_cached=False)
+    assert out["failed"] is True
+    assert "no release remembered for termux/termux-x11" in out["msg"]
+    assert downloads == []
+    assert not any("api repos/" in c for c in seen)
+    assert not any(" install " in c for c in seen)
+
+
+def test_gh_latest_pin_to_cache_with_missing_cached_apk_fails_naming_the_path(mocker, tmp_path, monkeypatch):
+    out, downloads, seen = _run_pinned(mocker, tmp_path, monkeypatch, remembered=True, apk_cached=False, present=True)
+    digest = sha256(b"PK-fleet").hexdigest()
+    assert out["failed"] is True
+    assert "missing or does not match" in out["msg"]
+    assert str(tmp_path / "cache" / (digest + ".apk")) in out["msg"]
+    assert "termux/termux-x11" in out["msg"]
+    assert downloads == []
+    assert not any("api repos/" in c for c in seen)
+    assert not any(" install " in c for c in seen)
+
+
+def test_gh_latest_pin_to_cache_with_mismatched_cached_apk_fails(mocker, tmp_path, monkeypatch):
+    out, downloads, seen = _run_pinned(mocker, tmp_path, monkeypatch, remembered=True, tamper=True)
+    assert out["failed"] is True
+    assert "missing or does not match" in out["msg"]
+    assert downloads == []
+    assert not any(" install " in c for c in seen)
+
+
+def test_gh_latest_pin_to_cache_false_still_asks_github(mocker, tmp_path, monkeypatch):
+    # Default behaviour: a remembered release is only an outage fallback, so GitHub is listed first.
+    out, _downloads, seen = _run_pinned(mocker, tmp_path, monkeypatch, remembered=True, pin=False)
+    assert any("api repos/termux/termux-x11/releases" in c for c in seen)
+    assert any("using cached fleet-tag" in w for w in out["_warnings"])

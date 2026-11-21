@@ -39,6 +39,14 @@ def test_latest_tracking_entries_carry_no_pin():
     assert 'gh_latest: "{{ _apk.gh_latest | default(omit) }}"' in install_tasks
 
 
+def test_pin_to_fleet_is_one_opt_in_role_var_off_by_default():
+    role = ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks"
+    defaults = yaml.safe_load((role / "defaults/main.yml").read_text(encoding="utf-8"))
+    assert defaults["stayturgid_bootstrap_apks_pin_to_fleet"] is False
+    install_tasks = (role / "tasks/install_apk.yml").read_text(encoding="utf-8")
+    assert 'gh_latest_pin_to_cache: "{{ stayturgid_bootstrap_apks_pin_to_fleet | default(false) }}"' in install_tasks
+
+
 def test_native_agent_uses_its_release_stream_and_real_asset_name():
     agent = next(apk for apk in _catalog() if apk["id"] == "org.stayturgid.agent")
     assert agent["gh_tag"] == "agent-v0.9.19"

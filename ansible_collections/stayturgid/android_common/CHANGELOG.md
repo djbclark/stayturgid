@@ -9,6 +9,9 @@
 - `android_apk` `gh_latest`: when GitHub is unreachable, reuse the release last resolved if its
   APK is still in the sha256 cache, else leave an installed app alone (both warn); a first
   install with nothing cached still fails (2026-11-21).
+- `android_apk` `gh_latest_pin_to_cache` and role var `stayturgid_bootstrap_apks_pin_to_fleet`
+  (both default false): install the remembered fleet release and its cached APK without asking
+  GitHub; fail when none is remembered or the cached APK is missing or mismatched (2026-11-21).
 - `adb_device` lookup: a host missing from `devices.conf` resolves to its inventory
   `device_usb_serial` (2026-11-20).
 - Remove the legacy project-deploy module and its util (87bf130, 2026-07-31, #162).

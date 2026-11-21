@@ -54,6 +54,17 @@ options:
         I(version_name).
     type: bool
     default: false
+  gh_latest_pin_to_cache:
+    description:
+      - Only with I(gh_latest). Skip GitHub entirely and install the release last
+        resolved for I(gh_repo) and I(gh_pattern) (the one the rest of the fleet runs),
+        read from C(~/.cache/stayturgid/apks/gh-latest) and its APK from the sha256
+        cache. The cached APK is verified against the remembered digest.
+      - Fails, never falling back to the newest release, when no release was remembered or
+        its cached APK is missing or does not match.
+      - Ignored unless I(gh_latest) is true.
+    type: bool
+    default: false
   version_name:
     description: Expected versionName; install only when the device differs.
     type: str
@@ -429,8 +440,8 @@ def _remember_gh_release(repo, pattern, tag, digest):
         pass  # a missing memory only removes the outage fallback
 
 
-def _recall_gh_release(repo, pattern):
-    """(tag, sha256) last resolved for repo/pattern, when its APK is still in the cache, else None."""
+def _read_gh_memory(repo, pattern):
+    """(tag, sha256) recorded for repo/pattern, or None when there is no usable record."""
     try:
         with open(_gh_memory_path(repo, pattern)) as handle:
             seen = json.load(handle)
@@ -439,13 +450,42 @@ def _recall_gh_release(repo, pattern):
         return None
     if not (tag and re.match(r"^[0-9a-f]{64}$", str(digest))):
         return None
+    return tag, digest
+
+
+def _cached_apk_ok(digest):
     cached = os.path.join(APK_CACHE_DIR, digest + ".apk")
-    if os.path.isfile(cached) and _sha256_of(cached) == digest:
-        return tag, digest
+    return os.path.isfile(cached) and _sha256_of(cached) == digest
+
+
+def _recall_gh_release(repo, pattern):
+    """(tag, sha256) last resolved for repo/pattern, when its APK is still in the cache, else None."""
+    seen = _read_gh_memory(repo, pattern)
+    if seen and _cached_apk_ok(seen[1]):
+        return seen
     return None
 
 
-def gh_newest_release(module, repo, pattern, installed=False):
+def _pinned_gh_release(module, repo, pattern):
+    """The remembered fleet release of repo/pattern without asking GitHub; fails rather than guess."""
+    seen = _read_gh_memory(repo, pattern)
+    if not seen:
+        module.fail_json(
+            msg="gh_latest_pin_to_cache: no release remembered for %s %r (%s); run once without pinning "
+            "on a host that can reach GitHub" % (repo, pattern, _gh_memory_path(repo, pattern))
+        )
+    tag, digest = seen
+    if not _cached_apk_ok(digest):
+        module.fail_json(
+            msg="gh_latest_pin_to_cache: the fleet release %s of %s %r is remembered in %s but its APK %s "
+            "is missing or does not match sha256:%s"
+            % (tag, repo, pattern, _gh_memory_path(repo, pattern), os.path.join(APK_CACHE_DIR, digest + ".apk"), digest)
+        )
+    module.warn("pinned to the cached fleet release %s of %s; GitHub was not consulted" % (tag, repo))
+    return tag, digest
+
+
+def gh_newest_release(module, repo, pattern, installed=False, pin_to_cache=False):
     """(tag, sha256 hex or None) of the pattern asset in repo's newest release.
 
     GitHub lists releases newest first (prereleases included, so a republished
@@ -456,7 +496,11 @@ def gh_newest_release(module, repo, pattern, installed=False):
     this repo and pattern is reused if its APK is still in the checksum cache; failing that,
     an app that is already installed is left alone. Both paths warn; only a first install
     with nothing cached fails (a flapping resolver cost three m11 deploys on 2026-11-20).
+
+    With pin_to_cache GitHub is not asked at all: the remembered release is used or the call fails.
     """
+    if pin_to_cache:
+        return _pinned_gh_release(module, repo, pattern)
     gh = module.get_bin_path("gh", required=True)
     rc, out, err = run_command_with_timeout(
         module.run_command,
@@ -808,6 +852,7 @@ def main():
             gh_pattern=dict(type="str"),
             gh_tag=dict(type="str"),
             gh_latest=dict(type="bool", default=False),
+            gh_latest_pin_to_cache=dict(type="bool", default=False),
             version_name=dict(type="str"),
             checksum=dict(type="str"),
             force=dict(type="bool", default=False),
@@ -855,7 +900,11 @@ def main():
     latest_tag = None
     if module.params["gh_latest"]:
         latest_tag, digest = gh_newest_release(
-            module, module.params["gh_repo"], module.params["gh_pattern"], installed=present
+            module,
+            module.params["gh_repo"],
+            module.params["gh_pattern"],
+            installed=present,
+            pin_to_cache=module.params["gh_latest_pin_to_cache"],
         )
         module.params["gh_tag"] = latest_tag
         module.params["checksum"] = digest
