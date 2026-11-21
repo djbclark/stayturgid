@@ -52,8 +52,8 @@ Operator decision 2026-11-21: rolling releases, no pins, breakage accepted.
    `agent-unsigned` (kept 14 days).
 2. `publish` runs in the GitHub environment `agent-release`, which GitHub
    restricts to the `master` branch, and never runs Gradle. It signs the APK
-   with `apksigner`, checks that the signer certificate's SHA-256 starts with
-   `35bbc3d1` (the same key as before, so installed apps update in place) and
+   with `apksigner`, checks that the signer certificate's SHA-256 is exactly the fleet's
+   (`35bbc3d1…`, the same key as before, so installed apps update in place) and
    that the `versionCode` is the one the APK was built with, then publishes a
    normal (not pre-) release tagged `agent-r<versionCode>` with exactly one
    asset, `app-release.apk`. It then prunes to the newest 10 `agent-r*`
@@ -95,7 +95,9 @@ on the command line.
   `scripts/ci/agent_release.py` and first-party actions pinned by commit, in three
   steps. The step that first parses the Gradle-built APK has no secret, the
   signing step has the key and no token, and the release step has the token and no
-  key. Only `apksigner` ever receives the two passwords.
+  key. Only `apksigner` is handed the two passwords. Steps of one job share a runner,
+  so this limits accidental exposure; it is not isolation against a crafted APK
+  (splitting into jobs is an open item).
 - A dispatch from any other branch cannot read the environment's secrets, and
   `publish` is skipped there. A branch dispatch has its own concurrency group, so
   it cannot replace a pending master release.

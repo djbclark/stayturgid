@@ -16,6 +16,7 @@ name: stayturgid-agent release
 #     any other branch cannot read it. The job runs scripts/ci/agent_release.py and first-party
 #     actions pinned by commit, in three steps: the one that first parses the Gradle-built APK has
 #     no secret, the signing step has the key but no token, the release step has the token but no key.
+#     Steps of one job share a runner: this limits accidental exposure, it is not isolation.
 #   - Phones do not trust this workflow alone: bootstrap_apks installs an agent-r* release only if
 #     its signer is the fleet certificate (signer_sha256) and its package is org.stayturgid.agent.
 #   - Dispatch with sign=false (just agent-ci-run) builds and tests any branch and uploads the
@@ -36,9 +37,12 @@ on:
 
 # One build and one publish at a time, in run order, so a slower older run can never publish after a
 # newer one. A run waiting behind the active one is replaced by a newer one, which is the point.
-# A branch dispatch (sign=false) has its own group, so it can never replace a pending master release.
+# A dispatch that does not publish (sign=false, or any branch) has its own group, so it can never
+# replace a pending master release.
 concurrency:
-  group: ${{ github.ref == 'refs/heads/master' && 'agent-release' || format('agent-build-{0}', github.ref) }}
+  group: >-
+    ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || inputs.sign) && 'agent-release'
+    || format('agent-build-{0}-{1}', github.ref, github.run_id) }}
   cancel-in-progress: false
 
 permissions: {}

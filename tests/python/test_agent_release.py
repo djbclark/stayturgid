@@ -96,6 +96,8 @@ def test_no_publish_step_holds_both_the_key_and_the_token_or_parses_the_apk_with
 def test_branch_dispatches_cannot_replace_a_pending_master_release():
     group = _workflow()["concurrency"]["group"]
     assert "refs/heads/master" in group and "format(" in group
+    # a master dispatch that does not publish (sign=false) must not share the publishing group either
+    assert "inputs.sign" in group and "github.run_id" in group
 
 
 def test_scrubbed_env_hides_every_signing_secret(monkeypatch):

@@ -227,7 +227,9 @@ def cmd_release(args: argparse.Namespace) -> None:
         sys.exit(f"{tag} is older than the published agent-r{newest_code(published_tags(releases))}; not publishing")
     if existing:  # a draft or an asset-less release left by a failed earlier attempt
         print(f"removing the incomplete {tag}")
-        run(["gh", "release", "delete", tag, "--repo", repo, "--cleanup-tag", "--yes"])
+        # A draft has no git tag yet, so --cleanup-tag would fail on it after deleting the draft.
+        tagged = [] if all(r.get("draft") for r in existing) else ["--cleanup-tag"]
+        run(["gh", "release", "delete", tag, "--repo", repo, *tagged, "--yes"])
     digest = hashlib.sha256(apk.read_bytes()).hexdigest()
     server = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
     notes = (
