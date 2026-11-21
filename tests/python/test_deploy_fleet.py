@@ -552,6 +552,7 @@ def test_repo_env_fails_without_any_site_selection(monkeypatch, tmp_path):
     monkeypatch.setattr(df.Path, "home", classmethod(lambda cls, _t=tmp_path: _t))
     monkeypatch.delenv("ANSIBLE_CONFIG", raising=False)
     monkeypatch.delenv("STAYTURGID_SITE_DIR", raising=False)
+    (tmp_path / "empty-ops").mkdir()
     monkeypatch.setenv("OPS_ROOT", str(tmp_path / "empty-ops"))
     import pytest
 

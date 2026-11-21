@@ -25,6 +25,7 @@
     - control/lib/stayturgid_device.py
     - control/lib/fleet_targets.py
     - control/lib/lan_ips.py
+    - control/lib/devices_conf_sync.py
     - ansible_collections/stayturgid/android_common/plugins/lookup/adb_device.py
     - ansible_collections/stayturgid/android_common/plugins/module_utils/adb_resolve.py
     - ansible_collections/stayturgid/android_common/plugins/module_utils/adb_shell.py
@@ -109,6 +110,13 @@
   decision: D5
   note: "Module and profile schema upstream; the concrete package list is an operator choice unless D5 declares it a recommended default."
 
+- concern: device-quirks
+  title: "Per-model adb settings (get/expect/set with read-back) applied by the device_quirks role"
+  paths:
+    - ansible_collections/stayturgid/android_common/roles/device_quirks/**
+  disposition: core+site-data
+  note: "Role and data shape upstream; the per-model lists live in generic capability group_vars (ansible/inventory/**)."
+
 - concern: bootstrap-apks
   title: "Bootstrap APK pin/lock, install, verify and update-lag check"
   paths:
@@ -116,6 +124,10 @@
     - ansible/playbooks/fleet/ensure-bootstrap-apks.yml
     - ansible/playbooks/fleet/verify-bootstrap-apks.yml
     - control/bin/check_apk_updates.py
+    - control/bin/fetch_asset.py
+    - control/bin/prefetch_pins.py
+    - control/lib/asset_fetch.py
+    - ansible/roles/control_node/templates/prefetch-pins.plist.j2
   disposition: core+site-data
   decision: D5
   note: >-
@@ -274,6 +286,7 @@
     - control/bin/ring_device.py
     - control/tools/gen_locate_sound.py
     - device/termux/py/stayturgid_battery_alarm.py
+    - device/termux/py/stayturgid_battery_use.py
     - device/termux/assets/**
   disposition: core
   note: "New since 2026-07-24 (locate sound); thresholds are generic defaults."
