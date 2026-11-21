@@ -71,6 +71,8 @@ import re
 
 from ansible.module_utils.basic import AnsibleModule
 
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
+
 
 def apply_config(text, options):
     """lineinfile-style keyed replace for each sshd_config option."""
@@ -107,6 +109,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     prefix = module.params["termux_prefix"]
     sshd_config = os.path.join(prefix, "etc", "ssh", "sshd_config")

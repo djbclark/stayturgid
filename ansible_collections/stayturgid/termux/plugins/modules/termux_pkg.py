@@ -69,6 +69,8 @@ import re
 
 from ansible.module_utils.basic import AnsibleModule
 
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
+
 
 def _shell(module, script):
     prefix = module.params.get("_termux_prefix", "/data/data/com.termux/files/usr")
@@ -125,6 +127,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     names = _pkg_list(module, module.params["name"])
     state = module.params["state"]

@@ -10,6 +10,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.stayturgid.android_common.plugins.module_utils.fleet_privileges import (
     apply_profiles,
 )
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
 
 
 def main():
@@ -22,6 +23,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     changed, results = apply_profiles(
         module.run_command,

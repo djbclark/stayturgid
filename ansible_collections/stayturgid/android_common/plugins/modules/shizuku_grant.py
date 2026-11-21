@@ -66,6 +66,7 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shel
     adb_shell,
     permission_granted,
 )
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
 from ansible_collections.stayturgid.android_common.plugins.module_utils.shizuku import (
     SHIZUKU_PERMISSION,
     parse_uid,
@@ -84,6 +85,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     device = module.params["device"]
     pkg = module.params["package"]

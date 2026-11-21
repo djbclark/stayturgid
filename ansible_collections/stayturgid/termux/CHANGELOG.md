@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `termux_ssh_bootstrap`, `termux_pkg`, `termux_sshd`, `termux_screen_ready` and
+  `stayturgid_repair_check` no longer let Ansible expand `$HOME` or `$PATH` in the commands they
+  run (`plain_run_command` from `stayturgid.android_common`, 2026-11-21). Fixes the s24 fallback
+  bootstrap, where the phone ran `mkdir` on the Mac's home path, and the existing-keys check that
+  always read nothing, so it can now report `changed: false`.
 - `termux_userland` puts sshd under runit on a fresh Termux (`tasks/runit_sshd.yml`):
   when `sv status sshd` fails it starts one runsvdir and retires only the bare
   listener (detached), then verifies; a supervised device is unchanged.

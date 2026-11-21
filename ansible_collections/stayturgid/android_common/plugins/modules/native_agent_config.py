@@ -60,6 +60,7 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shel
     normalize_adb_output,
     package_installed,
 )
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
 
 try:
     from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_timeout import (
@@ -143,6 +144,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     device = module.params["device"]
     package = module.params["package"]

@@ -80,6 +80,8 @@ import re
 
 from ansible.module_utils.basic import AnsibleModule
 
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
+
 STATUS_RE = re.compile(
     r"^STATUS port=(?P<port>\S+) shizuku=(?P<shizuku>\S+) sshd=(?P<sshd>\S+)"
     r"(?: a11y=(?P<a11y>\S+))? shell=(?P<shell>\S+)(?: wifi=(?P<wifi>\S+))?"
@@ -120,6 +122,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     prefix = module.params["termux_prefix"]
     home = os.path.expanduser("~")

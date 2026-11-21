@@ -12,4 +12,4 @@ tags:
   - play
 repository: https://github.com/djbclark/stayturgid
 dependencies:
-  stayturgid.android_common: ">=1.0.0"
+  stayturgid.android_common: ">=1.6.0"

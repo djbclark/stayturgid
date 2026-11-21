@@ -89,6 +89,7 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shel
     parse_appops_mode,
     pm_grant,
 )
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
 
 
 def ensure_appop(run_command, device, package, op, mode, check_mode):
@@ -141,6 +142,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     device = module.params["device"]
     appops = module.params["appops"] or []
