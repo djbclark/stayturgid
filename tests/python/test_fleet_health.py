@@ -106,6 +106,7 @@ def test_health_gather_connects_only_through_the_gate():
 
 def test_health_gather_gate_unauthorised_never_reconnects(tmp_path):
     env = _gate_sandbox(tmp_path, "unauthorized")
+    calls: list[str] = []
     for _ in range(3):
         state, calls = _run_gate(env)
         assert state == "waiting"
@@ -920,7 +921,7 @@ _ADB_FALLBACK_REPORT = {
 }
 
 
-def _sshd_heal_env(tmp_path, monkeypatch, path: str, report: dict):
+def _sshd_heal_env(tmp_path, monkeypatch, path: str, report: dict[str, object]):
     import adb_cli
 
     monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path / "fleet-health"))
@@ -938,7 +939,7 @@ def _sshd_heal_env(tmp_path, monkeypatch, path: str, report: dict):
     logs: list[str] = []
     monkeypatch.setattr(fhm, "_fleet_log", lambda _level, message: logs.append(message))
     monkeypatch.setattr(fhm, "_stats_event", lambda *a, **k: None)
-    calls: list[tuple] = []
+    calls: list[tuple[object, ...]] = []
 
     class R:
         returncode = 0
@@ -1274,7 +1275,7 @@ import adb_cli as adb_cli_mod  # noqa: E402  (matches the `import adb_cli` insid
 
 def _stub_adb_cli_heal(monkeypatch, *, return_value: str):
     """Replace adb_cli with one whose check_adb_prompt returns *return_value*."""
-    calls: list[tuple] = []
+    calls: list[tuple[object, ...]] = []
 
     def fake_check(serial, *, restart_adbd=False, window_s=600):
         calls.append((serial, restart_adbd, window_s))
