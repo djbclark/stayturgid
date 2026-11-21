@@ -124,6 +124,7 @@ def _remote_help_cmd(
     Legacy fleet keys need a full remote command line.
     """
     serial_arg = shlex.quote(serial)
+    target = shlex.quote(target)
     use_force = os.path.basename(identity) == "id_ed25519_peerhelp"
     if use_force:
         return "%s --target %s --serial %s --port %d" % (verb, target, serial_arg, port)

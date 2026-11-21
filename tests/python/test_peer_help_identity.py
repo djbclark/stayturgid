@@ -19,12 +19,15 @@ SERIAL = "HD8SERIAL1"
 TARGET = "192.0.2.13:5555"
 
 
-def _fake_adb(serial_reply, rc=0):
-    """Stand-in for ``_adb``: records argv, answers ro.serialno with ``serial_reply``."""
+def _fake_adb(serial_reply, rc=0, listed=()):
+    """Stand-in for ``_adb``: records argv, answers ro.serialno; ``listed`` are transports adb already holds."""
     calls: list[tuple[str, ...]] = []
 
     def adb(*args, timeout=45):
         calls.append(args)
+        if args == ("devices",):
+            out = "List of devices attached\n" + "".join("%s\tdevice\n" % t for t in listed)
+            return subprocess.CompletedProcess(["adb", *args], 0, out, "")
         if args[-2:] == ("getprop", "ro.serialno"):
             return subprocess.CompletedProcess(["adb", *args], rc, serial_reply, "")
         return subprocess.CompletedProcess(["adb", *args], 0, "", "")
@@ -70,7 +73,6 @@ def test_unknown_or_malformed_requester_serial_refuses_without_reading_the_devic
     with pytest.raises(SystemExit, match="no valid requester USB serial"):
         module.verify_identity(TARGET, serial)
     assert not any(c[-2:] == ("getprop", "ro.serialno") for c in calls)
-    assert ("disconnect", TARGET) in calls
 
 
 def _entry(module, verb="shizuku-start", serial=SERIAL):
@@ -124,3 +126,59 @@ def test_device_helper_force_command_without_serial_is_refused(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         dph.main()
     assert exc.value.code == 2
+
+
+@MODULES
+@pytest.mark.parametrize("verb", ["handsets-start", "shizuku-start", "ping", "status"])
+@pytest.mark.parametrize("serial", ["", "-", "a b", "--version"])
+def test_bad_serial_does_no_adb_work_at_all(monkeypatch, module, verb, serial):
+    monkeypatch.setattr(module, "_adb", lambda *a, **k: pytest.fail("adb ran for an invalid serial"))
+    monkeypatch.setattr(module, "_ensure_connected", lambda *a, **k: pytest.fail("connected for an invalid serial"))
+    with pytest.raises(SystemExit):
+        _entry(module, verb, serial)()
+
+
+@MODULES
+@pytest.mark.parametrize(
+    "target",
+    [
+        "127.0.0.1:5555",
+        "localhost:5555",
+        "0.0.0.0:5555",
+        "4HW0123456789",
+        "192.0.2.13:5556",
+        "192.0.2.13",
+        "999.1.1.1:5555",
+        "host.example:5555",
+        "192.0.2.13:5555 --x",
+        "[::1]:5555",
+    ],
+)
+def test_only_ipv4_5555_targets_are_driven(monkeypatch, module, target):
+    """Loopback (the helper's own adbd) and a USB serial the local adb server lists are never valid targets."""
+    monkeypatch.setattr(module, "_adb", lambda *a, **k: pytest.fail("adb ran for an invalid target"))
+    monkeypatch.setattr(module, "_ensure_connected", lambda *a, **k: pytest.fail("connected to an invalid target"))
+    with pytest.raises(SystemExit, match="peer help only drives"):
+        module._identity_checked(target, SERIAL)
+
+
+@MODULES
+def test_mismatch_disconnects_a_transport_this_request_created(monkeypatch, module):
+    adb, calls = _fake_adb("OTHERPHONE")
+    monkeypatch.setattr(module, "_adb", adb)
+    monkeypatch.setattr(module, "_ensure_connected", lambda target, timeout=20: None)
+    with pytest.raises(SystemExit, match="OTHERPHONE"):
+        module._identity_checked(TARGET, SERIAL)
+    assert ("disconnect", TARGET) in calls
+
+
+@MODULES
+def test_mismatch_leaves_a_transport_the_adb_server_already_held(monkeypatch, module):
+    """The stale address may be another phone the helper's other tooling is using (adversary M1)."""
+    adb, calls = _fake_adb("OTHERPHONE", listed=[TARGET])
+    monkeypatch.setattr(module, "_adb", adb)
+    monkeypatch.setattr(module, "_ensure_connected", lambda target, timeout=20: None)
+    monkeypatch.setattr(module, "cmd_shizuku_start", lambda target: pytest.fail("verb ran on the wrong device"))
+    with pytest.raises(SystemExit, match="OTHERPHONE"):
+        _entry(module)()
+    assert not any(c[0] == "disconnect" for c in calls)

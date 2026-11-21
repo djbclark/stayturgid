@@ -93,36 +93,66 @@ def _ensure_connected(target: str, timeout: float = 20) -> None:
 
 # A USB serial is alphanumeric plus a few separators; anything else is refused before adb runs.
 _SERIAL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}")
+# A peer-help target is a routable IPv4 LAN/Tailscale address on the fleet's adb port: never
+# loopback (the helper's own adbd), a hostname, or a USB serial the local adb server also lists.
+_TARGET_RE = re.compile(r"(?:\d{1,3}\.){3}\d{1,3}:5555")
 
 
 def valid_serial(serial: str | None) -> bool:
     return serial is not None and _SERIAL_RE.fullmatch(serial) is not None
 
 
-def verify_identity(target: str, serial: str | None) -> None:
+def valid_target(target: str | None) -> bool:
+    if target is None or _TARGET_RE.fullmatch(target) is None:
+        return False
+    octets = [int(o) for o in target.split(":")[0].split(".")]
+    return all(o <= 255 for o in octets) and octets[0] not in (0, 127)
+
+
+def _already_listed(target: str) -> bool:
+    """True when the adb server already holds a transport named ``target`` (before our connect)."""
+    r = _adb("devices", timeout=15)
+    return any(line.split() and line.split()[0] == target for line in (r.stdout or "").splitlines())
+
+
+def verify_identity(target: str, serial: str | None, *, disconnect: bool = True) -> None:
     """Exit unless the device at adb ``target`` reports ``ro.serialno == serial`` (fail closed).
 
-    An unknown serial, an unreadable serial and a mismatch all disconnect ``target`` (#328):
-    a drifted DHCP address may now answer for another phone. Mirrors the Mac-side
-    ``endpoint_identity_ok``. Runs for every peer-requested verb, before any of them acts.
+    An unknown serial, an unreadable serial and a mismatch all refuse (#328): a drifted DHCP
+    address may now answer for another phone. ``disconnect`` drops the transport this request
+    created; it is False when the adb server already held it, because that transport belongs to
+    the helper's other tooling. Mirrors the Mac-side ``endpoint_identity_ok``.
     """
+
+    def refuse(message: str) -> None:
+        if disconnect:
+            _adb("disconnect", target, timeout=10)
+        raise SystemExit(message)
+
     if not valid_serial(serial):
-        _adb("disconnect", target, timeout=10)
-        raise SystemExit("refusing %s: no valid requester USB serial to identity-check it against" % target)
+        refuse("refusing %s: no valid requester USB serial to identity-check it against" % target)
     r = _adb("-s", target, "shell", "getprop", "ro.serialno", timeout=15)
     found = (r.stdout or "").replace("\r", "").strip() if r.returncode == 0 else ""
     if found == serial:
         return
-    _adb("disconnect", target, timeout=10)
     if found:
-        raise SystemExit("refusing %s: its ro.serialno is %r, expected %r" % (target, found, serial))
-    raise SystemExit("refusing %s: could not read ro.serialno to confirm it is %r" % (target, serial))
+        refuse("refusing %s: its ro.serialno is %r, expected %r" % (target, found, serial))
+    refuse("refusing %s: could not read ro.serialno to confirm it is %r" % (target, serial))
 
 
 def _identity_checked(target: str, serial: str | None) -> None:
-    """Connect to ``target`` and prove it is the requester before any verb touches it."""
+    """Prove ``target`` is the requester before any verb touches it.
+
+    Validates the serial and the target form first, so a bad request does no adb work at all;
+    then connects and reads ``ro.serialno``. Only a transport this call created is disconnected.
+    """
+    if not valid_serial(serial):
+        raise SystemExit("refusing %s: no valid requester USB serial to identity-check it against" % target)
+    if not valid_target(target):
+        raise SystemExit("refusing target %r: peer help only drives IPv4-address:5555 targets" % target)
+    preexisting = _already_listed(target)
     _ensure_connected(target)
-    verify_identity(target, serial)
+    verify_identity(target, serial, disconnect=not preexisting)
 
 
 def _shell(target: str, cmd: str, timeout: float = 30) -> subprocess.CompletedProcess:
