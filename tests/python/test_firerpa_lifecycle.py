@@ -52,6 +52,32 @@ def test_driver_pids_parses_remote_process_list(tmp_path):
     assert lifecycle_module.DRIVER_ARCHIVE_FRAGMENT in transport.commands[0][0]
 
 
+def test_driver_pids_matches_android16_in_memory_dex_mapping(tmp_path):
+    """Android 16 names the helper's dex "[anon:dalvik-classes.dex extracted in memory from
+    @aab.zip]" (no path), which the path-only grep missed: every deploy then failed with
+    "FIRERPA UIAutomation helpers did not start" although the helpers were running."""
+    import shlex
+    import subprocess
+
+    transport = FakeTransport([(0, "")])
+    lifecycle = _lifecycle(tmp_path, transport)
+    lifecycle.driver_pids()
+    command = transport.commands[0][0]
+    # Run the generated loop against fake /proc maps instead of pidof/real /proc.
+    maps = {
+        "1": "77b208d000-77b2183000 r--p 00000000 00:00 0   [anon:dalvik-classes.dex extracted in memory from @aab.zip]\n",
+        "2": "7f00000000-7f00001000 r--p 00000000 00:00 0   /data/local/tmp/firerpa/server/lib/python3.12/site-packages/lamda/aab.zip\n",
+        "3": "7f00000000-7f00001000 r--p 00000000 00:00 0   /system/lib64/libc.so\n",
+    }
+    for pid, text in maps.items():
+        (tmp_path / f"{pid}.maps").write_text(text)
+    script = command.replace("$(pidof lamda 2>/dev/null)", "1 2 3").replace(
+        '"/proc/$pid/maps"', f'"{tmp_path}/$pid.maps"'
+    )
+    out = subprocess.run(["sh", "-c", script], capture_output=True, text=True, check=True).stdout.split()
+    assert out == ["1", "2"], (out, shlex.quote(command))
+
+
 def test_remote_sha256_ignores_rish_banner(tmp_path):
     digest = SIGNED
     transport = FakeTransport([(0, f"Entering shell...\n{digest}  /remote/aab.zip\n")])

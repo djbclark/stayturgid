@@ -44,6 +44,11 @@ SUPPORTED_DRIVERS: dict[str, tuple[str, str]] = {
     ),
 }
 DRIVER_ARCHIVE_FRAGMENT = "/site-packages/lamda/aab.zip"
+# What a running helper's /proc/PID/maps shows for the archive it loaded.  Older Android
+# builds map the file by its path (the fragment above); Android 16 (SDK 36, seen on t2e
+# 2026-11-21) maps the dex from memory and names it "[anon:dalvik-classes.dex extracted
+# in memory from @aab.zip]", with no path at all.  Either marks a helper.
+DRIVER_MAPPING_MARKERS = (DRIVER_ARCHIVE_FRAGMENT, "extracted in memory from @aab.zip")
 
 
 class LifecycleError(RuntimeError):
@@ -151,7 +156,7 @@ class FirerpaLifecycle:
     def driver_pids(self) -> set[int]:
         command = (
             "for pid in $(pidof lamda 2>/dev/null); do "
-            f"grep -q {shlex.quote(DRIVER_ARCHIVE_FRAGMENT)} "
+            f"grep -q -F {' '.join('-e ' + shlex.quote(marker) for marker in DRIVER_MAPPING_MARKERS)} "
             '"/proc/$pid/maps" 2>/dev/null && echo "$pid"; '
             "done; exit 0"
         )
