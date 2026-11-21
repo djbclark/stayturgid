@@ -25,7 +25,7 @@ def test_state_roundtrip(tmp_path):
 
 def test_recovery_notifies_once_and_resets(tmp_path, monkeypatch):
     monkeypatch.setattr(am, "STATE_DIR", str(tmp_path))
-    monkeypatch.setattr(am, "adb_reachable", lambda addrs: "adb:100.1:5555")
+    monkeypatch.setattr(am, "adb_reachable", lambda addrs, usb_serial="-": "adb:100.1:5555")
     logs, notifs = [], []
     monkeypatch.setattr(am, "_access_log", lambda _level, message: logs.append(message))
     monkeypatch.setattr(am, "notify", lambda *a, **k: notifs.append(a))
@@ -39,7 +39,7 @@ def test_recovery_notifies_once_and_resets(tmp_path, monkeypatch):
 
 def test_outage_alerts_only_at_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(am, "STATE_DIR", str(tmp_path))
-    monkeypatch.setattr(am, "adb_reachable", lambda addrs: None)
+    monkeypatch.setattr(am, "adb_reachable", lambda addrs, usb_serial="-": None)
     monkeypatch.setattr(am, "tcp_open", lambda h, p, timeout=5: False)
     notifs = []
     monkeypatch.setattr(am, "_access_log", lambda *_: None)
@@ -56,7 +56,7 @@ def test_outage_alerts_only_at_limit(tmp_path, monkeypatch):
 
 def test_ssh_fallback_when_adb_down(tmp_path, monkeypatch):
     monkeypatch.setattr(am, "STATE_DIR", str(tmp_path))
-    monkeypatch.setattr(am, "adb_reachable", lambda addrs: None)
+    monkeypatch.setattr(am, "adb_reachable", lambda addrs, usb_serial="-": None)
     seen = {}
     monkeypatch.setattr(am, "tcp_open", lambda h, p, timeout=5: seen.setdefault("hp", (h, p)) or True)
     monkeypatch.setattr(am, "_access_log", lambda *_: None)

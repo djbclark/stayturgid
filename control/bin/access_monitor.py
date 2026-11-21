@@ -89,17 +89,34 @@ def read_devices(conf_path):
         return
 
 
-def adb_reachable(addrs):
+def _usb_serial(name):
+    # No try/except: a broken import must stop the monitor, not silently switch the identity check off.
+    from stayturgid_device import usb_serial_for
+
+    return usb_serial_for(name, CONF)
+
+
+def _identity_ok(addr, usb_serial):
+    """The device at ``addr`` is the inventory's (ro.serialno == usb_serial); see stayturgid_device."""
+    from stayturgid_device import endpoint_identity_ok
+
+    return endpoint_identity_ok(addr, usb_serial, report=lambda m: _access_log(WARNING, m))
+
+
+def adb_reachable(addrs, usb_serial="-"):
+    """First adb endpoint that answers and is the inventory device (stale LAN IPs may be another phone's)."""
     try:
         listed = subprocess.run([ADB, "devices"], capture_output=True, text=True, timeout=15).stdout
     except (OSError, subprocess.TimeoutExpired):
         listed = ""
     for addr in addrs:
         if "%s\tdevice" % addr in listed:
-            return "adb:%s" % addr
+            if _identity_ok(addr, usb_serial):
+                return "adb:%s" % addr
+            continue
         try:
             out = subprocess.run([ADB, "connect", addr], capture_output=True, text=True, timeout=15).stdout
-            if "connected to" in out:
+            if "connected to" in out and _identity_ok(addr, usb_serial):
                 return "adb:%s" % addr
         except (OSError, subprocess.TimeoutExpired):
             pass
@@ -139,7 +156,7 @@ def check_device(name, ts_ip, lan_ip):
     state_file = os.path.join(STATE_DIR, name)
     fails = read_state(state_file)
 
-    ok = adb_reachable(addrs)
+    ok = adb_reachable(addrs, _usb_serial(name))
     if not ok and tcp_open(ts_ip, SSH_PORT):
         ok = "ssh:%s" % ts_ip
 

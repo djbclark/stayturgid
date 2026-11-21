@@ -133,6 +133,19 @@ def resolve_target(argv):
     return argv[0], argv[1], (argv[2] if len(argv) > 2 else None)
 
 
+def identity_ok(addr, expected, alias):
+    """The device at ``addr`` reports ro.serialno == the inventory USB serial ``expected``.
+
+    A cached or Wi-Fi address can go stale and be reused by another phone; an
+    address is only "connected" for this alias when it is the right device.
+    """
+    try:
+        from stayturgid_device import endpoint_identity_ok
+    except Exception:
+        return expected in ("", "-")
+    return endpoint_identity_ok(addr, expected, report=lambda m: log(alias, m))
+
+
 def is_connected(addr):
     r = adb(["devices"])
     return bool(r and ("%s\tdevice" % addr) in r.stdout)
@@ -151,7 +164,7 @@ def discover_mdns(serial):
     if not r:
         return None
     for line in r.stdout.splitlines():
-        if ("adb-%s" % serial) in line and "_adb-tls-connect" in line:
+        if ("adb-%s-" % serial) in line and "_adb-tls-connect" in line:
             m = IP_PORT_RE.search(line)
             if m:
                 return m.group(0)
@@ -197,6 +210,8 @@ def main(argv=None):
     if not os.path.exists(ADB):
         return 1
     serial, default_ip, tailscale_ip = resolve_target(argv)
+    row = device_row(argv[0], CONF) if len(argv) == 1 else None
+    expected = row[0] if row else "-"
 
     device_file = os.path.join(ROOT, "state", "device_ip_%s" % serial)
     trim_log()
@@ -211,7 +226,7 @@ def main(argv=None):
 
     # Already connected on any known-good address?
     for addr in (cached, tailscale_ip):
-        if addr and is_connected(addr):
+        if addr and is_connected(addr) and identity_ok(addr, expected, serial):
             return 0
 
     current_ip = discover_lan_ip(serial)
@@ -224,6 +239,8 @@ def main(argv=None):
         out = r.stdout if r else ""
         log(serial, out.strip() or "(no output)")
         if "connected to" in out:
+            if not identity_ok(addr, expected, serial):
+                continue
             # Never cache the mDNS endpoint — its port is ephemeral.
             if addr != cached and addr != mdns_addr:
                 os.makedirs(os.path.dirname(device_file), exist_ok=True)

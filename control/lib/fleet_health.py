@@ -708,30 +708,51 @@ def tcp_open(host: str, port: int, timeout: float = 5) -> bool:
         return False
 
 
-def adb_reachable(addrs: list[str]) -> str | None:
+def _identity_ok(addr: str, usb_serial: str) -> bool:
+    """The device at ``addr`` is the inventory's (ro.serialno == usb_serial); see stayturgid_device."""
+    from stayturgid_device import endpoint_identity_ok
+
+    return endpoint_identity_ok(addr, usb_serial)
+
+
+def adb_reachable(addrs: list[str], usb_serial: str = "-") -> str | None:
+    """First adb endpoint that answers *and* is the inventory device.
+
+    LAN addresses drift, and a stale one may now be another phone's, so a
+    known ``usb_serial`` must match the endpoint's ro.serialno or it is skipped.
+    """
     try:
         listed = subprocess.run([ADB, "devices"], capture_output=True, text=True, timeout=15).stdout
     except (OSError, subprocess.TimeoutExpired):
         listed = ""
     for addr in addrs:
         if "%s\tdevice" % addr in listed:
-            return "adb:%s" % addr
+            if _identity_ok(addr, usb_serial):
+                return "adb:%s" % addr
+            continue
         try:
             out = subprocess.run([ADB, "connect", addr], capture_output=True, text=True, timeout=15).stdout
-            if "connected to" in out:
+            if "connected to" in out and _identity_ok(addr, usb_serial):
                 return "adb:%s" % addr
         except (OSError, subprocess.TimeoutExpired):
             pass
     return None
 
 
-def resolve_path(name: str, ts_ip: str, lan_ip: str) -> str | None:
+def _usb_serial(name: str) -> str:
+    # No try/except: a broken import must stop the monitor, not silently switch the identity check off.
+    from stayturgid_device import usb_serial_for
+
+    return usb_serial_for(name)
+
+
+def resolve_path(name: str, ts_ip: str, lan_ip: str, usb_serial: str | None = None) -> str | None:
     addrs: list[str] = []
     if lan_ip and lan_ip != "-":
         addrs.append("%s:5555" % lan_ip)
     if ts_ip and ts_ip != "-":
         addrs.append("%s:5555" % ts_ip)
-    ok = adb_reachable(addrs)
+    ok = adb_reachable(addrs, _usb_serial(name) if usb_serial is None else usb_serial)
     if ok:
         return ok
     if ts_ip and ts_ip != "-" and tcp_open(ts_ip, SSH_PORT):

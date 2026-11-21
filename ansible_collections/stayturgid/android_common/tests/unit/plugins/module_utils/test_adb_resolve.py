@@ -137,3 +137,85 @@ def test_resolve_gates_connect_behind_probe(tmp_path, monkeypatch):
     assert ar.resolve_adb("stock-android-device", run, conf) == "100.0.0.12:5555"
     assert ["adb", "connect", "192.0.2.9:5555"] not in seen
     assert ["adb", "connect", "100.0.0.12:5555"] in seen
+
+
+# --- wrong-device hazard: a stale LAN IP may now belong to another phone -----------------------------
+HD8_USB = "HD8SERIAL1"
+OTHER_USB = "HA2PMV18"
+STALE_LAN = "192.168.1.157:5555"
+HD8_TS = "100.64.0.8:5555"
+
+
+def _by_endpoint(serials, listed=""):
+    """Fake run_command: `serials` maps adb endpoint -> the ro.serialno it answers with."""
+
+    connected = []
+
+    def run(cmd):
+        if len(cmd) >= 2 and cmd[0].endswith("timeout"):
+            cmd = cmd[2:]
+        if cmd[:2] == ["adb", "devices"]:
+            return 0, listed + "".join("%s\tdevice\n" % ep for ep in connected), ""
+        if cmd[:2] == ["adb", "connect"]:
+            if cmd[2] in serials:
+                connected.append(cmd[2])
+                return 0, "connected to %s" % cmd[2], ""
+            return 0, "failed", ""
+        if cmd[:2] == ["adb", "-s"] and cmd[3:6] == ["shell", "getprop", "ro.serialno"]:
+            if cmd[2] in serials:
+                return 0, serials[cmd[2]] + "\n", ""
+            return 1, "", "device not found"
+        return 1, "", ""
+
+    return run
+
+
+def test_resolve_skips_a_lan_endpoint_held_by_another_device(tmp_path, monkeypatch, capsys):
+    conf = _conf(tmp_path, "hd8 %s 100.64.0.8 192.168.1.157\n" % HD8_USB)
+    monkeypatch.setattr(ar, "tcp_reachable", lambda ep, timeout=None: True)
+    run = _by_endpoint({STALE_LAN: OTHER_USB, HD8_TS: HD8_USB})
+    assert ar.resolve_adb("hd8", run, conf) == HD8_TS
+    err = capsys.readouterr().err
+    assert STALE_LAN in err and OTHER_USB in err and HD8_USB in err  # the skip is logged
+
+
+def test_resolve_skips_an_already_listed_endpoint_of_another_device(tmp_path, monkeypatch):
+    conf = _conf(tmp_path, "hd8 %s 100.64.0.8 192.168.1.157\n" % HD8_USB)
+    monkeypatch.setattr(ar, "tcp_reachable", lambda ep, timeout=None: True)
+    listed = "List of devices attached\n%s\tdevice\n" % STALE_LAN
+    run = _by_endpoint({STALE_LAN: OTHER_USB, HD8_TS: HD8_USB}, listed=listed)
+    assert ar.resolve_adb("hd8", run, conf) == HD8_TS
+
+
+def test_resolve_never_returns_the_wrong_device_when_the_right_one_is_down(tmp_path, monkeypatch):
+    conf = _conf(tmp_path, "hd8 %s 100.64.0.8 192.168.1.157\n" % HD8_USB)
+    monkeypatch.setattr(ar, "tcp_reachable", lambda ep, timeout=None: ep == STALE_LAN)
+    run = _by_endpoint({STALE_LAN: OTHER_USB})
+    # Tailscale is the stable identity; the stale LAN address is never the guess.
+    assert ar.resolve_adb("hd8", run, conf) == HD8_TS
+    assert ar.resolve_adb("hd8", None, conf) == HD8_TS
+
+
+def test_resolve_rejects_an_endpoint_whose_serial_cannot_be_read(tmp_path, monkeypatch):
+    conf = _conf(tmp_path, "hd8 %s 100.64.0.8 192.168.1.157\n" % HD8_USB)
+    monkeypatch.setattr(ar, "tcp_reachable", lambda ep, timeout=None: True)
+
+    def run(cmd):
+        if len(cmd) >= 2 and cmd[0].endswith("timeout"):
+            cmd = cmd[2:]
+        if cmd[:2] == ["adb", "devices"]:
+            return 0, "", ""
+        if cmd[:2] == ["adb", "connect"]:
+            return 0, "connected to %s" % cmd[2], ""
+        return 1, "", "unauthorized"
+
+    assert not ar.endpoint_identity_ok(run, STALE_LAN, HD8_USB, report=lambda m: None)
+    assert ar.resolve_adb("hd8", run, conf) == HD8_TS  # nothing verified: Tailscale guess, never the LAN one
+
+
+def test_endpoint_identity_without_a_known_serial_accepts(monkeypatch):
+    def boom(cmd):
+        raise AssertionError("must not run adb")
+
+    assert ar.endpoint_identity_ok(boom, STALE_LAN, "-")
+    assert ar.endpoint_identity_ok(boom, STALE_LAN, "")

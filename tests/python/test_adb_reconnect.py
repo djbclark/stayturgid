@@ -61,6 +61,7 @@ def test_main_exits_when_already_connected(tmp_path, monkeypatch):
     monkeypatch.setattr(ar, "CONF", str(conf))
     monkeypatch.setattr(os.path, "exists", lambda p: True)
     monkeypatch.setattr(ar, "trim_log", lambda *a, **k: None)
+    monkeypatch.setattr(ar, "identity_ok", lambda *a: True)  # identity: tests/python/test_adb_endpoint_identity.py
     monkeypatch.setattr(ar, "is_connected", lambda addr: True)  # already up
     called = {"connect": False}
     monkeypatch.setattr(ar, "adb", lambda a, timeout=15: called.__setitem__("connect", True))
@@ -76,6 +77,7 @@ def test_main_caches_successful_non_mdns(tmp_path, monkeypatch):
     monkeypatch.setattr(ar, "ROOT", str(tmp_path / ".config" / "stayturgid"))
     monkeypatch.setattr(os.path, "exists", lambda p: p == ar.ADB)
     monkeypatch.setattr(ar, "trim_log", lambda *a, **k: None)
+    monkeypatch.setattr(ar, "identity_ok", lambda *a: True)
     monkeypatch.setattr(ar, "is_connected", lambda addr: False)
     # DHCP moved the device to a new LAN IP (differs from cached default)
     monkeypatch.setattr(ar, "discover_lan_ip", lambda s: "192.0.2.99")

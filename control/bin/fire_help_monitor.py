@@ -30,10 +30,9 @@ sys.path.insert(0, str(REPO / "control" / "lib"))
 
 import fire_peer_help as fph
 
-try:
-    import stayturgid_device as dev
-except Exception:
-    dev = None
+# No try/except: this job repairs a phone unattended, and without the device inventory helpers it would
+# guess raw addresses (a stale LAN IP may belong to another tablet). A broken import must stop it.
+import stayturgid_device as dev
 
 ROOT = Path.home() / ".config" / "stayturgid"
 CONF = Path(os.environ.get("STAYTURGID_DEVICES_CONF", ROOT / "devices.conf"))
@@ -101,6 +100,10 @@ def write_state(host: str, n: int) -> None:
 def adb_targets(name: str, ts_ip: str, lan_ip: str) -> list[str]:
     """Ordered adb endpoints: shared resolve_adb first (USB / mDNS wireless-debug),
     then classic LAN/TS :5555. Fire often only has wireless-debugging (random port).
+
+    The raw LAN/TS endpoints are added only for devices.conf rows without a USB serial;
+    with one, resolve_adb has already tried both and checked ro.serialno, and a stale LAN
+    address may now belong to another tablet, so nothing unconfirmed is guessed here.
     """
     out: list[str] = []
     seen: set[str] = set()
@@ -112,11 +115,16 @@ def adb_targets(name: str, ts_ip: str, lan_ip: str) -> list[str]:
         seen.add(t)
         out.append(t)
 
-    if dev is not None:
-        try:
-            add(dev.resolve_adb(name))
-        except Exception:
-            pass
+    usb = dev.usb_serial_for(name)
+    try:
+        resolved = dev.resolve_adb(name)
+    except Exception:
+        resolved = ""
+    # resolve_adb answers with the bare alias when nothing is reachable: not an endpoint to adb connect.
+    if resolved and not (resolved == name and usb not in ("", "-")):
+        add(resolved)
+    if usb not in ("", "-"):
+        return out
     if lan_ip and lan_ip != "-":
         add("%s:5555" % lan_ip)
     if ts_ip and ts_ip != "-":
@@ -185,13 +193,17 @@ def help_host(name: str, ts_ip: str, lan_ip: str) -> None:
         log("%s no adb targets" % name)
         return
     target = None
+    usb = dev.usb_serial_for(name)
     for t in targets:
         try:
             fph._ensure_connected(t)
-            target = t
-            break
         except SystemExit:
             continue
+        # Whatever answered must be this device, not the phone that now holds its old address.
+        if t != usb and not dev.endpoint_identity_ok(t, usb, report=log):
+            continue
+        target = t
+        break
     if not target:
         log("%s adb connect failed all targets (%s)" % (name, ",".join(targets[:4])))
         fails = read_state(name) + 1

@@ -50,15 +50,26 @@ Operator decision 2026-11-21: rolling releases, no pins, breakage accepted.
 1. `build` has no secret and a read-only token. It runs Gradle (unit tests,
    detekt, `assembleRelease`) and uploads the unsigned APK as the artifact
    `agent-unsigned` (kept 14 days).
-2. `publish` runs in the GitHub environment `agent-release`, which GitHub
-   restricts to the `master` branch, and never runs Gradle. It signs the APK
-   with `apksigner`, checks that the signer certificate's SHA-256 is exactly the fleet's
-   (`35bbc3d1…`, the same key as before, so installed apps update in place) and
-   that the `versionCode` is the one the APK was built with, then publishes a
-   normal (not pre-) release tagged `agent-r<versionCode>` with exactly one
-   asset, `app-release.apk`. It then prunes to the newest 10 `agent-r*`
-   releases. The older `agent-ci-*` prereleases are no longer published
-   (existing ones stay); they and `agent-v*` are separate tag streams.
+2. `check` has no secret and a read-only token. It is the first reader of the
+   Gradle-built APK: it verifies the SHA-256 and that the APK is the package
+   `org.stayturgid.agent` with the `versionCode` it was built with.
+3. `sign` runs in the GitHub environment `agent-release`, which GitHub restricts
+   to the `master` branch. It has the release key and no write token: it runs
+   `apksigner` and uploads the signed APK as the artifact `agent-signed`.
+4. `verify` has no secret and a read-only token. It re-reads the signed APK: the
+   signer certificate's SHA-256 is exactly the fleet's (`35bbc3d1…`, the same key
+   as before so installed apps update in place), the package is ours, and the
+   `versionCode` equals the number in the tag. It approves that file's SHA-256.
+5. `release` has the `contents: write` token and no key, and parses nothing: it
+   publishes only the file with the approved digest, as a normal (not pre-)
+   release tagged `agent-r<versionCode>` with exactly one asset, `app-release.apk`
+   (and refuses a tag that already points at another commit). It then prunes to
+   the newest 10 `agent-r*` releases (the git tags stay, see the tag ruleset
+   below). The older `agent-ci-*` prereleases are no longer published (existing
+   ones stay); they and `agent-v*` are separate tag streams.
+
+No job runs Gradle except `build`, and no runner ever holds both the key and the
+write token.
 
 **Versioning.** `versionCode` = `GITHUB_RUN_NUMBER` + 100, so the first rolling
 build is above the last hand-made one (37). `versionName` =
@@ -91,16 +102,28 @@ on the command line.
 - No `pull_request` trigger; only a push to `master` or a write-access dispatch.
 - The `build` job, which runs repo code and third-party Gradle plugins, never
   sees a secret.
-- The `publish` job holds the key but never runs Gradle: it runs only
-  `scripts/ci/agent_release.py` and first-party actions pinned by commit, in three
-  steps. The step that first parses the Gradle-built APK has no secret, the
-  signing step has the key and no token, and the release step has the token and no
-  key. Only `apksigner` is handed the two passwords. Steps of one job share a runner,
-  so this limits accidental exposure; it is not isolation against a crafted APK
-  (splitting into jobs is an open item).
-- A dispatch from any other branch cannot read the environment's secrets, and
-  `publish` is skipped there. A branch dispatch has its own concurrency group, so
-  it cannot replace a pending master release.
+- `check`, `sign`, `verify` and `release` run only `scripts/ci/agent_release.py` and first-party
+  actions pinned by commit. `check` has no secret; `sign` has the key and no token;
+  `verify` reads the signed APK with no secret and no write token; `release` has the token and no key and
+  publishes only what `verify` approved. Only
+  `apksigner` is handed the two passwords, and nothing parses the signed output
+  while the key is in the environment. The one remaining exposure: a crafted APK
+  that exploits `apksigner` itself, in `sign`, could reach the key there.
+- A dispatch from any other branch cannot read the environment's secrets, and the
+  `check`, `sign`, `verify` and `release` jobs are skipped there. A branch dispatch has its
+  own concurrency group, so it cannot replace a pending master release.
+- **Tag rulesets** on `djbclark/stayturgid` (`agent-r tags: only the release workflow creates` and
+  `agent-r tags: no update or delete`), target `refs/tags/agent-r*`. The first restricts creating
+  those tags; its bypass actors are the GitHub Actions integration (every Actions token with
+  `contents: write`, not this workflow alone) and repository admins (the shared Mac `gh` token
+  is one). The second forbids updating and deleting them, with no bypass (an admin disables the
+  ruleset to change one on purpose). `agent-release.yml` never deletes a tag: pruning and
+  repairing delete the release only, and `release` refuses an existing tag that points at
+  another commit. Creating a release on an old existing tag creates no ref, so the rulesets do
+  not stop it; the client side does: `gh_latest` takes the highest `agent-r<N>` number, not the
+  first listed, and refuses an APK whose `versionCode` is not the tag's number.
+- `gh_latest` accepts a release only if its whole tag is `agent-r` plus a plain
+  integer (`agent-rz`, `agent-r1x`, `agent-r999.1` and `agent-r1-evil` are ignored).
 - The phones do not trust the workflow alone: the signer pin above holds even if a
   release is created some other way.
 

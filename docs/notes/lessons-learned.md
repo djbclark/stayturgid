@@ -606,3 +606,13 @@ On 2026-10-08 s24's `deploy-apks` ended "Termux SSH unavailable": port 8022 time
 1. Look at the listener's queue before blaming the network: `adb shell "grep -i ':1F56 ' /proc/net/tcp /proc/net/tcp6"` (state `0A`, the fifth column is tx:rx queue; a non-zero rx queue means nobody is accepting).
 2. `bootstrap_ssh.py` hangs on its `ssh localhost` probe in that state; stop it rather than wait.
 3. What healed it: `adb shell am force-stop com.termux`, then `adb shell "run-as com.termux sh -c 'export HOME=/data/data/com.termux/files/home PATH=/data/data/com.termux/files/usr/bin; setsid sh \$HOME/.termux/boot/00-start-services.sh >/dev/null 2>&1 </dev/null &'"`. The root cause (the zombie `runsv` spawn loop) is not found.
+
+## A LAN address in the inventory can belong to another phone
+
+On 2026-11-21 `resolve_adb('hd8')` returned m11 and an install landed on the wrong tablet: hd8's inventory LAN IP (192.168.1.157) is stale, DHCP gave it to m11 (serial HA2PMV18), and the resolver tried the LAN endpoint before Tailscale and trusted whatever `adb connect` attached to.
+
+**How to apply:**
+
+1. Every wireless adb endpoint is checked against the inventory USB serial (`ro.serialno`) before it is used; a mismatch or an unreadable serial skips the endpoint and logs it. The check lives in `adb_resolve.endpoint_identity_ok` (collection resolver) and `stayturgid_device.endpoint_identity_ok` (fleet-health, access-monitor, adb_reconnect). A device with no USB serial in the inventory cannot be checked and is accepted as before.
+2. With a known USB serial the last-resort guess is the Tailscale address (one address per device for good) or the bare alias, never an unconfirmed LAN address.
+3. A new resolver or monitor that picks an adb endpoint must call the same check. mDNS endpoints are exempt because the service name carries the serial.
