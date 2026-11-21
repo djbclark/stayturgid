@@ -56,10 +56,11 @@ options:
     default: false
   gh_tag_prefix:
     description:
-      - Only with I(gh_latest). Consider only releases whose tag starts with this prefix
-        (for example C(agent-r) for a repository that also publishes C(agent-ci-*) and
-        C(agent-v*) releases), and take the newest of those. Without it the newest
-        release of any tag is used.
+      - Only with I(gh_latest). Consider only releases whose whole tag is this prefix
+        followed by a version number (a digit, then digits and dots), for example C(agent-r)
+        matches C(agent-r101) but not C(agent-rz), C(agent-r1x), C(agent-ci-0.9.19) or
+        C(agent-v0.9.19), and take the newest of those. Without it the newest release of
+        any tag is used.
       - Also part of the key of the remembered release, so two entries of one repository
         with different prefixes never share a memory.
       - Fails when no release carries the prefix. Ignored unless I(gh_latest) is true.
@@ -528,7 +529,7 @@ def select_gh_release(releases, tag_prefix=None, skip_prereleases=False):
             continue
         if skip_prereleases and release.get("prerelease"):
             continue
-        if tag_prefix and not str(release.get("tag_name") or "").startswith(tag_prefix):
+        if tag_prefix and not re.fullmatch(re.escape(tag_prefix) + r"\d[\d.]*", str(release.get("tag_name") or "")):
             continue
         return release
     return None
