@@ -211,7 +211,7 @@ def main(argv=None):
         return 1
     serial, default_ip, tailscale_ip = resolve_target(argv)
     row = device_row(argv[0], CONF) if len(argv) == 1 else None
-    expected = row[0] if row else "-"
+    expected = row[0] if row else argv[0]  # legacy positional mode: the serial given is the identity
 
     device_file = os.path.join(ROOT, "state", "device_ip_%s" % serial)
     trim_log()

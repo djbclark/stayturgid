@@ -182,4 +182,41 @@ def test_peer_ssh_alias_matches_the_known_hosts_names_the_deploy_writes():
     )
     pin = next(t for t in tasks if t.get("name", "").startswith("Pin the control node's host key under the alias mac"))
     args = pin["ansible.builtin.known_hosts"]
-    assert args["state"] == "present" and "'mac'" in args["name"] and args["key"].lstrip().startswith("{{ 'mac'")
+    # HostKeyAlias is looked up bare (no [alias]:port form), whatever the Mac's ssh port.
+    assert args["state"] == "present" and args["name"] == "mac" and args["key"].startswith("mac ")
+
+
+def test_mesh_known_hosts_carry_a_bare_line_per_peer_for_hostkeyalias():
+    import json
+    import re
+
+    import jinja2
+
+    env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(
+            str(REPO / "ansible_collections/stayturgid/termux/roles/termux_userland/templates")
+        )
+    )
+    env.filters["to_json"] = json.dumps
+    env.filters["split"] = lambda v, sep=None: v.split(sep)
+    env.tests["file"] = lambda path: False
+    out = env.get_template("known_hosts_mesh.j2").render(
+        groups={"stayturgid": ["s24", "t2e"]},
+        inventory_hostname="s24",
+        stayturgid_ssh_mesh_group="stayturgid",
+        stayturgid_ssh_mesh_host_keys_dir="/nonexistent",
+        hostvars={
+            "t2e": {
+                "inventory_hostname": "t2e",
+                "ansible_host": "100.73.253.10",
+                "ansible_port": 8022,
+                "device_lan_ip": "192.168.68.62",
+                "stayturgid_sshd_host_pubkey": "ssh-ed25519 AAAAKEY comment",
+                "stayturgid_ssh_known_host_aliases": ["t2e", "100.73.253.10", "192.168.68.62"],
+            }
+        },
+    )
+    names = [e["name"] for e in json.loads(out)]
+    assert "t2e" in names  # what `HostKeyAlias=t2e` looks up
+    assert "[t2e]:8022" in names and "[192.168.68.62]:8022" in names  # the host-name forms stay
+    assert all(re.match(r"^t2e ssh-ed25519 AAAAKEY$", e["key"]) for e in json.loads(out) if e["name"] == "t2e")

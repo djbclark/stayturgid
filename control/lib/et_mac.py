@@ -356,7 +356,6 @@ def render_device_ssh_config(
             "    IdentitiesOnly yes",
             "    PreferredAuthentications publickey",
             "    StrictHostKeyChecking yes",
-            *[ln for ln in hk if not ln.lstrip().startswith("StrictHostKeyChecking")],
         ]
     return "\n".join(lines)
 

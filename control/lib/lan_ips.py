@@ -150,18 +150,20 @@ def tombstone_lines(name: str) -> list[str]:
 
     Without any ``-lan`` block, ``ssh <name>-lan`` falls through to name
     resolution and the catch-all ``Host`` block and may reach something else.
-    The HostName is under ``.invalid`` (RFC 6761: never resolves) and says why,
-    so ssh stops with ``Could not resolve hostname <name>-no-usable-lan-address.invalid``;
-    ``ProxyCommand none`` and ``ProxyJump none`` keep a later catch-all block from
-    routing the name somewhere that could resolve it, and the agent is never
-    reached. Keep in step with the tombstone branch of
+    The HostName is an absolute name under ``.invalid`` (RFC 6761: never
+    resolves; the trailing dot stops search domains) and says why, so ssh stops
+    with ``Could not resolve hostname <name>-no-usable-lan-address.invalid.``;
+    ``CanonicalizeHostname no``, ``ProxyCommand none`` and ``ProxyJump none``
+    keep a later catch-all block from routing the name somewhere that could
+    resolve it, and the agent is never reached. Keep in step with the tombstone branch of
     ansible/roles/control_node/templates/ssh_config_stayturgid.j2.
     """
     return [
         "Host %s-lan" % name,
         "  # %s: no usable LAN address for %s (control/lib/lan_ips.py); fails loudly instead of falling through"
         % (TOMBSTONE_MARK, name),
-        "  HostName %s-no-usable-lan-address.invalid" % name,
+        "  HostName %s-no-usable-lan-address.invalid." % name,
+        "  CanonicalizeHostname no",
         "  ProxyCommand none",
         "  ProxyJump none",
         "  IdentityAgent none",

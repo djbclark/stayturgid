@@ -158,9 +158,11 @@ def test_deploy_scans_then_pins_the_mac_host_key_under_the_alias():
     tasks = yaml.safe_load((TERMUX_ROLE / "tasks/control_et.yml").read_text())
     names = [t.get("name", "") for t in tasks]
     scan = next(n for n in names if n.startswith("Scan the control node's ssh host key"))
+    assert any(n.startswith("Warn when the control node's host key could not be scanned") for n in names)
     pin = next(n for n in names if n.startswith("Pin the control node's host key under the alias mac"))
     assert names.index(scan) < names.index(pin)
     assert tasks[names.index(pin)]["ansible.builtin.known_hosts"]["state"] == "present"  # in place: never empty
     scan_task = tasks[names.index(scan)]
-    assert scan_task["delegate_to"] == "localhost" and scan_task["run_once"] is True
+    # Per phone, not run_once: a run_once task takes its `when` from the first host only.
+    assert scan_task["delegate_to"] == "localhost" and "run_once" not in scan_task
     assert scan_task["changed_when"] is False

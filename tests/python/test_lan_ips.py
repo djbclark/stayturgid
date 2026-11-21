@@ -541,11 +541,13 @@ def test_tombstone_block_fails_loudly_and_beats_a_catch_all_block(tmp_path):
         "Host hd8 100.124.55.39\n  HostName 100.124.55.39\n"
         + "\n".join(lan_ips.tombstone_lines("hd8"))
         + "\nHost *\n  ProxyCommand /bin/false\n  HostName catch-all.example\n"
+        + "  CanonicalizeHostname yes\n  CanonicalDomains example.org\n"
     )
     eff = subprocess.run([ssh, "-G", "-F", str(cfg), "hd8-lan"], capture_output=True, text=True, timeout=20)
     assert eff.returncode == 0, eff.stderr
     got = dict(ln.split(" ", 1) for ln in eff.stdout.splitlines() if " " in ln)
-    assert got["hostname"] == "hd8-no-usable-lan-address.invalid"  # never the catch-all's name
+    assert got["hostname"] == "hd8-no-usable-lan-address.invalid."  # never the catch-all's name; absolute
+    assert got["canonicalizehostname"] == "false"
     assert "proxycommand" not in got  # `ProxyCommand none` wins over the catch-all's /bin/false
     run = subprocess.run(
         [ssh, "-F", str(cfg), "-o", "BatchMode=yes", "-o", "ConnectTimeout=3", "hd8-lan", "true"],
@@ -553,4 +555,4 @@ def test_tombstone_block_fails_loudly_and_beats_a_catch_all_block(tmp_path):
         text=True,
         timeout=30,
     )
-    assert run.returncode != 0 and "hd8-no-usable-lan-address.invalid" in run.stderr
+    assert run.returncode != 0 and "hd8-no-usable-lan-address.invalid." in run.stderr
