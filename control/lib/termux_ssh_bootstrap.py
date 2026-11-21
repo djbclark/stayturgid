@@ -6,7 +6,6 @@ Core logic lives in stayturgid.termux.plugins.module_utils.termux_run_as
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +17,7 @@ if str(_COLLECTION_UTILS) not in sys.path:
 
 import termux_adbkey
 import termux_run_as as tr
+from ansible_context import AnsibleContext, require_limit_hosts, resolve_ansible_context, resolved_env
 from secretspec_exec import secretspec_run
 
 # Hard cap on one SSH probe (2026-10-10: a wedged sshd hung bootstrap_ssh.py for 56 minutes).
@@ -253,18 +253,26 @@ def run_bootstrap_playbook(
     repo_root: Path,
     hosts: list[str],
     *,
-    ansible_cfg: Path | None = None,
-    collections_path: Path | None = None,
+    context: AnsibleContext | None = None,
     requirements: Path | None = None,
 ) -> int:
-    """Run ansible/playbooks/fleet/bootstrap.yml for inventory host(s)."""
+    """Run ansible/playbooks/fleet/bootstrap.yml for inventory host(s).
+
+    The playbook runs against the resolved site overlay (#330): the product's
+    own ``ansible/ansible.cfg`` points at ``hosts.yml``, which only exists as
+    ``.example``, so falling back to it matches no host. A caller that already
+    resolved the site context passes it; otherwise it is resolved here, and an
+    unresolvable site raises ``AnsibleConfigError`` rather than running blind.
+    """
     repo_root = Path(repo_root)
-    cfg = ansible_cfg or repo_root / "ansible" / "ansible.cfg"
+    if context is None:
+        context = resolve_ansible_context(repo_root)
+    for host in hosts:
+        require_limit_hosts(context, host)
     playbook = repo_root / "ansible" / "playbooks" / "fleet" / "bootstrap.yml"
     req = requirements or repo_root / "ansible" / "requirements.yml"
-    coll = collections_path or repo_root / ".ansible" / "collections"
-    env = os.environ.copy()
-    env["ANSIBLE_CONFIG"] = str(cfg)
+    coll = context.collections_path
+    env = resolved_env(repo_root, context=context)
     subprocess.run(
         [
             "ansible-galaxy",

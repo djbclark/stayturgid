@@ -25,6 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 import adb_cli as ac
 import termux_ssh_bootstrap as boot
+from ansible_context import AnsibleConfigError, resolve_ansible_context
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -70,7 +71,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.ansible:
         print("=== SSH bootstrap (ansible): %s ===" % ", ".join(args.hosts))
-        rc = boot.run_bootstrap_playbook(REPO_ROOT, list(args.hosts))
+        try:
+            # Resolve the site overlay once (#330); the playbook must not fall back to the
+            # product's own ansible.cfg, whose inventory is only an .example file.
+            context = resolve_ansible_context(REPO_ROOT)
+            rc = boot.run_bootstrap_playbook(REPO_ROOT, list(args.hosts), context=context)
+        except AnsibleConfigError as exc:
+            print("ERROR: %s" % exc, file=sys.stderr)
+            return 2
         if rc != 0:
             return rc
         for host in args.hosts:

@@ -76,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Checking SSH to {target}...")
     if not verify_ssh(target):
         print(f"SSH to {target} failed — running ansible/playbooks/fleet/bootstrap.yml...")
-        rc = boot.run_bootstrap_playbook(REPO_ROOT, [args.host])
+        rc = boot.run_bootstrap_playbook(REPO_ROOT, [args.host], context=context)
         if rc != 0:
             print(f"ERROR: bootstrap playbook failed (exit {rc})", file=sys.stderr)
             return rc
