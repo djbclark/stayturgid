@@ -46,6 +46,9 @@
       - _locked_apk.gh_repo | length > 0
       - _locked_apk.gh_pattern is string
       - _locked_apk.gh_pattern | length > 0
+      - _locked_apk.gh_tag_prefix is not defined or _locked_apk.gh_tag_prefix is string
+      - _locked_apk.gh_tag_prefix is not defined or _locked_apk.gh_latest | default(false) | bool
+      - _locked_apk.gh_skip_prereleases is not defined or _locked_apk.gh_latest | default(false) | bool
       - >-
         (_locked_apk.gh_latest | default(false) | bool
          and _locked_apk.gh_tag is not defined
@@ -61,8 +64,9 @@
     fail_msg: >-
       Bootstrap APK {{ _locked_apk.id | default('(missing id)') }} is
       malformed. Every entry requires id, gh_repo and gh_pattern, plus either
-      gh_latest (and no gh_tag/version_name/checksum) or an immutable gh_tag
-      with version_name and sha256 checksum.
+      gh_latest (and no gh_tag/version_name/checksum; gh_tag_prefix and
+      gh_skip_prereleases only with it) or an immutable gh_tag with
+      version_name and sha256 checksum.
     quiet: true
   loop: "{{ stayturgid_bootstrap_apks }}"
   loop_control:

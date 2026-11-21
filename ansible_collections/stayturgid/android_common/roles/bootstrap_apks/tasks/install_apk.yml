@@ -79,6 +79,8 @@
         gh_repo: "{{ _apk.gh_repo }}"
         gh_tag: "{{ _apk.gh_tag | default(omit) }}"
         gh_latest: "{{ _apk.gh_latest | default(omit) }}"
+        gh_tag_prefix: "{{ _apk.gh_tag_prefix | default(omit) }}"
+        gh_skip_prereleases: "{{ _apk.gh_skip_prereleases | default(omit) }}"
         gh_latest_pin_to_cache: "{{ stayturgid_bootstrap_apks_pin_to_fleet | default(false) }}"
         gh_pattern: "{{ _apk.gh_pattern }}"
         checksum: "{{ _apk.checksum | default(omit) }}"

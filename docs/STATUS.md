@@ -96,7 +96,11 @@ more than a day or two old.
   alignment rule. Run `prettier --write` on any Markdown you touch before
   committing, or the commit will fail on style, not content.
 - `device/native-agent/agent-release.jks` (the release signing keystore) must
-  never be tracked in git. Check `git status` before any broad `git add`.
+  never be tracked in git. Check `git status` before any broad `git add`. Its
+  key also lives as the GitHub Actions environment secrets of `agent-release`,
+  from which CI signs the rolling `agent-r*` releases (see
+  [device/native-agent/README.md](../device/native-agent/README.md), Rolling
+  releases); the local copy is kept for the unsigned-build fallback.
 - `/Users/djbclark/src/ShizukuTendCF` (the current fork; the older
   `~/src/Shizuku` checkout is gone) may have a dirty nested `api` submodule (clean on 2026-10-09) from
   pre-existing user work. Preserve it; inspect `git diff -- api` before any

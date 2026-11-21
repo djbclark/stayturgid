@@ -26,21 +26,77 @@ Current status: [docs/STATUS.md](../../docs/STATUS.md).
 ## Build
 
 **Built on GitHub CI only, never on the Mac (djbclark, 2026-10-18; it was Forgejo
-CI on SIPB's Hyades from 2026-10-17).** After `git push origin master`, `just
-agent-ci-run` (the `scripts/github-ci-run` wrapper from the `ci/base` branch)
-overlays `ci/base` onto the commit and pushes `ci/run/<slug>`, which runs
-`.github/workflows/agent-ci.yml` (it exists only on `ci/base`; see its
-`docs/ci-github.md`) on a free GitHub-hosted runner: unit tests, detekt and an
-**unsigned** release APK, published as the GitHub prerelease
-`agent-ci-<versionName>-<sha8>` on `djbclark/stayturgid`. Then
-`just agent-ci-fetch` downloads it (with `gh`), checks its SHA-256, signs it with
-`agent-release.jks` (which never leaves the Mac) and checks the signer, writing
-`app/build/outputs/apk/release/app-release.apk`. A fleet release is that file
-uploaded as the GitHub release `agent-v<version>` and pinned in
-`bootstrap_apks/defaults/main.yml`. `just kt-test`, `kt-build-*` and
+CI on SIPB's Hyades from 2026-10-17).** Since 2026-11-21 a push to `master` that
+touches this directory builds, signs and publishes the agent as a rolling
+release, with nothing to run by hand; see [Rolling releases](#rolling-releases).
+To test a branch without publishing, `just agent-ci-run BRANCH` and
+`just agent-ci-fetch` (the fallback below). `just kt-test`, `kt-build-*` and
 `agent-assemble` refuse to run locally; spotless and detekt (the pre-commit
 hooks) stay local. GitHub runners need no loopback shim; that is a Hyades
 (libkrun) workaround. `.forgejo/` in this repo is the retired Forgejo flow.
+
+## Rolling releases
+
+Operator decision 2026-11-21: rolling releases, no pins, breakage accepted.
+`.github/workflows/agent-release.yml` is the whole flow; its logic is in
+`scripts/ci/agent_release.py`.
+
+**Trigger.** A push to `master` that touches `device/native-agent/` (not
+`*.md`), or a manual dispatch by someone with write access. There is no
+`pull_request` trigger, so a fork can never reach a secret.
+
+**Jobs.**
+
+1. `build` has no secret and a read-only token. It runs Gradle (unit tests,
+   detekt, `assembleRelease`) and uploads the unsigned APK as the artifact
+   `agent-unsigned` (kept 14 days).
+2. `publish` runs in the GitHub environment `agent-release`, which GitHub
+   restricts to the `master` branch, and never runs Gradle. It signs the APK
+   with `apksigner`, checks that the signer certificate's SHA-256 starts with
+   `35bbc3d1` (the same key as before, so installed apps update in place) and
+   that the `versionCode` is the one the APK was built with, then publishes a
+   normal (not pre-) release tagged `agent-r<versionCode>` with exactly one
+   asset, `app-release.apk`. It then prunes to the newest 10 `agent-r*`
+   releases. The older `agent-ci-*` prereleases are no longer published
+   (existing ones stay); they and `agent-v*` are separate tag streams.
+
+**Versioning.** `versionCode` = `GITHUB_RUN_NUMBER` + 100, so the first rolling
+build is above the last hand-made one (37). `versionName` =
+`0.9.<versionCode>+<sha8>`. Gradle reads `AGENT_VERSION_CODE` and
+`AGENT_VERSION_NAME`; without them (local or fork builds) it uses 37 and 0.9.19.
+
+**Consumers follow the newest release; nothing is pinned.** `bootstrap_apks`
+installs the agent with `gh_latest` plus `gh_tag_prefix: agent-r` and
+`gh_pattern: app-release.apk`, comparing the installed `base.apk` SHA-256 with
+the asset digest GitHub publishes. On the device, `UpdateCheck.kt` watches the
+tags `agent-r<versionCode>` and compares them with `BuildConfig.VERSION_CODE`.
+
+**Secrets (names only).** Held as secrets of the environment `agent-release` of
+`djbclark/stayturgid`: `STAYTURGID_AGENT_KEYSTORE_B64`,
+`STAYTURGID_AGENT_KEYSTORE_PASSWORD`, `STAYTURGID_AGENT_KEY_PASSWORD` and
+`STAYTURGID_AGENT_KEY_ALIAS`. They were set from the local, gitignored
+`agent-release.jks`, which stays on the Mac for the fallback. To rotate or
+re-set one, run `gh secret set NAME --env agent-release` with the value on
+stdin, never on the command line.
+
+**Trust boundaries** (this is a public repository):
+
+- No `pull_request` trigger; only a push to `master` or a write-access dispatch.
+- The `build` job, which runs repo code and third-party Gradle plugins, never
+  sees a secret.
+- The `publish` job holds the key but never runs Gradle: it runs only
+  `scripts/ci/agent_release.py` and first-party actions pinned by commit.
+- A dispatch from any other branch cannot read the environment's secrets, and
+  `publish` is skipped there.
+
+**Fallback (unsigned build, signed on the Mac).** `just agent-ci-run BRANCH`
+dispatches the workflow with `sign=false`: it builds and tests but publishes
+nothing and keeps the unsigned APK as the artifact `agent-unsigned`. Then
+`just agent-ci-fetch [FULL_SHA]` downloads that artifact, checks its SHA-256,
+signs it with the local `agent-release.jks` (`ci_fetch_sign.py`) and checks the
+signer, writing `app/build/outputs/apk/release/app-release.apk`.
+
+## Local build and install
 
 The local build below is kept for reference only. It requires Android SDK (`ANDROID_HOME` or `local.properties` `sdk.dir`) and
 **JDK 17 or 21** (AGP 8.10 rejects JDK 25+). On this Mac:

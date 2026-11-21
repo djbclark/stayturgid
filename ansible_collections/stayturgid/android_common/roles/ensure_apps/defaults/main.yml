@@ -9,12 +9,12 @@
 # stayturgid_ensure_apps:
 #   - id: com.google.android.apps.authenticator2
 #     source: play
-#   - id: org.stayturgid.agent
+#   - id: com.example.app
 #     source: apk
-#     gh_repo: djbclark/stayturgid
-#     gh_tag: agent-v0.6.0
-#     gh_pattern: app-release.apk
-#     version_name: 0.6.0-boot-stability
+#     gh_repo: example/app
+#     gh_tag: v1.2.3          # ensure_apps GitHub entries stay release-locked; the rolling
+#     gh_pattern: app.apk     # agent-r* releases are followed by bootstrap_apks (gh_latest)
+#     version_name: 1.2.3
 #     checksum: "sha256:..."
 
 stayturgid_ensure_apps: []

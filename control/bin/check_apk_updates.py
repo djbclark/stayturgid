@@ -9,7 +9,8 @@
 """Notify when pinned bootstrap APKs fall behind their latest GitHub releases.
 
 Reads ``stayturgid_bootstrap_apks`` pins from the bootstrap_apks role
-defaults, compares each pinned ``gh_tag`` against the repo's latest
+defaults (``gh_latest`` entries follow the newest release and are skipped),
+compares each pinned ``gh_tag`` against the repo's latest
 release/tag, and records the pending set in STATE_PATH on every run.
 
 Telegram (hermes) fires only when that set CHANGES since the previous run
@@ -144,7 +145,9 @@ def main():
 
         gh_repo = apk.get("gh_repo")
         gh_tag = apk.get("gh_tag")
-        if not gh_repo or not gh_tag:
+        # A gh_latest entry follows the newest release by itself (the agent, Termux, Shizuku), so it
+        # can never be behind; only a pinned entry (Tailscale) has a lock to nag about.
+        if apk.get("gh_latest") or not gh_repo or not gh_tag:
             continue
 
         latest_tag = latest_tag_for(gh_repo)
