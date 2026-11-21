@@ -49,7 +49,8 @@
       {{
         _mac_launchd_disabled_raw.stdout_lines | default([])
         | select('search', '=> disabled')
-        | map('regex_replace', '^.*?"([^"]+)".*$', '\\1')
+        | map('regex_findall', '"([^"]+)"')
+        | flatten
         | list
       }}
 

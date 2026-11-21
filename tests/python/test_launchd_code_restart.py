@@ -344,9 +344,10 @@ def test_disabled_launchd_agents_are_not_ensure_targets() -> None:
     import jinja2
 
     env = jinja2.Environment(undefined=jinja2.StrictUndefined)
-    # Ansible's own search test and regex_replace filter, which plain jinja2 lacks.
+    # Ansible's own search test and regex_findall/flatten filters, which plain jinja2 lacks.
     env.tests["search"] = lambda value, pattern: re.search(pattern, value) is not None
-    env.filters["regex_replace"] = lambda value, pattern, repl: re.sub(pattern, repl, value)
+    env.filters["regex_findall"] = lambda value, pattern: re.findall(pattern, value)
+    env.filters["flatten"] = lambda seq: [x for sub in seq for x in sub]
     disabled = ast.literal_eval(
         env.from_string(disabled_expr).render(_mac_launchd_disabled_raw={"stdout_lines": stdout_lines})
     )
