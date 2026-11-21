@@ -47,7 +47,10 @@ options:
       - The APK is verified against the SHA-256 digest GitHub publishes for that
         asset (C(assets[].digest)); an asset without a digest is installed
         unverified. Idempotent by comparing the digest with the installed
-        C(base.apk). Mutually exclusive with I(gh_tag), I(checksum) and
+        C(base.apk). When GitHub cannot be reached the release last
+        resolved (kept under C(~/.cache/stayturgid/apks/gh-latest)) is reused if its APK is
+        still cached, an installed app is left alone, and only a first install with nothing
+        cached fails; each case warns. Mutually exclusive with I(gh_tag), I(checksum) and
         I(version_name).
     type: bool
     default: false
@@ -409,12 +412,50 @@ def installed_sha256(run_command, device, package):
     return None
 
 
-def gh_newest_release(module, repo, pattern):
+def _gh_memory_path(repo, pattern):
+    token = hashlib.sha256(("%s\0%s" % (repo, pattern or "")).encode()).hexdigest()[:16]
+    return os.path.join(APK_CACHE_DIR, "gh-latest", token + ".json")
+
+
+def _remember_gh_release(repo, pattern, tag, digest):
+    """Record the newest release a lookup resolved, so an outage can reuse the cached APK."""
+    path = _gh_memory_path(repo, pattern)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path + ".part", "w") as handle:
+            json.dump({"tag": tag, "sha256": digest}, handle)
+        os.rename(path + ".part", path)
+    except OSError:
+        pass  # a missing memory only removes the outage fallback
+
+
+def _recall_gh_release(repo, pattern):
+    """(tag, sha256) last resolved for repo/pattern, when its APK is still in the cache, else None."""
+    try:
+        with open(_gh_memory_path(repo, pattern)) as handle:
+            seen = json.load(handle)
+        tag, digest = seen["tag"], seen["sha256"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if not (tag and re.match(r"^[0-9a-f]{64}$", str(digest))):
+        return None
+    cached = os.path.join(APK_CACHE_DIR, digest + ".apk")
+    if os.path.isfile(cached) and _sha256_of(cached) == digest:
+        return tag, digest
+    return None
+
+
+def gh_newest_release(module, repo, pattern, installed=False):
     """(tag, sha256 hex or None) of the pattern asset in repo's newest release.
 
     GitHub lists releases newest first (prereleases included, so a republished
     C(nightly) tag counts). The digest is the one GitHub computed for the asset
     (C(sha256:<hex>)); older assets have none.
+
+    When GitHub cannot be reached (DNS, outage, rate limit) the release last resolved for
+    this repo and pattern is reused if its APK is still in the checksum cache; failing that,
+    an app that is already installed is left alone. Both paths warn; only a first install
+    with nothing cached fails (a flapping resolver cost three m11 deploys on 2026-11-20).
     """
     gh = module.get_bin_path("gh", required=True)
     rc, out, err = run_command_with_timeout(
@@ -424,7 +465,15 @@ def gh_newest_release(module, repo, pattern):
         get_bin_path_fn=module.get_bin_path,
     )
     if rc != 0:
-        module.fail_json(msg="could not list releases of %s: %s" % (repo, (err or out).strip()[:500]))
+        reason = (err or out).strip()[:500]
+        recalled = _recall_gh_release(repo, pattern)
+        if recalled:
+            module.warn("could not list releases of %s (%s); using cached %s" % (repo, reason, recalled[0]))
+            return recalled
+        if installed:
+            module.warn("could not list releases of %s (%s); leaving the installed build" % (repo, reason))
+            module.exit_json(changed=False, reason="GitHub unreachable; installed build left as is")
+        module.fail_json(msg="could not list releases of %s: %s" % (repo, reason))
     try:
         releases = [r for r in json.loads(out) if not r.get("draft")]
     except (ValueError, TypeError, AttributeError):
@@ -444,6 +493,7 @@ def gh_newest_release(module, repo, pattern):
     wanted = _wanted_sha256(digest)
     if not digest.startswith("sha256:") or not re.match(r"^[0-9a-f]{64}$", wanted):
         module.fail_json(msg="unexpected digest %r on %s %s" % (digest, repo, tag))
+    _remember_gh_release(repo, pattern, tag, wanted)
     return tag, wanted
 
 
@@ -804,7 +854,9 @@ def main():
     present = package_installed(module.run_command, device, package)
     latest_tag = None
     if module.params["gh_latest"]:
-        latest_tag, digest = gh_newest_release(module, module.params["gh_repo"], module.params["gh_pattern"])
+        latest_tag, digest = gh_newest_release(
+            module, module.params["gh_repo"], module.params["gh_pattern"], installed=present
+        )
         module.params["gh_tag"] = latest_tag
         module.params["checksum"] = digest
     if present and not module.params["force"]:

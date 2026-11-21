@@ -6,6 +6,9 @@
   applies only the ones that differ, reads them back and fails on a mismatch; healing ID
   `DEVICE-QUIRKS`. First data: `model_idea_tab_11` (rotation lock, ZUI memory cleaner, Doze
   whitelist, phantom-process limits).
+- `android_apk` `gh_latest`: when GitHub is unreachable, reuse the release last resolved if its
+  APK is still in the sha256 cache, else leave an installed app alone (both warn); a first
+  install with nothing cached still fails (2026-11-21).
 - `adb_device` lookup: a host missing from `devices.conf` resolves to its inventory
   `device_usb_serial` (2026-11-20).
 - Remove the legacy project-deploy module and its util (87bf130, 2026-07-31, #162).

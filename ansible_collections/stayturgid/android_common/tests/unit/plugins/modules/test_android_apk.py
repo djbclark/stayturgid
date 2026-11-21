@@ -959,3 +959,85 @@ def test_gh_latest_without_digest_skips_when_download_matches_device(mocker, tmp
     assert out["changed"] is False
     assert len(downloads) == 1
     assert not any(" install " in c for c in seen)
+
+
+def _run_latest_offline(mocker, tmp_path, monkeypatch, remembered, present=True, device_sha="0" * 64):
+    cache = tmp_path / "cache"
+    monkeypatch.setattr(mod, "APK_CACHE_DIR", str(cache))
+    apk = b"PK-cached"
+    digest = sha256(apk).hexdigest()
+    if remembered:
+        cache.mkdir()
+        (cache / (digest + ".apk")).write_bytes(apk)
+        mod._remember_gh_release("termux/termux-x11", "termux-x11-universal-release.apk", "nightly", digest)
+    downloads = []
+    monkeypatch.setattr(mod, "download_gh_release", lambda *a: downloads.append(a))
+    seen = []
+
+    def command_fn(cmd):
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        seen.append(joined)
+        if "api repos/termux/termux-x11/releases" in joined:
+            return (1, "", "error connecting to api.github.com")
+        if "pm list packages" in joined:
+            return (0, "package:com.termux.x11\n" if present else "", "")
+        if "pm path" in joined:
+            return (0, "package:/data/app/~~x/com.termux.x11-y/base.apk\n", "")
+        if "sha256sum" in joined:
+            return (0, "%s  /data/app/~~x/com.termux.x11-y/base.apk\n" % device_sha, "")
+        if " install" in joined:
+            return (0, "Success\n", "")
+        return (0, "", "")
+
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.termux.x11",
+            gh_repo="termux/termux-x11",
+            gh_latest=True,
+            gh_pattern="termux-x11-universal-release.apk",
+            connect=False,
+        ),
+        command_fn=command_fn,
+    )
+    return out, downloads, seen, digest
+
+
+def test_gh_latest_outage_installs_the_cached_release_when_absent(mocker, tmp_path, monkeypatch):
+    out, downloads, seen, _digest = _run_latest_offline(mocker, tmp_path, monkeypatch, remembered=True, present=False)
+    assert out.get("failed") is not True, out
+    assert out["changed"] is True
+    assert downloads == []
+    assert any("using cached nightly" in w for w in out["_warnings"])
+    assert any(" install " in c for c in seen)
+
+
+def test_gh_latest_outage_with_cached_release_already_installed_is_a_no_op(mocker, tmp_path, monkeypatch):
+    digest = sha256(b"PK-cached").hexdigest()
+    out, downloads, seen, _d = _run_latest_offline(mocker, tmp_path, monkeypatch, remembered=True, device_sha=digest)
+    assert out["changed"] is False
+    assert downloads == []
+    assert not any(" install " in c for c in seen)
+
+
+def test_gh_latest_outage_leaves_an_installed_app_alone_when_nothing_is_cached(mocker, tmp_path, monkeypatch):
+    out, downloads, seen, _d = _run_latest_offline(mocker, tmp_path, monkeypatch, remembered=False, present=True)
+    assert out.get("failed") is not True, out
+    assert out["changed"] is False
+    assert any("leaving the installed build" in w for w in out["_warnings"])
+    assert not any(" install " in c for c in seen)
+
+
+def test_gh_latest_outage_fails_for_a_first_install_with_nothing_cached(mocker, tmp_path, monkeypatch):
+    out, _downloads, _seen, _d = _run_latest_offline(mocker, tmp_path, monkeypatch, remembered=False, present=False)
+    assert out["failed"] is True
+    assert "could not list releases" in out["msg"]
+
+
+def test_gh_latest_success_remembers_the_release_for_a_later_outage(mocker, tmp_path, monkeypatch):
+    digest = sha256(b"PK").hexdigest()
+    _run_latest(mocker, tmp_path, monkeypatch, "sha256:" + digest, digest)
+    memory = list((tmp_path / "cache" / "gh-latest").glob("*.json"))
+    assert len(memory) == 1
+    assert json.loads(memory[0].read_text()) == {"tag": "nightly", "sha256": digest}
