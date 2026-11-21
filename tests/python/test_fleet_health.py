@@ -1263,3 +1263,186 @@ def test_monitor_logs_issue_hint_once_per_change(tmp_path, monkeypatch):
     assert logs[-1] == (fhm.NOTICE, "p7a shizuku_auth_unanswered cleared")
     fhm.log_issue_hints("p7a", [], state)
     assert len(logs) == 2
+
+
+# ---------------------------------------------------------------------------
+# Slice 2c: stuck adb authorization prompt recovery.
+# ---------------------------------------------------------------------------
+
+import adb_cli as adb_cli_mod  # noqa: E402  (matches the `import adb_cli` inside fhm)
+
+
+def _stub_adb_cli_heal(monkeypatch, *, return_value: str):
+    """Replace adb_cli with one whose check_adb_prompt returns *return_value*."""
+    calls: list[tuple] = []
+
+    def fake_check(serial, *, restart_adbd=False, window_s=600):
+        calls.append((serial, restart_adbd, window_s))
+        return return_value
+
+    monkeypatch.setattr(adb_cli_mod, "check_adb_prompt", fake_check)
+    monkeypatch.setattr(
+        adb_cli_mod,
+        "debugging_dialog_present",
+        lambda serial: False,
+    )
+    monkeypatch.setattr(
+        adb_cli_mod,
+        "app_compatibility_dialog_present",
+        lambda serial: False,
+    )
+    monkeypatch.setattr(
+        adb_cli_mod,
+        "dismiss_app_compatibility_dialog",
+        lambda serial: True,
+    )
+    return calls
+
+
+def test_heal_stuck_adb_prompt_calls_check_with_restart_true(tmp_path, monkeypatch):
+    monkeypatch.setattr(fhm, "ADB_PROMPT_HEAL_STATE_DIR", str(tmp_path / "heal"))
+    calls = _stub_adb_cli_heal(monkeypatch, return_value="restarted")
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *a, **k: None)
+    fhm._heal_stuck_adb_prompt("p7a", "1.1.1.1:5555")
+    assert calls == [("1.1.1.1:5555", True, 600)]
+
+
+def test_heal_stuck_adb_prompt_stamps_cooldown_after_restart(tmp_path, monkeypatch):
+    monkeypatch.setattr(fhm, "ADB_PROMPT_HEAL_STATE_DIR", str(tmp_path / "heal"))
+    _stub_adb_cli_heal(monkeypatch, return_value="restarted")
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *a, **k: None)
+    fhm._heal_stuck_adb_prompt("p7a", "1.1.1.1:5555")
+    assert (tmp_path / "heal" / "p7a").exists()
+
+
+def test_heal_stuck_adb_prompt_skips_on_cooldown(tmp_path, monkeypatch):
+    stamp = tmp_path / "heal" / "p7a"
+    stamp.parent.mkdir(parents=True)
+    stamp.write_text(str(int(datetime.datetime.now().timestamp())))
+    monkeypatch.setattr(fhm, "ADB_PROMPT_HEAL_STATE_DIR", str(stamp.parent))
+    calls = _stub_adb_cli_heal(monkeypatch, return_value="restarted")
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *a, **k: None)
+    fhm._heal_stuck_adb_prompt("p7a", "1.1.1.1:5555")
+    assert calls == []
+
+
+def test_heal_stuck_adb_prompt_cooldown_only_stamped_when_not_ok(tmp_path, monkeypatch):
+    monkeypatch.setattr(fhm, "ADB_PROMPT_HEAL_STATE_DIR", str(tmp_path / "heal"))
+    _stub_adb_cli_heal(monkeypatch, return_value="ok")
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *a, **k: None)
+    fhm._heal_stuck_adb_prompt("p7a", "1.1.1.1:5555")
+    assert not (tmp_path / "heal" / "p7a").exists()
+
+
+@pytest.mark.parametrize("state", ["restarted", "restart-failed", "dialog", "unknown"])
+def test_heal_stuck_adb_prompt_stamps_cooldown_for_non_ok_states(tmp_path, monkeypatch, state):
+    monkeypatch.setattr(fhm, "ADB_PROMPT_HEAL_STATE_DIR", str(tmp_path / "heal"))
+    _stub_adb_cli_heal(monkeypatch, return_value=state)
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *a, **k: None)
+    fhm._heal_stuck_adb_prompt("p7a", "1.1.1.1:5555")
+    assert (tmp_path / "heal" / "p7a").exists()
+
+
+def _monitor_with_stubbed_heal(tmp_path, monkeypatch, return_value: str):
+    """Wire up check_device plumbing so only the stuck-prompt heal is exercised."""
+    monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path / "fleet-health"))
+    monkeypatch.setattr(fhm, "SSHD_RECOVER_HEAL_STATE_DIR", str(tmp_path / "sshd"))
+    monkeypatch.setattr(fhm, "TASKER_RECOVER_PROBE_STATE_DIR", str(tmp_path / "probe"))
+    monkeypatch.setattr(fhm, "TASKER_RECOVER_NAG_STATE_DIR", str(tmp_path / "nag"))
+    monkeypatch.setattr(fhm, "TASKER_RESULT_NAG_STATE_DIR", str(tmp_path / "result-nag"))
+    monkeypatch.setattr(fhm, "TASKER_MONITOR_NAG_STATE_DIR", str(tmp_path / "monitor-nag"))
+    monkeypatch.setattr(fhm, "DEBUGGING_DIALOG_STATE_DIR", str(tmp_path / "debug"))
+    monkeypatch.setattr(fhm, "APP_COMPAT_DIALOG_STATE_DIR", str(tmp_path / "appcompat"))
+    monkeypatch.setattr(fhm, "ADB_PROMPT_HEAL_STATE_DIR", str(tmp_path / "adb-prompt"))
+    monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
+    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", False)
+    # Keep check_device focused: probe says all OK so it returns immediately
+    # after the dialog checks run.
+    monkeypatch.setattr(
+        fhm.fh,
+        "probe_device",
+        lambda name, ts, lan: (
+            "adb:1.1.1.1:5555",
+            {
+                "ssh_echo": "ok",
+                "sshd": "ok",
+                "bootloop": "ok",
+                "shell5555": "ok",
+                "watchdog_age": "10",
+                "agent_age": "10",
+                "agent_heartbeat_age": "10",
+                "repair_age": "10",
+                "a11y": "ok",
+                "port": "open",
+                "shizuku": "up",
+            },
+        ),
+    )
+    monkeypatch.setattr(fhm.dev, "resolve_adb", lambda name: "1.1.1.1:5555")
+    for fn in (
+        "notify",
+        "_try_cf_runagent_repair",
+        "_try_firerpa_heal_fallback",
+        "maybe_heal_sshd_via_tasker",
+        "maybe_nag_tasker_recover",
+        "maybe_heal_repair_stale",
+        "maybe_heal_agent",
+        "_scrape_device_errors",
+        "_report_device_log_failures",
+        "_record_soft_health_snapshot",
+        "_stats_event",
+        "log_issue_hints",
+    ):
+        monkeypatch.setattr(fhm, fn, lambda *a, **k: None)
+    logs: list[str] = []
+    monkeypatch.setattr(fhm, "_fleet_log", lambda _level, message: logs.append(message))
+    calls = _stub_adb_cli_heal(monkeypatch, return_value=return_value)
+    return calls, logs
+
+
+def test_monitor_invokes_stuck_adb_prompt_heal_when_reachable(tmp_path, monkeypatch):
+    calls, _ = _monitor_with_stubbed_heal(tmp_path, monkeypatch, return_value="restarted")
+    fhm.check_device("p7a", "100.1", "192.1")
+    assert calls == [("1.1.1.1:5555", True, 600)]
+
+
+def test_monitor_logs_stuck_prompt_state(tmp_path, monkeypatch, capsys):
+    _, logs = _monitor_with_stubbed_heal(tmp_path, monkeypatch, return_value="restarted")
+    fhm.check_device("p7a", "100.1", "192.1")
+    assert any("stuck-adb-prompt check: restarted" in m for m in logs)
+
+
+def test_monitor_skips_stuck_prompt_heal_when_unreachable(tmp_path, monkeypatch):
+    """No adb target (resolve_adb returns None) -> dialog/stuck-prompt block skipped."""
+    monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path / "fleet-health"))
+    monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
+    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", True)
+    monkeypatch.setattr(fhm.dev, "resolve_adb", lambda name: None)
+    monkeypatch.setattr(
+        fhm.fh,
+        "probe_device",
+        lambda name, ts, lan: (None, {}),
+    )
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *a, **k: None)
+    for fn in (
+        "_try_cf_runagent_repair",
+        "_try_firerpa_heal_fallback",
+        "_scrape_device_errors",
+    ):
+        monkeypatch.setattr(fhm, fn, lambda *a, **k: None)
+    calls = _stub_adb_cli_heal(monkeypatch, return_value="restarted")
+    fhm.check_device("p7a", "100.1", "192.1")
+    assert calls == []
+
+
+def test_monitor_skips_stuck_prompt_heal_during_cooldown(tmp_path, monkeypatch):
+    calls, _ = _monitor_with_stubbed_heal(tmp_path, monkeypatch, return_value="restarted")
+    fhm.check_device("p7a", "100.1", "192.1")
+    fhm.check_device("p7a", "100.1", "192.1")
+    assert len(calls) == 1
+
+
+def test_module_docstring_advertises_stuck_prompt_heal():
+    head = (REPO / "control" / "bin" / "fleet_health_monitor.py").read_text()
+    assert "prompt currently pending, skipping" in head
+    assert "detached" in head

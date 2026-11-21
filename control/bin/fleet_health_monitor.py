@@ -83,6 +83,14 @@ REPAIR_HEAL_AFTER = 2
 DEBUGGING_DIALOG_STATE_DIR = os.path.join(ROOT, "state", "debugging-dialog-notify")
 DEBUGGING_DIALOG_NOTIFY_COOLDOWN_SEC = 30 * 60
 APP_COMPAT_DIALOG_STATE_DIR = os.path.join(ROOT, "state", "app-compat-dialog-notify")
+# Stuck adbd auth prompt: adbd logged "prompt currently pending, skipping" while
+# no debugging dialog is on screen, so no new key can be authorised until adbd
+# restarts. The recovery is detached (nohup setsid) so the very channel that
+# issues it isn't killed by adbd going away, and it refuses to run while
+# UsbDebuggingActivity/WifiDebuggingActivity is showing (a restart then drops
+# the connection a human is about to allow; adb's re-dial raises another).
+ADB_PROMPT_HEAL_STATE_DIR = os.path.join(ROOT, "state", "adb-prompt-heal")
+ADB_PROMPT_HEAL_COOLDOWN_SEC = 30 * 60
 # The divergence alert repeats every run while it lasts; one Telegram notice per 6 h is enough.
 DIVERGENCE_STATE_DIR = os.path.join(ROOT, "state", "divergence-notify")
 DIVERGENCE_NOTIFY_COOLDOWN_SEC = 6 * 60 * 60
@@ -746,6 +754,37 @@ def maybe_nag_tasker_recover(name: str, report: dict, target: str | None) -> Non
         _fleet_log(WARNING, "%s: tasker SSHD_RECOVER check failed: %s" % (name, e))
 
 
+def _heal_stuck_adb_prompt(name: str, target: str) -> None:
+    """Restart adbd when a key auth prompt is stuck pending with no dialog up.
+
+    adbd logs ``adb_auth: prompt currently pending, skipping`` when a new key
+    arrives while it still believes an "Allow debugging?" dialog is up; adbd
+    refuses to raise a second dialog until it restarts. adb_cli's
+    ``check_adb_prompt`` already does the detection and the nohup setsid
+    detached restart (so the channel issuing it isn't killed by adbd going
+    away) and refuses to restart while UsbDebuggingActivity or
+    WifiDebuggingActivity is on screen. Cooldown-gated so a wedged adbd (every
+    re-dial of which leaves the same pending marker) doesn't restart in a
+    tight loop.
+    """
+    try:
+        import adb_cli
+    except Exception:
+        return
+    if not _heal_cooldown_ok_dir(name, ADB_PROMPT_HEAL_STATE_DIR, ADB_PROMPT_HEAL_COOLDOWN_SEC):
+        return
+    state = adb_cli.check_adb_prompt(target, restart_adbd=True)
+    _fleet_log(INFO, "%s: stuck-adb-prompt check: %s" % (name, state))
+    # Tick the cooldown on every outcome except "ok": "ok" means no stuck
+    # prompt, no dialog, no restart — re-probing every pass is free and
+    # catches the prompt the moment it wedges. "restarted" / "restart-failed"
+    # / "dialog" / "unknown" all need a 30 min quiet period: a fresh restart
+    # needs time to settle, the dialog is human-paced, an unreadable logcat
+    # is likely a network blip.
+    if state != "ok":
+        _touch_heal_dir(name, ADB_PROMPT_HEAL_STATE_DIR)
+
+
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     state_file = os.path.join(STATE_DIR, name)
     maintenance_file = os.path.join(STATE_DIR, f"{name}.maintenance")
@@ -791,6 +830,14 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
                         sound="Basso",
                     )
                     _touch_heal_dir(name, APP_COMPAT_DIALOG_STATE_DIR)
+            # adbd may be wedged in a state where a key arrives but the
+            # earlier "Allow debugging?" dialog is gone: adbd logs "prompt
+            # currently pending, skipping" and refuses any new key until
+            # adbd restarts. adb_cli.check_adb_prompt detects this and only
+            # then issues a *detached* adbd restart; it refuses to restart
+            # while UsbDebuggingActivity/WifiDebuggingActivity is on screen
+            # (the dialog is, by definition, human-only).
+            _heal_stuck_adb_prompt(name, target)
         except Exception as e:
             _fleet_log(WARNING, "%s: debugging-dialog check failed: %s" % (name, e))
     path, report = fh.probe_device(name, ts_ip, lan_ip)
