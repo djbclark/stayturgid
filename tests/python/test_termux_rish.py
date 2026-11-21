@@ -20,6 +20,14 @@ def test_wrapper_body_sets_termux_app_id():
     assert "ShizukuShellLoader" in body
 
 
+def test_wrapper_body_drops_termux_library_path():
+    """Termux's LD_LIBRARY_PATH makes the system app_process bind Termux's liblzma
+    (no Xzs_Construct) and die at link time; the wrapper must clear it before exec."""
+    body = rish._WRAPPER_BODY.format(rish_dir="/tmp/rish", dex="rish_shizuku.dex", pkg="moe.shizuku.privileged.api")
+    assert "unset LD_LIBRARY_PATH" in body
+    assert body.index("unset LD_LIBRARY_PATH") < body.index("exec /system/bin/app_process")
+
+
 def test_install_writes_dex_and_wrapper(tmp_path, monkeypatch):
     apk = tmp_path / "base.apk"
     with zipfile.ZipFile(apk, "w") as zf:

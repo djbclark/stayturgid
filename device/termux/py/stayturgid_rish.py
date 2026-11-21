@@ -33,6 +33,10 @@ if [ ! -f "$DEX" ]; then
   echo "Cannot find $DEX — run stayturgid_rish.py install" >&2
   exit 1
 fi
+# Termux exports LD_LIBRARY_PATH=$PREFIX/lib; the system app_process would then bind
+# Termux's liblzma, which lacks Xzs_Construct (needed by libunwindstack) and abort at
+# link time. Run it with the platform's own libraries.
+unset LD_LIBRARY_PATH LD_PRELOAD
 [ -z "$RISH_APPLICATION_ID" ] && export RISH_APPLICATION_ID="com.termux"
 [ -z "$MANAGER_APPLICATION_ID" ] && export MANAGER_APPLICATION_ID="{pkg}"
 exec /system/bin/app_process -Djava.class.path="$DEX" /system/bin \\
