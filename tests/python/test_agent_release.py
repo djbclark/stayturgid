@@ -64,33 +64,45 @@ def test_workflow_never_runs_on_pull_requests_or_other_branches():
     assert workflow["permissions"] == {}
 
 
-def test_only_the_publish_job_sees_the_signing_secrets_and_it_runs_no_gradle():
-    text = WORKFLOW.read_text(encoding="utf-8")
+def test_only_the_sign_job_sees_the_signing_secrets_and_only_build_runs_gradle():
     jobs = _workflow()["jobs"]
-    assert "secrets." not in yaml.safe_dump(jobs["build"])
-    assert "gradlew" not in yaml.safe_dump(jobs["publish"])
-    assert jobs["publish"]["environment"] == "agent-release"
-    assert "refs/heads/master" in jobs["publish"]["if"]
-    assert jobs["build"]["permissions"] == {"contents": "read"}
+    assert set(jobs) == {"build", "check", "sign", "release"}
+    for name, job in jobs.items():
+        dumped = yaml.safe_dump(job)
+        assert ("secrets." in dumped) == (name == "sign"), name
+        assert ("gradlew" in dumped) == (name == "build"), name
+    sign_job = yaml.safe_dump(jobs["sign"])
     for name in agent_release.SECRET_ENV.values():
-        assert f"secrets.{name}" in text
-    assert text.count("secrets.") == len(agent_release.SECRET_ENV) == 3
+        assert f"secrets.{name}" in sign_job
+    assert sign_job.count("secrets.") == len(agent_release.SECRET_ENV) == 3
+    assert jobs["sign"]["environment"] == "agent-release"
+    assert "environment" not in jobs["check"] and "environment" not in jobs["release"]
 
 
-def test_no_publish_step_holds_both_the_key_and_the_token_or_parses_the_apk_with_either():
-    steps = _workflow()["jobs"]["publish"]["steps"]
-    holders = {}
-    for step in steps:
-        env = " ".join(f"{k}={v}" for k, v in (step.get("env") or {}).items())
-        holders[step["name"]] = ("secrets." in env, "github.token" in env)
-    key_steps = [n for n, (key, _tok) in holders.items() if key]
-    token_steps = [n for n, (_key, tok) in holders.items() if tok]
-    assert len(key_steps) == 1 and len(token_steps) == 1 and key_steps != token_steps
-    names = [step["name"] for step in steps]
-    # the step that first parses the Gradle-built APK (check) comes before and holds neither
-    first_check = next(i for i, n in enumerate(names) if n.startswith("Check the unsigned APK"))
-    assert first_check < names.index(key_steps[0]) < names.index(token_steps[0])
-    assert holders[names[first_check]] == (False, False)
+def test_the_key_and_the_write_token_never_share_a_job():
+    jobs = _workflow()["jobs"]
+    writers = [n for n, j in jobs.items() if "write" in (j.get("permissions") or {}).values()]
+    assert writers == ["release"]
+    assert jobs["sign"]["permissions"] == {"contents": "read"}
+    assert jobs["build"]["permissions"] == {"contents": "read"}
+    assert jobs["check"]["permissions"] == {"contents": "read"}
+    for name, job in jobs.items():
+        assert ("github.token" in yaml.safe_dump(job)) == (name == "release"), name
+
+
+def test_jobs_run_in_the_order_check_sign_release_and_only_on_master():
+    jobs = _workflow()["jobs"]
+    assert jobs["check"]["needs"] == "build" and "refs/heads/master" in jobs["check"]["if"]
+    assert "inputs.sign" in jobs["check"]["if"]
+    assert "check" in jobs["sign"]["needs"] and "sign" in jobs["release"]["needs"]  # a skipped check skips the rest
+    # the one parser of the Gradle-built APK that holds a secret never runs before `check` passed
+    assert "release" not in jobs["sign"]["needs"]
+
+
+def test_signing_job_signs_and_parses_nothing():
+    text = (ROOT / "scripts/ci/agent_release.py").read_text(encoding="utf-8")
+    sign_cmd = text[text.index("def cmd_sign") : text.index("def gh_json")]
+    assert "apk_badging" not in sign_cmd and "check_signer" not in sign_cmd and "check_badging" not in sign_cmd
 
 
 def test_branch_dispatches_cannot_replace_a_pending_master_release():
@@ -152,3 +164,63 @@ def test_sign_refuses_to_run_without_the_secrets(monkeypatch, tmp_path):
         agent_release.sign(tmp_path / "in.apk", tmp_path / "out.apk")
     assert "STAYTURGID_AGENT_KEYSTORE_B64" in str(exc.value)
     assert not list(tmp_path.glob("*.jks"))
+
+
+def _release_args(apk, code=101):
+    import argparse
+
+    return argparse.Namespace(apk=str(apk), code=code)
+
+
+def _fake_release_world(monkeypatch, tmp_path, releases, *, signer_ok=True, badging=("org.stayturgid.agent", 101)):
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.setenv("GITHUB_SHA", "a" * 40)
+    monkeypatch.setenv("GITHUB_RUN_ID", "9")
+    apk = tmp_path / "app-release.apk"
+    apk.write_bytes(b"signed")
+    calls = []
+    monkeypatch.setattr(agent_release, "all_releases", lambda repo: releases)
+    monkeypatch.setattr(agent_release, "apk_badging", lambda path: badging)
+    if signer_ok:
+        monkeypatch.setattr(agent_release, "check_signer", lambda path: None)
+    else:
+        monkeypatch.setattr(agent_release, "check_signer", lambda path: (_ for _ in ()).throw(SystemExit("bad signer")))
+    monkeypatch.setattr(agent_release, "run", lambda argv, **kw: calls.append(argv))
+    return apk, calls
+
+
+def _rel(code, draft=False, assets=("app-release.apk",)):
+    return {"tag_name": f"agent-r{code}", "draft": draft, "assets": [{"name": n} for n in assets]}
+
+
+def test_release_binds_the_apk_to_its_tag_before_calling_gh(monkeypatch, tmp_path):
+    apk, calls = _fake_release_world(monkeypatch, tmp_path, [], badging=("org.stayturgid.agent", 99))
+    with pytest.raises(SystemExit, match="versionCode 99, expected 101"):
+        agent_release.cmd_release(_release_args(apk))
+    apk, calls = _fake_release_world(monkeypatch, tmp_path, [], badging=("com.evil", 101))
+    with pytest.raises(SystemExit, match="package"):
+        agent_release.cmd_release(_release_args(apk))
+    apk, calls = _fake_release_world(monkeypatch, tmp_path, [], signer_ok=False)
+    with pytest.raises(SystemExit, match="bad signer"):
+        agent_release.cmd_release(_release_args(apk))
+    assert calls == []
+
+
+def test_release_never_deletes_or_moves_a_tag(monkeypatch, tmp_path):
+    # An incomplete published release is replaced, and the oldest are pruned; neither touches git tags.
+    existing = [_rel(code) for code in range(101, 90, -1)]
+    apk, calls = _fake_release_world(monkeypatch, tmp_path, [_rel(101, assets=())] + existing[1:])
+    agent_release.cmd_release(_release_args(apk))
+    assert not any("--cleanup-tag" in c for c in calls)
+    verbs = [c[2] for c in calls if c[:2] == ["gh", "release"]]
+    assert verbs[0] == "delete" and verbs[1] == "create"
+    assert calls[0][3] == "agent-r101"
+
+
+def test_release_refuses_a_downgrade_and_skips_a_finished_release(monkeypatch, tmp_path):
+    apk, calls = _fake_release_world(monkeypatch, tmp_path, [_rel(105)])
+    with pytest.raises(SystemExit, match="older than"):
+        agent_release.cmd_release(_release_args(apk))
+    apk, calls = _fake_release_world(monkeypatch, tmp_path, [_rel(101)])
+    agent_release.cmd_release(_release_args(apk))
+    assert calls == []

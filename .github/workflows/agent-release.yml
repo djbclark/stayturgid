@@ -11,12 +11,16 @@ name: stayturgid-agent release
 #     master and a manual dispatch by someone with write access.
 #   - The `build` job runs Gradle (repo code and third-party plugins) with no secret at all and a
 #     read-only token. It produces an unsigned APK.
-#   - Only the `publish` job holds the release key, and it never runs Gradle. The key lives in the
-#     `agent-release` environment, which GitHub restricts to the master branch, so a dispatch from
-#     any other branch cannot read it. The job runs scripts/ci/agent_release.py and first-party
-#     actions pinned by commit, in three steps: the one that first parses the Gradle-built APK has
-#     no secret, the signing step has the key but no token, the release step has the token but no key.
-#     Steps of one job share a runner: this limits accidental exposure, it is not isolation.
+#   - Three jobs after the build, so no runner ever holds two of the three things worth stealing:
+#     `check` reads the Gradle-built APK first and has no secret; `sign` has the release key and no
+#     write token (the `agent-release` environment, which GitHub restricts to the master branch, so a
+#     dispatch from any other branch cannot read it); `release` has the contents:write token and no
+#     key, and re-verifies the signed APK (exact fleet certificate, package, versionCode == tag)
+#     before it publishes. Jobs run scripts/ci/agent_release.py and first-party actions pinned by
+#     commit; none of them runs Gradle. A crafted APK that exploits apksigner itself in `sign` could
+#     still reach the key there: that is the one parser of untrusted bytes that holds it.
+#   - The tag ruleset on `agent-r*` (docs: device/native-agent/README.md) lets only this workflow and
+#     a repository admin create those tags and lets nobody move or delete them.
 #   - Phones do not trust this workflow alone: bootstrap_apks installs an agent-r* release only if
 #     its signer is the fleet certificate (signer_sha256) and its package is org.stayturgid.agent.
 #   - Dispatch with sign=false (just agent-ci-run) builds and tests any branch and uploads the
@@ -94,14 +98,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  publish:
+  check:
+    # The first reader of the Gradle-built APK. No secret, no environment, read-only token: if the
+    # APK is crafted to hurt its parser, nothing worth stealing is on this runner.
     needs: build
-    # A manual run can opt out (sign=false); anything off master never signs, whatever the input says.
     if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || inputs.sign)
     runs-on: ubuntu-latest
-    environment: agent-release
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: Checkout the script
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -113,27 +117,72 @@ jobs:
         with:
           name: agent-unsigned
           path: ${{ runner.temp }}/unsigned
-      - name: Check the unsigned APK (no secrets in this step)
+      - name: Check the unsigned APK
         env:
           BUILD_CODE: ${{ needs.build.outputs.code }}
         run: |
           set -euo pipefail
           (cd "$RUNNER_TEMP/unsigned" && sha256sum --check app-release-unsigned.apk.sha256)
           python3 scripts/ci/agent_release.py check --apk "$RUNNER_TEMP/unsigned/app-release-unsigned.apk" --code "$BUILD_CODE"
-      - name: Sign with the release key (the key, no token)
+
+  sign:
+    # The only job with the release key, and it has no write token: it signs and uploads, nothing else.
+    # `environment` is restricted to master, so no other branch can read the secrets.
+    needs: [build, check]
+    runs-on: ubuntu-latest
+    environment: agent-release
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Fetch the unsigned APK
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: agent-unsigned
+          path: ${{ runner.temp }}/unsigned
+      - name: Sign with the release key
         env:
-          BUILD_CODE: ${{ needs.build.outputs.code }}
           STAYTURGID_AGENT_KEYSTORE_B64: ${{ secrets.STAYTURGID_AGENT_KEYSTORE_B64 }}
           STAYTURGID_AGENT_KEYSTORE_PASSWORD: ${{ secrets.STAYTURGID_AGENT_KEYSTORE_PASSWORD }}
           STAYTURGID_AGENT_KEY_PASSWORD: ${{ secrets.STAYTURGID_AGENT_KEY_PASSWORD }}
         run: |
           set -euo pipefail
+          (cd "$RUNNER_TEMP/unsigned" && sha256sum --check app-release-unsigned.apk.sha256)
           mkdir -p "$RUNNER_TEMP/signed"
           python3 scripts/ci/agent_release.py sign \
             --apk "$RUNNER_TEMP/unsigned/app-release-unsigned.apk" \
-            --out "$RUNNER_TEMP/signed/app-release.apk" \
-            --code "$BUILD_CODE"
-      - name: Publish agent-r${{ needs.build.outputs.code }} (the token, no key)
+            --out "$RUNNER_TEMP/signed/app-release.apk"
+      - name: Keep the signed APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: agent-signed
+          path: ${{ runner.temp }}/signed/app-release.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    # The only job with a write token, and it has no key and no environment secret. It re-verifies the
+    # signed APK (fleet certificate, our package, versionCode == the tag's number) before publishing.
+    needs: [build, sign]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Fetch the signed APK
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: agent-signed
+          path: ${{ runner.temp }}/signed
+      - name: Publish agent-r${{ needs.build.outputs.code }}
         env:
           GH_TOKEN: ${{ github.token }}
           BUILD_CODE: ${{ needs.build.outputs.code }}

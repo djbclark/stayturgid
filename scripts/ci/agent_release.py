@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Version, sign and publish the stayturgid-agent APK built by .github/workflows/agent-release.yml.
 
-Subcommands (the publish job runs the last three as separate steps, so no step holds both the
-release key and the write token, and the step that parses the untrusted APK first holds neither):
+Subcommands, one per workflow job, so the signing key and the contents:write token never share a
+runner and the job that first parses the Gradle-built APK holds neither:
 
   version                          print the rolling version of this run as `code=..`/`name=..` lines
                                    (append them to $GITHUB_OUTPUT and export them to Gradle).
-  check   --apk F --code N         no secrets: F must carry versionCode N.
-  sign    --apk F --out G --code N holds the key: sign F as G, check signer and versionCode.
-  release --apk G --code N         holds the token: publish G as the GitHub release agent-r<N> with
-                                   one asset, app-release.apk, then prune old ones.
+  check   --apk F --code N         `check` job, no secrets: F must carry versionCode N and our package.
+  sign    --apk F --out G          `sign` job, the key and no token: sign F as G and nothing else (no
+                                   parsing of the result with the key in the environment).
+  release --apk G --code N         `release` job, the token and no key: re-verify G (signer is exactly
+                                   the fleet certificate, package, versionCode == N == the tag's number),
+                                   publish it as the GitHub release agent-r<N> with one asset,
+                                   app-release.apk, then prune old ones.
 
 Versioning: versionCode = GITHUB_RUN_NUMBER + CODE_OFFSET, so every build is newer than the last
 and newer than the hand-made agent-v0.9.19 (versionCode 37); versionName = 0.9.<code>+<sha8>.
@@ -20,9 +23,9 @@ fleet's release certificate (signer_sha256), so a rolling build never needs a pi
 `sign` reads the key from the environment of the `agent-release` Actions environment (master only),
 writes it to a 0600 file in a fresh temporary directory, hands apksigner the passwords through the
 environment (never argv) and removes the file again. Every other subprocess runs without the key.
-`sign` refuses an APK whose signer is not the fleet's release certificate or whose versionCode
-differs from the one it was built with; `release` refuses one older than a release already
-published. The key never reaches the Gradle build.
+`release` refuses an APK whose signer is not exactly the fleet's release certificate, whose package is
+not ours, or whose versionCode is not the number in the tag it is about to create, and one older than
+a release already published. The key never reaches the Gradle build.
 """
 
 from __future__ import annotations
@@ -49,6 +52,8 @@ KEEP_RELEASES = 10
 SIGNER_SHA256 = "35bbc3d1a93c2a726df14bcc066bdc791f7f55f21b57d9455da27439c5ff9b6a"
 # The alias is not secret (it is `agent`); a secret would be masked wherever the word appears in the log.
 DEFAULT_ALIAS = "agent"
+PACKAGE = "org.stayturgid.agent"
+TOKEN_ENV = ("GH_TOKEN", "GITHUB_TOKEN")
 SECRET_ENV = {
     "keystore": "STAYTURGID_AGENT_KEYSTORE_B64",
     "store_password": "STAYTURGID_AGENT_KEYSTORE_PASSWORD",
@@ -90,9 +95,10 @@ def is_complete(release: dict[str, object]) -> bool:
     return not release.get("draft") and names == [ASSET_NAME]
 
 
-def scrubbed_env(extra: dict[str, str] | None = None) -> dict[str, str]:
-    """The environment without the signing secrets, plus what one command needs."""
-    env = {k: v for k, v in os.environ.items() if k not in SECRET_ENV.values()}
+def scrubbed_env(extra: dict[str, str] | None = None, *, drop_token: bool = False) -> dict[str, str]:
+    """The environment without the signing secrets (and the GitHub token if asked), plus what one command needs."""
+    hidden = set(SECRET_ENV.values()) | (set(TOKEN_ENV) if drop_token else set())
+    env = {k: v for k, v in os.environ.items() if k not in hidden}
     env.update(extra or {})
     return env
 
@@ -120,12 +126,13 @@ def aapt2() -> str:
     return str(Path(apksigner()).parent / "aapt2")
 
 
-def apk_version_code(apk: Path) -> int:
-    out = run([aapt2(), "dump", "badging", str(apk)]).stdout
-    match = re.search(r"versionCode='(\d+)'", out)
+def apk_badging(apk: Path) -> tuple[str, int]:
+    """(package, versionCode) from aapt2; the parser never sees the signing secrets or the GitHub token."""
+    out = run([aapt2(), "dump", "badging", str(apk)], env=scrubbed_env(drop_token=True)).stdout
+    match = re.search(r"package: name='([^']*)' versionCode='(\d+)'", out)
     if not match:
-        sys.exit("aapt2 reported no versionCode")
-    return int(match.group(1))
+        sys.exit("aapt2 reported no package and versionCode")
+    return match.group(1), int(match.group(2))
 
 
 def sign(unsigned: Path, signed: Path) -> None:
@@ -162,7 +169,7 @@ def sign(unsigned: Path, signed: Path) -> None:
 
 
 def check_signer(signed: Path) -> None:
-    out = run([apksigner(), "verify", "--print-certs", str(signed)]).stdout
+    out = run([apksigner(), "verify", "--print-certs", str(signed)], env=scrubbed_env(drop_token=True)).stdout
     digests = set(re.findall(r"certificate SHA-256 digest: ([0-9a-f]{64})", out))
     if digests != {SIGNER_SHA256}:
         sys.exit("the signed APK does not carry exactly the fleet release certificate; not publishing")
@@ -195,20 +202,26 @@ def cmd_version(_args: argparse.Namespace) -> None:
     print(f"name={version_name(code, os.environ['GITHUB_SHA'])}")
 
 
+def check_badging(apk: Path, code: int) -> None:
+    """The APK is our package and carries exactly the versionCode that names its tag."""
+    package, found = apk_badging(apk)
+    if package != PACKAGE:
+        sys.exit(f"{apk} is package {package!r}, expected {PACKAGE!r}")
+    if found != code:
+        sys.exit(f"{apk} carries versionCode {found}, expected {code}")
+
+
 def cmd_check(args: argparse.Namespace) -> None:
-    found = apk_version_code(Path(args.apk))
-    if found != args.code:
-        sys.exit(f"{args.apk} carries versionCode {found}, expected {args.code}")
-    print(f"versionCode {found} ok")
+    check_badging(Path(args.apk), args.code)
+    print(f"{PACKAGE} versionCode {args.code} ok")
 
 
 def cmd_sign(args: argparse.Namespace) -> None:
+    # Nothing here parses the result: the key is in this job's environment. The release job
+    # verifies the signer, package and versionCode before anything is published.
     out = Path(args.out)
     sign(Path(args.apk), out)
-    check_signer(out)
-    if apk_version_code(out) != args.code:
-        sys.exit("the signed APK lost its versionCode")
-    print(f"signed {out.name}: sha256 {hashlib.sha256(out.read_bytes()).hexdigest()}")
+    print(f"signed {out.name}")
 
 
 def cmd_release(args: argparse.Namespace) -> None:
@@ -218,6 +231,9 @@ def cmd_release(args: argparse.Namespace) -> None:
     apk = Path(args.apk)
     if apk.name != ASSET_NAME:
         sys.exit(f"the release asset must be named {ASSET_NAME}, not {apk.name}")
+    # Bind content to tag before anything is created: fleet cert, our package, versionCode == tag number.
+    check_signer(apk)
+    check_badging(apk, code)
     releases = all_releases(repo)
     existing = [r for r in releases if r["tag_name"] == tag]
     if any(is_complete(r) for r in existing):
@@ -227,9 +243,9 @@ def cmd_release(args: argparse.Namespace) -> None:
         sys.exit(f"{tag} is older than the published agent-r{newest_code(published_tags(releases))}; not publishing")
     if existing:  # a draft or an asset-less release left by a failed earlier attempt
         print(f"removing the incomplete {tag}")
-        # A draft has no git tag yet, so --cleanup-tag would fail on it after deleting the draft.
-        tagged = [] if all(r.get("draft") for r in existing) else ["--cleanup-tag"]
-        run(["gh", "release", "delete", tag, "--repo", repo, *tagged, "--yes"])
+        # The release goes, the git tag stays: agent-r* tags are protected (no delete, no update) and a
+        # re-created release reuses the tag, which names the same run and commit.
+        run(["gh", "release", "delete", tag, "--repo", repo, "--yes"])
     digest = hashlib.sha256(apk.read_bytes()).hexdigest()
     server = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
     notes = (
@@ -251,7 +267,7 @@ def cmd_release(args: argparse.Namespace) -> None:
     print(f"published {tag}: sha256 {digest}")
     for stale in releases_to_prune(published_tags(all_releases(repo))):
         print(f"pruning {stale}")
-        run(["gh", "release", "delete", stale, "--repo", repo, "--cleanup-tag", "--yes"])
+        run(["gh", "release", "delete", stale, "--repo", repo, "--yes"])  # tags stay, see above
 
 
 def main(argv: list[str]) -> None:
@@ -261,7 +277,8 @@ def main(argv: list[str]) -> None:
     for name, fn, needs_out in (("check", cmd_check, False), ("sign", cmd_sign, True), ("release", cmd_release, False)):
         p = sub.add_parser(name)
         p.add_argument("--apk", required=True)
-        p.add_argument("--code", type=int, required=True)
+        if name != "sign":
+            p.add_argument("--code", type=int, required=True)
         if needs_out:
             p.add_argument("--out", required=True)
         p.set_defaults(fn=fn)
