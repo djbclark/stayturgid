@@ -57,9 +57,9 @@ options:
   gh_tag_prefix:
     description:
       - Only with I(gh_latest). Consider only releases whose whole tag is this prefix
-        followed by a version number (a digit, then digits and dots), for example C(agent-r)
-        matches C(agent-r101) but not C(agent-rz), C(agent-r1x), C(agent-ci-0.9.19) or
-        C(agent-v0.9.19), and take the newest of those. Without it the newest release of
+        followed by a plain integer, for example C(agent-r) matches C(agent-r101) but not
+        C(agent-rz), C(agent-r1x), C(agent-r999.1), C(agent-ci-0.9.19) or C(agent-v0.9.19), and
+        take the one with the highest number (not the first listed). Without it the newest release of
         any tag is used.
       - Also part of the key of the remembered release, so two entries of one repository
         with different prefixes never share a memory.
@@ -523,10 +523,10 @@ def _pinned_gh_release(module, repo, pattern, tag_prefix=None, skip_prereleases=
 
 
 def _tag_version(tag, tag_prefix):
-    """Version tuple of a tag that is exactly tag_prefix + a version number, else None (ASCII digits only)."""
-    if not re.fullmatch(re.escape(tag_prefix) + r"[0-9][0-9.]*", tag, re.ASCII):
+    """Number of a tag that is exactly tag_prefix + a plain integer (ASCII digits, no dots), else None."""
+    if not re.fullmatch(re.escape(tag_prefix) + r"[0-9]+", tag, re.ASCII):
         return None
-    return tuple(int(part) for part in tag[len(tag_prefix) :].split(".") if part)
+    return int(tag[len(tag_prefix) :])
 
 
 def select_gh_release(releases, tag_prefix=None, skip_prereleases=False):
@@ -1069,8 +1069,8 @@ def main():
     # A release tag that is the prefix plus a plain number (agent-r101) names the build's versionCode.
     tag_code = None
     prefix = module.params["gh_tag_prefix"]
-    if latest_tag and prefix and re.fullmatch(r"[0-9]+", str(latest_tag)[len(prefix) :], re.ASCII):
-        tag_code = int(str(latest_tag)[len(prefix) :])
+    if latest_tag and prefix:
+        tag_code = _tag_version(str(latest_tag), prefix)  # the tag is prefix + integer, or it was not selected
     verify_signer_and_package(module, apk, tag_code)
 
     if latest_tag and not digest:

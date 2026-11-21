@@ -122,8 +122,8 @@ on the command line.
   another commit. Creating a release on an old existing tag creates no ref, so the rulesets do
   not stop it; the client side does: `gh_latest` takes the highest `agent-r<N>` number, not the
   first listed, and refuses an APK whose `versionCode` is not the tag's number.
-- `gh_latest` accepts a release only if its whole tag is `agent-r` plus a version
-  number (`agent-rz`, `agent-r1x` and `agent-r1-evil` are ignored).
+- `gh_latest` accepts a release only if its whole tag is `agent-r` plus a plain
+  integer (`agent-rz`, `agent-r1x`, `agent-r999.1` and `agent-r1-evil` are ignored).
 - The phones do not trust the workflow alone: the signer pin above holds even if a
   release is created some other way.
 

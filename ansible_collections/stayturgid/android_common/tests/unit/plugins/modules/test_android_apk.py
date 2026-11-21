@@ -1161,11 +1161,20 @@ def test_select_gh_release_prefix_skips_other_tag_families():
 
 def test_select_gh_release_prefix_must_match_the_whole_tag_as_prefix_plus_version():
     # A stray tag that merely starts with the prefix must not become what the fleet installs.
-    stray = ["agent-rz", "agent-r", "agent-r1x", "agent-r-1", "agent-r1.2-evil", "agent-rc1", "xagent-r9"]
+    stray = [
+        "agent-rz",
+        "agent-r",
+        "agent-r1x",
+        "agent-r-1",
+        "agent-r1.2-evil",
+        "agent-rc1",
+        "xagent-r9",
+        "agent-r999.1",
+    ]
     releases = [_rel(tag, None, None) for tag in stray] + [_rel("agent-r40", None, None)]
     assert mod.select_gh_release(releases, tag_prefix="agent-r")["tag_name"] == "agent-r40"
     assert mod.select_gh_release(releases[:-1], tag_prefix="agent-r") is None
-    assert mod.select_gh_release([_rel("v1.2.3", None, None)], tag_prefix="v")["tag_name"] == "v1.2.3"
+    assert mod.select_gh_release([_rel("v12", None, None)], tag_prefix="v")["tag_name"] == "v12"
 
 
 def test_select_gh_release_can_skip_prereleases():

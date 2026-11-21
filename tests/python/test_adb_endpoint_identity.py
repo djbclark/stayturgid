@@ -215,7 +215,9 @@ def test_adb_reconnect_does_not_call_a_stale_address_connected(tmp_path, monkeyp
 def test_fire_help_never_guesses_the_raw_lan_address_of_a_device_with_a_serial(monkeypatch):
     monkeypatch.setattr(fhm.dev, "resolve_adb", lambda name: name)  # nothing reachable: bare alias
     monkeypatch.setattr(fhm.dev, "usb_serial_for", lambda name: HD8_USB)
-    assert fhm.adb_targets("hd8", "100.64.0.8", "192.168.1.157") == ["hd8"]
+    assert fhm.adb_targets("hd8", "100.64.0.8", "192.168.1.157") == []  # no endpoint, no guess
+    monkeypatch.setattr(fhm.dev, "resolve_adb", lambda name: HD8_USB)  # a USB serial is the identity itself
+    assert fhm.adb_targets("hd8", "100.64.0.8", "192.168.1.157") == [HD8_USB]
 
 
 def test_fire_help_keeps_the_raw_endpoints_for_a_row_without_a_serial(monkeypatch):
