@@ -5,9 +5,12 @@ Same verbs as Termux ``stayturgid_peer_help.py``, using Mac
 ``~/.config/stayturgid/adbkey`` and ``~/.handsets/hs.jar``.
 
 Usage:
-  python3 control/bin/fire_peer_help.py handsets-start --target IP:5555 [--port N]
-  python3 control/bin/fire_peer_help.py shizuku-start --target IP:5555
-  python3 control/bin/fire_peer_help.py ping --target IP:5555
+  python3 control/bin/fire_peer_help.py handsets-start --target IP:5555 --serial USB_SERIAL [--port N]
+  python3 control/bin/fire_peer_help.py shizuku-start --target IP:5555 --serial USB_SERIAL
+  python3 control/bin/fire_peer_help.py ping --target IP:5555 --serial USB_SERIAL
+
+``--serial`` is the requester's USB serial; after ``adb connect`` the target's ``ro.serialno``
+must equal it or the helper disconnects and refuses (#328, fail closed).
 
 When invoked via SSH ForceCommand, reads ``SSH_ORIGINAL_COMMAND``.
 """
@@ -16,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -85,6 +89,70 @@ def _ensure_connected(target: str, timeout: float = 20) -> None:
     if state == "unauthorized":
         raise SystemExit("adb %s unauthorized — accept Always allow on target (fleet adbkey)" % target)
     raise SystemExit("adb connect %s failed (state=%s)" % (target, state))
+
+
+# A USB serial is alphanumeric plus a few separators; anything else is refused before adb runs.
+_SERIAL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}")
+# A peer-help target is a routable IPv4 LAN/Tailscale address on the fleet's adb port: never
+# loopback (the helper's own adbd), a hostname, or a USB serial the local adb server also lists.
+_TARGET_RE = re.compile(r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}:5555")
+
+
+def valid_serial(serial: str | None) -> bool:
+    return serial is not None and _SERIAL_RE.fullmatch(serial) is not None
+
+
+def valid_target(target: str | None) -> bool:
+    if target is None or _TARGET_RE.fullmatch(target) is None:
+        return False
+    octets = [int(o) for o in target.split(":")[0].split(".")]
+    return all(o <= 255 for o in octets) and octets[0] not in (0, 127)
+
+
+def _already_listed(target: str) -> bool:
+    """True when the adb server already holds a transport named ``target`` (before our connect)."""
+    r = _adb("devices", timeout=15)
+    return any(line.split() and line.split()[0] == target for line in (r.stdout or "").splitlines())
+
+
+def verify_identity(target: str, serial: str | None, *, disconnect: bool = True) -> None:
+    """Exit unless the device at adb ``target`` reports ``ro.serialno == serial`` (fail closed).
+
+    An unknown serial, an unreadable serial and a mismatch all refuse (#328): a drifted DHCP
+    address may now answer for another phone. ``disconnect`` drops the transport this request
+    created; it is False when the adb server already held it, because that transport belongs to
+    the helper's other tooling. Mirrors the Mac-side ``endpoint_identity_ok``.
+    """
+
+    def refuse(message: str) -> None:
+        if disconnect:
+            _adb("disconnect", target, timeout=10)
+        raise SystemExit(message)
+
+    if not valid_serial(serial):
+        refuse("refusing %s: no valid requester USB serial to identity-check it against" % target)
+    r = _adb("-s", target, "shell", "getprop", "ro.serialno", timeout=15)
+    found = (r.stdout or "").replace("\r", "").strip() if r.returncode == 0 else ""
+    if found == serial:
+        return
+    if found:
+        refuse("refusing %s: its ro.serialno is %r, expected %r" % (target, found, serial))
+    refuse("refusing %s: could not read ro.serialno to confirm it is %r" % (target, serial))
+
+
+def _identity_checked(target: str, serial: str | None) -> None:
+    """Prove ``target`` is the requester before any verb touches it.
+
+    Validates the serial and the target form first, so a bad request does no adb work at all;
+    then connects and reads ``ro.serialno``. Only a transport this call created is disconnected.
+    """
+    if not valid_serial(serial):
+        raise SystemExit("refusing %s: no valid requester USB serial to identity-check it against" % target)
+    if not valid_target(target):
+        raise SystemExit("refusing target %r: peer help only drives IPv4-address:5555 targets" % target)
+    preexisting = _already_listed(target)
+    _ensure_connected(target)
+    verify_identity(target, serial, disconnect=not preexisting)
 
 
 def _shell(target: str, cmd: str, timeout: float = 30) -> subprocess.CompletedProcess:
@@ -183,7 +251,11 @@ def cmd_shizuku_start(target: str) -> int:
     return 1
 
 
-def run_verb(verb: str, target: str, port: int) -> int:
+def run_verb(verb: str, target: str, port: int, serial: str | None) -> int:
+    if verb not in ("handsets-start", "shizuku-start", "ping", "status"):
+        print("unknown verb %r" % verb, file=sys.stderr)
+        return 2
+    _identity_checked(target, serial)
     if verb == "ping":
         return cmd_ping(target)
     if verb == "status":
@@ -211,6 +283,7 @@ def _from_ssh_original() -> int | None:
     verbs = ("handsets-start", "shizuku-start", "ping", "status")
     verb = None
     target = None
+    serial = None
     port = 9012
     i = 0
     while i < len(parts):
@@ -219,14 +292,17 @@ def _from_ssh_original() -> int | None:
         elif parts[i] == "--target" and i + 1 < len(parts):
             target = parts[i + 1]
             i += 1
+        elif parts[i] == "--serial" and i + 1 < len(parts):
+            serial = parts[i + 1]
+            i += 1
         elif parts[i] == "--port" and i + 1 < len(parts):
             port = int(parts[i + 1])
             i += 1
         i += 1
-    if not verb or not target:
-        print("denied: need verb + --target", file=sys.stderr)
+    if not verb or not target or not valid_serial(serial):
+        print("denied: need verb + --target + --serial", file=sys.stderr)
         return 1
-    return run_verb(verb, target, port)
+    return run_verb(verb, target, port, serial)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -237,9 +313,10 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("verb", choices=("handsets-start", "shizuku-start", "ping", "status"))
     p.add_argument("--target", required=True)
+    p.add_argument("--serial", required=True, help="USB serial the target must report as ro.serialno")
     p.add_argument("--port", type=int, default=9012)
     args = p.parse_args(argv)
-    return run_verb(args.verb, args.target, args.port)
+    return run_verb(args.verb, args.target, args.port, args.serial)
 
 
 if __name__ == "__main__":

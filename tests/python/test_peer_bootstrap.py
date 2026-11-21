@@ -6,6 +6,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "device" / "termux" / "py"))
 
@@ -23,7 +25,7 @@ def test_peer_endpoints_prefer_lan():
 
 def test_self_adb_targets(tmp_path):
     cfg = {
-        "self": {"lan": "192.0.2.13", "tailscale": "100.0.0.13"},
+        "self": {"lan": "192.0.2.13", "tailscale": "100.0.0.13", "usb_serial": "HD8SERIAL1"},
         "peers": [],
     }
     assert pb.self_adb_targets(cfg) == [
@@ -34,7 +36,7 @@ def test_self_adb_targets(tmp_path):
 
 def test_bootstrap_skips_can_help_false(monkeypatch, tmp_path):
     peers = {
-        "self": {"lan": "1.2.3.4", "tailscale": "100.0.0.11"},
+        "self": {"lan": "1.2.3.4", "tailscale": "100.0.0.11", "usb_serial": "HD8SERIAL1"},
         "handsets_port": 9012,
         "peers": [
             {
@@ -88,8 +90,9 @@ def test_remote_help_cmd_force_vs_fleet(tmp_path, monkeypatch):
         target="1.2.3.4:5555",
         port=9012,
         identity=ph,
+        serial="HD8SERIAL1",
     )
-    assert short == "handsets-start --target 1.2.3.4:5555 --port 9012"
+    assert short == "handsets-start --target 1.2.3.4:5555 --serial HD8SERIAL1 --port 9012"
     mac = pb._remote_help_cmd(
         {
             "kind": "mac",
@@ -99,6 +102,7 @@ def test_remote_help_cmd_force_vs_fleet(tmp_path, monkeypatch):
         target="1.2.3.4:5555",
         port=9012,
         identity=fleet,
+        serial="HD8SERIAL1",
     )
     assert mac.startswith("python3 /Users/x/stayturgid/control/bin/fire_peer_help.py")
     assert "shizuku-start" in mac
@@ -108,7 +112,9 @@ def test_remote_help_cmd_force_vs_fleet(tmp_path, monkeypatch):
         target="1.2.3.4:5555",
         port=9012,
         identity=fleet,
+        serial="HD8SERIAL1",
     )
+    assert "--serial HD8SERIAL1" in mac and "--serial HD8SERIAL1" in termux
     assert "stayturgid_peer_help.py" in termux
     assert termux.startswith("export PATH=")
 
@@ -149,7 +155,7 @@ def _captured_ssh_argv(monkeypatch, tmp_path, peer, host):
         return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
     monkeypatch.setattr(pb.subprocess, "run", fake_run)
-    pb._ssh_help(host, verb="handsets-start", target="192.0.2.13:5555", port=9012, peer=peer)
+    pb._ssh_help(host, verb="handsets-start", target="192.0.2.13:5555", port=9012, serial="HD8SERIAL1", peer=peer)
     return seen["argv"]
 
 
@@ -220,3 +226,59 @@ def test_mesh_known_hosts_carry_a_bare_line_per_peer_for_hostkeyalias():
     assert "t2e" in names  # what `HostKeyAlias=t2e` looks up
     assert "[t2e]:8022" in names and "[192.168.68.62]:8022" in names  # the host-name forms stay
     assert all(re.match(r"^t2e ssh-ed25519 AAAAKEY$", e["key"]) for e in json.loads(out) if e["name"] == "t2e")
+
+
+# --- #328: the helper identity-checks the adb target against self.usb_serial -------------------
+
+
+def _peers_cfg(tmp_path, usb_serial):
+    cfg = {
+        "self": {"lan": "192.0.2.13", "tailscale": "100.0.0.13", "usb_serial": usb_serial},
+        "handsets_port": 9012,
+        "peers": [{"name": "s24", "lan": "192.0.2.7", "tailscale": "100.0.0.7", "can_help": True}],
+    }
+    path = tmp_path / "peers"
+    path.write_text(json.dumps(cfg))
+    return str(path)
+
+
+def _arm(monkeypatch, tmp_path):
+    (tmp_path / "key").write_text("x")
+    monkeypatch.setattr(pb, "FLEET_KEY", str(tmp_path / "key"))
+    monkeypatch.setattr(pb, "PEERHELP_KEY", str(tmp_path / "missing-peerhelp"))
+    monkeypatch.setattr(pb, "_wire_ping", lambda port: False)
+    monkeypatch.setattr(pb, "_tcp_open", lambda *a, **k: True)
+
+
+@pytest.mark.parametrize("serial", ["", "-", None, "a b", "x;rm -rf", "--version", "a" * 80])
+def test_self_usb_serial_rejects_unusable_values(serial):
+    assert pb.self_usb_serial({"self": {"usb_serial": serial}}) is None
+
+
+def test_self_usb_serial_accepts_a_real_serial():
+    assert pb.self_usb_serial({"self": {"usb_serial": " 4HW0123456789 "}}) == "4HW0123456789"
+
+
+@pytest.mark.parametrize("serial", ["", "-", "a b"])
+@pytest.mark.parametrize("verb", ["handsets", "shizuku"])
+def test_bootstrap_refuses_to_ask_a_helper_without_a_usable_serial(monkeypatch, tmp_path, serial, verb):
+    _arm(monkeypatch, tmp_path)
+    monkeypatch.setattr(pb, "_ssh_help", lambda *a, **k: pytest.fail("no helper may be asked without a serial"))
+    path = _peers_cfg(tmp_path, serial)
+    ok, detail = (pb.bootstrap_handsets if verb == "handsets" else pb.bootstrap_shizuku)(peers_path=path)
+    assert ok is False and "usb_serial" in detail
+
+
+@pytest.mark.parametrize("verb", ["handsets", "shizuku"])
+def test_bootstrap_passes_the_serial_to_every_helper_request(monkeypatch, tmp_path, verb):
+    _arm(monkeypatch, tmp_path)
+    seen = []
+
+    def fake(host, **kwargs):
+        seen.append(kwargs)
+        return type("R", (), {"returncode": 1, "stdout": "", "stderr": "refused"})()
+
+    monkeypatch.setattr(pb, "_ssh_help", fake)
+    path = _peers_cfg(tmp_path, "HD8SERIAL1")
+    (pb.bootstrap_handsets if verb == "handsets" else pb.bootstrap_shizuku)(peers_path=path)
+    assert seen and all(k["serial"] == "HD8SERIAL1" for k in seen)

@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shlex
 import socket
 import struct
 import subprocess
@@ -92,6 +94,20 @@ def _identity_for_peer(peer: dict[str, Any]) -> str:
     return FLEET_KEY
 
 
+# A USB serial is alphanumeric plus a few separators (same rule as the helpers).
+_SERIAL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}")
+
+
+def self_usb_serial(cfg: dict[str, Any]) -> str | None:
+    """This device's own USB serial from ``peers.json`` ``self.usb_serial``, or None when unusable.
+
+    The helper checks the adb target's ``ro.serialno`` against it (#328); a blank, ``-`` or
+    malformed value gives the helper nothing to compare, so no help is requested.
+    """
+    value = ((cfg.get("self") or {}).get("usb_serial") or "").strip()
+    return value if _SERIAL_RE.fullmatch(value) else None
+
+
 def _remote_help_cmd(
     peer: dict[str, Any],
     *,
@@ -99,24 +115,27 @@ def _remote_help_cmd(
     target: str,
     port: int,
     identity: str,
+    serial: str,
 ) -> str:
     """Build SSH remote string for peer help.
 
     ForceCommand keys (``id_ed25519_peerhelp``) only accept
-    ``verb --target … --port …`` as ``SSH_ORIGINAL_COMMAND``.
+    ``verb --target … --serial … --port …`` as ``SSH_ORIGINAL_COMMAND``.
     Legacy fleet keys need a full remote command line.
     """
+    serial_arg = shlex.quote(serial)
+    target = shlex.quote(target)
     use_force = os.path.basename(identity) == "id_ed25519_peerhelp"
     if use_force:
-        return "%s --target %s --port %d" % (verb, target, port)
+        return "%s --target %s --serial %s --port %d" % (verb, target, serial_arg, port)
     kind = peer.get("kind") or "termux"
     if kind == "mac":
         help_cmd = (peer.get("help_cmd") or "").strip() or ("python3 $HOME/stayturgid/control/bin/fire_peer_help.py")
-        return "%s %s --target %s --port %d" % (help_cmd, verb, target, port)
+        return "%s %s --target %s --serial %s --port %d" % (help_cmd, verb, target, serial_arg, port)
     return (
         "export PATH=$PREFIX/bin:$PATH; "
         "python3 $HOME/.stayturgid/bin/stayturgid_peer_help.py %s "
-        "--target %s --port %d" % (verb, target, port)
+        "--target %s --serial %s --port %d" % (verb, target, serial_arg, port)
     )
 
 
@@ -144,6 +163,7 @@ def _ssh_help(
     verb: str,
     target: str,
     port: int,
+    serial: str,
     peer: dict[str, Any] | None = None,
     timeout: float = 45,
 ) -> subprocess.CompletedProcess:
@@ -151,7 +171,7 @@ def _ssh_help(
     ssh_port = int(peer.get("ssh_port") or DEFAULT_SSH_PORT)
     user = peer.get("ssh_user") or DEFAULT_SSH_USER
     identity = _identity_for_peer(peer)
-    remote = _remote_help_cmd(peer, verb=verb, target=target, port=port, identity=identity)
+    remote = _remote_help_cmd(peer, verb=verb, target=target, port=port, identity=identity, serial=serial)
     return subprocess.run(
         [
             "ssh",
@@ -217,6 +237,9 @@ def bootstrap_handsets(
     targets = self_adb_targets(cfg)
     if not targets:
         return False, "self has no lan/tailscale in peers file"
+    serial = self_usb_serial(cfg)
+    if not serial:
+        return False, "self has no usb_serial in peers file, so a helper cannot identity-check this device"
     errors: list[str] = []
     for peer in cfg.get("peers") or []:
         if peer.get("can_help") is False:
@@ -233,6 +256,7 @@ def bootstrap_handsets(
                     verb="handsets-start",
                     target=adb_target,
                     port=port,
+                    serial=serial,
                     peer=peer,
                 )
                 detail = ((r.stdout or "") + (r.stderr or "")).strip()
@@ -249,6 +273,9 @@ def bootstrap_shizuku(peers_path: str = PEERS_PATH) -> tuple[bool, str]:
     targets = self_adb_targets(cfg)
     if not targets:
         return False, "no self addresses"
+    serial = self_usb_serial(cfg)
+    if not serial:
+        return False, "no self usb_serial"
     if not os.path.isfile(FLEET_KEY) and not os.path.isfile(PEERHELP_KEY):
         return False, "missing SSH key"
     port = int(cfg.get("handsets_port") or 9012)
@@ -266,6 +293,7 @@ def bootstrap_shizuku(peers_path: str = PEERS_PATH) -> tuple[bool, str]:
                     verb="shizuku-start",
                     target=adb_target,
                     port=port,
+                    serial=serial,
                     peer=peer,
                 )
                 if r.returncode == 0:
