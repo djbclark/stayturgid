@@ -7,6 +7,7 @@ so ``deploy_termux.py`` / ``bootstrap_ssh.py --ansible`` matched no host.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -57,7 +58,7 @@ def recorded(monkeypatch):
 
     monkeypatch.setattr(boot.subprocess, "run", fake_run)
     monkeypatch.setattr(boot, "secretspec_run", lambda *argv: list(argv))
-    monkeypatch.setattr(boot, "require_limit_hosts", lambda ctx, limit: [limit])
+    monkeypatch.setattr(boot, "require_limit_hosts", lambda ctx, limit: [limit.split("&")[-1]])
     return calls
 
 
@@ -75,6 +76,7 @@ def test_passed_context_pins_playbook_env_and_collections(tmp_path, recorded) ->
     assert kwargs["env"]["ANSIBLE_CONFIG"] == str(config)
     assert kwargs["env"]["ANSIBLE_CONFIG"] != str(_ROOT / "ansible" / "ansible.cfg")
     assert cmd[-2:] == ["--limit", "oneui-device"]
+    assert ["-i", str(context.inventory)] == cmd[cmd.index("-i") : cmd.index("-i") + 2]
     galaxy = next(c for c, _ in recorded if c[0] == "ansible-galaxy")
     assert galaxy[galaxy.index("-p") + 1] == str(context.collections_path)
 
@@ -106,6 +108,47 @@ def test_zero_host_limit_raises_before_any_subprocess(tmp_path, monkeypatch) -> 
     monkeypatch.setattr(boot.subprocess, "run", lambda *a, **k: pytest.fail("nothing may run on zero hosts"))
     with pytest.raises(AnsibleConfigError, match="zero hosts"):
         boot.run_bootstrap_playbook(_ROOT, ["no-such-host"], context=context)
+
+
+@pytest.mark.parametrize("hosts", [[], [""], [" "], [","], ["a,b"], ["--version"], ["-h"], ["oneui-*"], ["a b"]])
+def test_blank_or_pattern_hosts_never_reach_a_subprocess(tmp_path, monkeypatch, hosts) -> None:
+    """An empty/comma limit makes Ansible target every host (adversary M1)."""
+    context = _context(_site(tmp_path))
+    monkeypatch.setattr(boot, "require_limit_hosts", lambda ctx, limit: pytest.fail("not a host name"))
+    monkeypatch.setattr(boot.subprocess, "run", lambda *a, **k: pytest.fail("nothing may run"))
+    with pytest.raises(AnsibleConfigError):
+        boot.run_bootstrap_playbook(_ROOT, hosts, context=context)
+
+
+def test_host_must_be_exactly_one_member_of_the_bootstrap_group(tmp_path, monkeypatch) -> None:
+    context = _context(_site(tmp_path))
+    monkeypatch.setattr(boot, "require_limit_hosts", lambda ctx, limit: ["oneui-device", "other"])
+    monkeypatch.setattr(boot.subprocess, "run", lambda *a, **k: pytest.fail("nothing may run"))
+    with pytest.raises(AnsibleConfigError, match="not exactly one host"):
+        boot.run_bootstrap_playbook(_ROOT, ["oneui-device"], context=context)
+
+
+def test_real_ansible_refuses_host_outside_stayturgid_group(tmp_path, monkeypatch) -> None:
+    ansible = Path(sys.executable).parent / "ansible"
+    if not ansible.exists():
+        pytest.skip("ansible not installed in this interpreter's environment")
+    monkeypatch.setenv("PATH", f"{ansible.parent}:{os.environ['PATH']}")
+    monkeypatch.setenv("LC_ALL", "en_US.UTF-8")  # ansible refuses a non-UTF-8 locale
+    site = tmp_path / "site"
+    (site / "inventory").mkdir(parents=True)
+    (site / "inventory" / "hosts.yml").write_text(
+        "all:\n  children:\n    stayturgid:\n      hosts:\n        oneui-device:\n"
+        "    other:\n      hosts:\n        mac:\n",
+        encoding="utf-8",
+    )
+    config = site / "ansible.cfg"
+    config.write_text("[defaults]\ninventory = inventory/hosts.yml\n", encoding="utf-8")
+    context = _context(config)
+    boot._require_exact_hosts(context, ["oneui-device"])
+    with pytest.raises(AnsibleConfigError):
+        boot._require_exact_hosts(context, ["mac"])
+    with pytest.raises(AnsibleConfigError):
+        boot._require_exact_hosts(context, ["all"])
 
 
 def test_bootstrap_ssh_ansible_passes_resolved_context(tmp_path, monkeypatch) -> None:

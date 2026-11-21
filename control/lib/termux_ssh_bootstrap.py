@@ -6,6 +6,7 @@ Core logic lives in stayturgid.termux.plugins.module_utils.termux_run_as
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -17,7 +18,13 @@ if str(_COLLECTION_UTILS) not in sys.path:
 
 import termux_adbkey
 import termux_run_as as tr
-from ansible_context import AnsibleContext, require_limit_hosts, resolve_ansible_context, resolved_env
+from ansible_context import (
+    AnsibleConfigError,
+    AnsibleContext,
+    require_limit_hosts,
+    resolve_ansible_context,
+    resolved_env,
+)
 from secretspec_exec import secretspec_run
 
 # Hard cap on one SSH probe (2026-10-10: a wedged sshd hung bootstrap_ssh.py for 56 minutes).
@@ -249,6 +256,25 @@ def bootstrap_alias(
     )
 
 
+_HOST_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+def _require_exact_hosts(context: AnsibleContext, hosts: list[str]) -> None:
+    """Refuse any host list that is not exactly named members of the bootstrap group.
+
+    An empty, blank or comma-only limit makes Ansible target every host, and an option-shaped
+    or pattern-shaped one is not a host name at all, so each entry must be a plain name that
+    matches exactly itself inside the ``stayturgid`` group the playbook runs on.
+    """
+    if not hosts:
+        raise AnsibleConfigError("No host given for the bootstrap playbook; refusing to target the whole fleet.")
+    for host in hosts:
+        if not _HOST_NAME.fullmatch(host):
+            raise AnsibleConfigError(f"Not a plain inventory host name: {host!r}")
+        if require_limit_hosts(context, f"stayturgid:&{host}") != [host]:
+            raise AnsibleConfigError(f"{host!r} is not exactly one host of the stayturgid group in {context.config}")
+
+
 def run_bootstrap_playbook(
     repo_root: Path,
     hosts: list[str],
@@ -267,8 +293,7 @@ def run_bootstrap_playbook(
     repo_root = Path(repo_root)
     if context is None:
         context = resolve_ansible_context(repo_root)
-    for host in hosts:
-        require_limit_hosts(context, host)
+    _require_exact_hosts(context, hosts)
     playbook = repo_root / "ansible" / "playbooks" / "fleet" / "bootstrap.yml"
     req = requirements or repo_root / "ansible" / "requirements.yml"
     coll = context.collections_path
@@ -288,6 +313,7 @@ def run_bootstrap_playbook(
         cwd=repo_root,
     )
     cmd = secretspec_run("ansible-playbook", str(playbook))
-    if hosts:
-        cmd.extend(["--limit", ",".join(hosts)])
+    # Same inventory the hosts were validated against, even if ANSIBLE_INVENTORY is exported.
+    cmd.extend(context.inventory_args())
+    cmd.extend(["--limit", ",".join(hosts)])
     return subprocess.run(cmd, env=env, cwd=repo_root).returncode
