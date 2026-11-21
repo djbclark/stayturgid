@@ -16,8 +16,10 @@ android {
         applicationId = "org.stayturgid.agent"
         minSdk = 26
         targetSdk = 36
-        versionCode = 37
-        versionName = "0.9.19"
+        // CI (agent-release.yml) sets both: versionCode = run number + offset, versionName
+        // 0.9.<versionCode>+<sha8>. A local or fork build keeps these fallbacks.
+        versionCode = System.getenv("AGENT_VERSION_CODE")?.toIntOrNull() ?: 37
+        versionName = System.getenv("AGENT_VERSION_NAME")?.takeIf { it.isNotBlank() } ?: "0.9.19"
         val buildTimeUtc =
             System.getenv("SOURCE_DATE_EPOCH")?.toLongOrNull()?.let { Instant.ofEpochSecond(it) }
                 ?: Instant.now().truncatedTo(ChronoUnit.SECONDS)
@@ -70,8 +72,10 @@ android {
 
     testOptions { unitTests.all { it.useJUnitPlatform() } }
 
-    // The release key lives only on the Mac (gitignored). Without it (Forgejo CI) assembleRelease
-    // writes app-release-unsigned.apk, which the Mac signs with apksigner.
+    // The release key is never in the repo and Gradle never sees it: assembleRelease writes
+    // app-release-unsigned.apk (CI and fork builds have no agent-release.jks), which the signing
+    // job of agent-release.yml, or the Mac via `just agent-ci-fetch`, signs with apksigner.
+    // A local checkout that does have the gitignored keystore signs here directly.
     val releaseKeystore = file("../agent-release.jks")
     signingConfigs {
         create("release") {

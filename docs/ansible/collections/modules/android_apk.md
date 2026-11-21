@@ -15,6 +15,10 @@ Download and install an APK via adb with `INSTALL_FAILED_*` parsing.
 | `gh_repo`               | GitHub `owner/repo` (needs `gh` CLI)         |
 | `gh_pattern`            | Asset glob for `gh release download`         |
 | `gh_tag`                | Release tag (default latest)                 |
+| `gh_latest`             | Follow the newest release; digest-verified   |
+| `gh_tag_prefix`         | With `gh_latest`: only tags with this prefix |
+| `gh_skip_prereleases`   | With `gh_latest`: skip prereleases (false)   |
+| `signer_sha256`         | Only this signing cert; package must match   |
 | `version_name`          | Install only when installed version differs  |
 | `checksum`              | Expected pre-resigning SHA-256               |
 | `force`                 | Reinstall even when present                  |
@@ -29,14 +33,20 @@ Download and install an APK via adb with `INSTALL_FAILED_*` parsing.
     device: "{{ adb_target }}"
     package: org.stayturgid.agent
     gh_repo: djbclark/stayturgid
-    gh_tag: agent-v0.6.0
+    gh_latest: true
+    gh_tag_prefix: agent-r
     gh_pattern: app-release.apk
-    version_name: 0.6.0-boot-stability
-    checksum: "sha256:..."
   delegate_to: localhost
 ```
 
-Versioned fleet catalogs must supply `gh_tag`, an exact asset filename in
-`gh_pattern`, `version_name`, and `checksum`; using a wildcard asset or GitHub's
-mutable repository-wide latest release is only supported for ad-hoc module
-callers outside the normal fleet deployment.
+This follows the newest `agent-r*` release, which is how the fleet installs the
+agent and every GitHub-hosted app except Tailscale. The installed app is
+compared by SHA-256 against the digest GitHub publishes for the asset;
+`gh_latest` excludes `gh_tag`, `version_name` and `checksum`, and
+`gh_tag_prefix` excludes `gh_tag`. `gh_tag_prefix` and `gh_skip_prereleases`
+need `gh_latest`; both are part of the remembered-release key
+(`gh_latest_pin_to_cache`), and with either set the module lists 100 releases
+instead of 10.
+
+A release-locked entry (still used for Tailscale) instead supplies `gh_tag`, an
+exact asset filename in `gh_pattern`, `version_name`, and `checksum`.

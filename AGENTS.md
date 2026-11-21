@@ -89,10 +89,12 @@ The full command table lives in **[docs/commands.md](docs/commands.md)**.
 
 Day to day: `just health`, `just errors`, `just firerpa-health`, `just test`.
 
-**stayturgid-agent is built on GitHub CI only (free runners):** push `master` to
-`origin`, `just agent-ci-run` (overlays `ci/base`), then `just agent-ci-fetch` signs the CI APK on the Mac. Never run
+**stayturgid-agent is built on GitHub CI only (free runners):** a push to `master` that touches
+`device/native-agent` runs `.github/workflows/agent-release.yml`, which builds, signs and publishes the rolling
+release `agent-r<versionCode>`; no manual `just agent-ci-run` is needed. `just agent-ci-run BRANCH` then
+`just agent-ci-fetch` is the unsigned fallback (CI builds, the Mac signs). Never run
 its Gradle build locally; details in
-[device/native-agent/README.md](device/native-agent/README.md), Build.
+[device/native-agent/README.md](device/native-agent/README.md), Build and Rolling releases.
 
 **`just test` also runs on GitHub CI:** push `master`, then `just ci-run` (overlays `ci/base`, pushes
 `ci/run/tests-*`, watches `linux-ci.yml`). Device, signing and `control_node` apply stay on the Mac. Details: the `ci/base`

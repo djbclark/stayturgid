@@ -137,6 +137,8 @@ def _finish_apk(item: dict[str, str], pins: list[ApkPin], skipped: list[str]) ->
     tag = item.get("gh_tag") or ""
     pattern = item.get("gh_pattern") or ""
     checksum = item.get("checksum") or ""
+    # A gh_latest entry (the agent, Termux, Shizuku) has no tag or checksum to fetch ahead: the deploy
+    # resolves the newest release, verifies GitHub's digest and fills the cache itself.
     if not (repo and tag and pattern and checksum):
         skipped.append(ident)
         return

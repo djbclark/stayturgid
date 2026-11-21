@@ -26,21 +26,23 @@ assert _apk_spec is not None and _apk_spec.loader is not None
 android_apk = importlib.util.module_from_spec(_apk_spec)
 _apk_spec.loader.exec_module(android_apk)
 
-PINNED_IDS = {
+PINNED_IDS = {"com.tailscale.ipn"}
+# gh_latest entries: nothing to prefetch, the deploy resolves the newest release itself.
+ROLLING_IDS = {
     "org.stayturgid.agent",
     "com.termux",
     "com.termux.boot",
     "com.termux.api",
     "com.termux.tasker",
+    "com.termux.x11",
     "moe.shizuku.privileged.api",
-    "com.tailscale.ipn",
 }
 
 
 def test_real_pins_are_the_fleet_set() -> None:
     pins, skipped = prefetch.load_apk_pins(APK_DEFAULTS.read_text())
-    # Termux:X11 tracks the newest upstream release, so there is nothing to prefetch.
-    assert skipped == ["com.termux.x11"]
+    # Everything but Tailscale follows its newest upstream release (operator, 2026-11-21).
+    assert set(skipped) == ROLLING_IDS
     assert {pin.ident for pin in pins} == PINNED_IDS
     assert all(len(pin.sha256) == 64 for pin in pins)
 

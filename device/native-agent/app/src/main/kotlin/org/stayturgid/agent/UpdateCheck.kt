@@ -20,7 +20,9 @@ import java.util.concurrent.TimeUnit
  * shortly after start, then every [CHECK_INTERVAL_MS]) and a line on the main screen.
  *
  * Source of truth is the public GitHub releases of djbclark/stayturgid: the newest non-draft,
- * non-prerelease `agent-vX.Y.Z` tag. Unauthenticated (60 requests/hour per IP), so the cadence is
+ * non-prerelease `agent-r<versionCode>` tag (CI publishes one signed release per push to master;
+ * the versionCode rises with every run, so the numbers compare directly with
+ * [BuildConfig.VERSION_CODE]). Unauthenticated (60 requests/hour per IP), so the cadence is
  * deliberately slow. Nothing is installed from here — the fleet deploy (bootstrap_apks lock) and
  * Obtainium stay the install paths; this only points at the release page.
  */
@@ -28,7 +30,7 @@ object UpdateCheck {
     private const val TAG = "StayTurgidUpdate"
     private const val RELEASES_URL =
         "https://api.github.com/repos/djbclark/stayturgid/releases?per_page=50"
-    private const val TAG_PREFIX = "agent-v"
+    private const val TAG_PREFIX = "agent-r"
     private const val CHANNEL_ID = "stayturgid_agent_update"
     private const val NOTIFICATION_ID = 7104
     private const val PREFS = "update_check"
@@ -43,18 +45,24 @@ object UpdateCheck {
     data class Release(val version: String, val url: String)
 
     /** Latest known release vs what's installed. [latest] is null until a check has succeeded. */
-    data class Status(val installed: String, val latest: Release?, val checkedMs: Long) {
+    data class Status(
+        val installed: String,
+        val latest: Release?,
+        val checkedMs: Long,
+        val installedCode: Int = 0,
+    ) {
         val updateAvailable: Boolean
-            get() = latest != null && isNewer(latest.version, installed)
+            get() = latest != null && isNewer(latest.version, installedCode.toString())
     }
 
     private var executor: ScheduledExecutorService? = null
 
     /**
-     * Numeric parts of a version or tag: "agent-v0.9.10" and "0.9.10-heartbeat-dedupe" -> [0,9,10].
+     * Numeric parts of a version or tag: "agent-r102" -> [102], "0.9.10-heartbeat-dedupe" and
+     * "0.9.10+ab12cd34" -> [0,9,10].
      */
     fun parseVersion(raw: String): List<Int>? {
-        val core = raw.removePrefix(TAG_PREFIX).substringBefore('-')
+        val core = raw.removePrefix(TAG_PREFIX).substringBefore('-').substringBefore('+')
         val parts = core.split('.').map { it.toIntOrNull() ?: return null }
         return parts.takeIf { it.isNotEmpty() }
     }
@@ -90,7 +98,12 @@ object UpdateCheck {
         val version = p.getString(KEY_LATEST, null)
         val url = p.getString(KEY_URL, null)
         val latest = if (version != null && url != null) Release(version, url) else null
-        return Status(BuildConfig.VERSION_NAME, latest, p.getLong(KEY_CHECKED_MS, 0L))
+        return Status(
+            BuildConfig.VERSION_NAME,
+            latest,
+            p.getLong(KEY_CHECKED_MS, 0L),
+            BuildConfig.VERSION_CODE,
+        )
     }
 
     /** Blocking network check; stores and returns the result, or the cached one on failure. */

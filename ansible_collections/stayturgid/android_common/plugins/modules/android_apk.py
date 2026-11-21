@@ -54,6 +54,24 @@ options:
         I(version_name).
     type: bool
     default: false
+  gh_tag_prefix:
+    description:
+      - Only with I(gh_latest). Consider only releases whose tag starts with this prefix
+        (for example C(agent-r) for a repository that also publishes C(agent-ci-*) and
+        C(agent-v*) releases), and take the newest of those. Without it the newest
+        release of any tag is used.
+      - Also part of the key of the remembered release, so two entries of one repository
+        with different prefixes never share a memory.
+      - Fails when no release carries the prefix. Ignored unless I(gh_latest) is true.
+    type: str
+  gh_skip_prereleases:
+    description:
+      - Only with I(gh_latest). Skip releases GitHub marks as prereleases, so a beta tag
+        published after the stable one is not installed.
+      - Leave it off for an upstream whose only release channel is a republished
+        prerelease (C(nightly)).
+    type: bool
+    default: false
   gh_latest_pin_to_cache:
     description:
       - Only with I(gh_latest). Skip GitHub entirely and install the release last
@@ -118,8 +136,19 @@ options:
     type: bool
     default: false
   apksigner_bin:
-    description: Path to C(apksigner) (Android SDK build-tools). Ignored unless I(resign=true).
+    description:
+      - Path to C(apksigner) (Android SDK build-tools). Used by I(resign=true) and I(signer_sha256);
+        C(aapt2) is taken from the same directory.
     type: path
+  signer_sha256:
+    description:
+      - Hex SHA-256 of the one signing certificate the downloaded APK must carry, checked with
+        C(apksigner verify --print-certs) before anything is installed or uninstalled. The package
+        name in the APK (C(aapt2 dump badging)) must also equal I(package).
+      - Pins the signer, not the version, so a C(gh_latest) release can roll while a release written by
+        anyone without the key is refused. Fails closed when apksigner or aapt2 is missing.
+      - Checked on a fresh install too, where Android has no earlier signer to compare with.
+    type: str
   keystore:
     description: Debug keystore path. Ignored unless I(resign=true).
     type: path
@@ -423,14 +452,20 @@ def installed_sha256(run_command, device, package):
     return None
 
 
-def _gh_memory_path(repo, pattern):
-    token = hashlib.sha256(("%s\0%s" % (repo, pattern or "")).encode()).hexdigest()[:16]
+def _gh_memory_path(repo, pattern, tag_prefix=None, skip_prereleases=False):
+    """Memory file of one gh_latest entry. The keys of entries without a filter are unchanged."""
+    key = "%s\0%s" % (repo, pattern or "")
+    if tag_prefix:
+        key += "\0prefix=%s" % tag_prefix
+    if skip_prereleases:
+        key += "\0stable"
+    token = hashlib.sha256(key.encode()).hexdigest()[:16]
     return os.path.join(APK_CACHE_DIR, "gh-latest", token + ".json")
 
 
-def _remember_gh_release(repo, pattern, tag, digest):
+def _remember_gh_release(repo, pattern, tag, digest, tag_prefix=None, skip_prereleases=False):
     """Record the newest release a lookup resolved, so an outage can reuse the cached APK."""
-    path = _gh_memory_path(repo, pattern)
+    path = _gh_memory_path(repo, pattern, tag_prefix, skip_prereleases)
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path + ".part", "w") as handle:
@@ -440,10 +475,10 @@ def _remember_gh_release(repo, pattern, tag, digest):
         pass  # a missing memory only removes the outage fallback
 
 
-def _read_gh_memory(repo, pattern):
+def _read_gh_memory(repo, pattern, tag_prefix=None, skip_prereleases=False):
     """(tag, sha256) recorded for repo/pattern, or None when there is no usable record."""
     try:
-        with open(_gh_memory_path(repo, pattern)) as handle:
+        with open(_gh_memory_path(repo, pattern, tag_prefix, skip_prereleases)) as handle:
             seen = json.load(handle)
         tag, digest = seen["tag"], seen["sha256"]
     except (OSError, ValueError, KeyError, TypeError):
@@ -458,38 +493,55 @@ def _cached_apk_ok(digest):
     return os.path.isfile(cached) and _sha256_of(cached) == digest
 
 
-def _recall_gh_release(repo, pattern):
+def _recall_gh_release(repo, pattern, tag_prefix=None, skip_prereleases=False):
     """(tag, sha256) last resolved for repo/pattern, when its APK is still in the cache, else None."""
-    seen = _read_gh_memory(repo, pattern)
+    seen = _read_gh_memory(repo, pattern, tag_prefix, skip_prereleases)
     if seen and _cached_apk_ok(seen[1]):
         return seen
     return None
 
 
-def _pinned_gh_release(module, repo, pattern):
+def _pinned_gh_release(module, repo, pattern, tag_prefix=None, skip_prereleases=False):
     """The remembered fleet release of repo/pattern without asking GitHub; fails rather than guess."""
-    seen = _read_gh_memory(repo, pattern)
+    memory = _gh_memory_path(repo, pattern, tag_prefix, skip_prereleases)
+    seen = _read_gh_memory(repo, pattern, tag_prefix, skip_prereleases)
     if not seen:
         module.fail_json(
             msg="gh_latest_pin_to_cache: no release remembered for %s %r (%s); run once without pinning "
-            "on a host that can reach GitHub" % (repo, pattern, _gh_memory_path(repo, pattern))
+            "on a host that can reach GitHub" % (repo, pattern, memory)
         )
     tag, digest = seen
     if not _cached_apk_ok(digest):
         module.fail_json(
             msg="gh_latest_pin_to_cache: the fleet release %s of %s %r is remembered in %s but its APK %s "
             "is missing or does not match sha256:%s"
-            % (tag, repo, pattern, _gh_memory_path(repo, pattern), os.path.join(APK_CACHE_DIR, digest + ".apk"), digest)
+            % (tag, repo, pattern, memory, os.path.join(APK_CACHE_DIR, digest + ".apk"), digest)
         )
     module.warn("pinned to the cached fleet release %s of %s; GitHub was not consulted" % (tag, repo))
     return tag, digest
 
 
-def gh_newest_release(module, repo, pattern, installed=False, pin_to_cache=False):
+def select_gh_release(releases, tag_prefix=None, skip_prereleases=False):
+    """The newest published release that passes the filters, from a newest-first release list, or None."""
+    for release in releases:
+        if release.get("draft"):
+            continue
+        if skip_prereleases and release.get("prerelease"):
+            continue
+        if tag_prefix and not str(release.get("tag_name") or "").startswith(tag_prefix):
+            continue
+        return release
+    return None
+
+
+def gh_newest_release(
+    module, repo, pattern, installed=False, pin_to_cache=False, tag_prefix=None, skip_prereleases=False
+):
     """(tag, sha256 hex or None) of the pattern asset in repo's newest release.
 
     GitHub lists releases newest first (prereleases included, so a republished
-    C(nightly) tag counts). The digest is the one GitHub computed for the asset
+    C(nightly) tag counts, unless skip_prereleases is set). With tag_prefix only releases whose tag
+    starts with it are considered. The digest is the one GitHub computed for the asset
     (C(sha256:<hex>)); older assets have none.
 
     When GitHub cannot be reached (DNS, outage, rate limit) the release last resolved for
@@ -500,17 +552,19 @@ def gh_newest_release(module, repo, pattern, installed=False, pin_to_cache=False
     With pin_to_cache GitHub is not asked at all: the remembered release is used or the call fails.
     """
     if pin_to_cache:
-        return _pinned_gh_release(module, repo, pattern)
+        return _pinned_gh_release(module, repo, pattern, tag_prefix, skip_prereleases)
     gh = module.get_bin_path("gh", required=True)
+    # A filter can skip past the newest releases, so look at more of them.
+    per_page = 100 if (tag_prefix or skip_prereleases) else 10
     rc, out, err = run_command_with_timeout(
         module.run_command,
-        [gh, "api", "repos/%s/releases?per_page=10" % repo],
+        [gh, "api", "repos/%s/releases?per_page=%d" % (repo, per_page)],
         timeout=60,
         get_bin_path_fn=module.get_bin_path,
     )
     if rc != 0:
         reason = (err or out).strip()[:500]
-        recalled = _recall_gh_release(repo, pattern)
+        recalled = _recall_gh_release(repo, pattern, tag_prefix, skip_prereleases)
         if recalled:
             module.warn("could not list releases of %s (%s); using cached %s" % (repo, reason, recalled[0]))
             return recalled
@@ -519,12 +573,18 @@ def gh_newest_release(module, repo, pattern, installed=False, pin_to_cache=False
             module.exit_json(changed=False, reason="GitHub unreachable; installed build left as is")
         module.fail_json(msg="could not list releases of %s: %s" % (repo, reason))
     try:
-        releases = [r for r in json.loads(out) if not r.get("draft")]
+        release = select_gh_release(json.loads(out), tag_prefix, skip_prereleases)
     except (ValueError, TypeError, AttributeError):
         module.fail_json(msg="unparseable release list for %s" % repo)
-    if not releases:
-        module.fail_json(msg="%s has no published release" % repo)
-    release = releases[0]
+    if release is None:
+        filters = []
+        if tag_prefix:
+            filters.append("tag prefix %r" % tag_prefix)
+        if skip_prereleases:
+            filters.append("no prereleases")
+        module.fail_json(
+            msg="%s has no published release%s" % (repo, " with " + " and ".join(filters) if filters else "")
+        )
     tag = release.get("tag_name")
     matches = [a for a in release.get("assets") or [] if fnmatch.fnmatch(a.get("name", ""), pattern or "*.apk")]
     if not tag or len(matches) != 1:
@@ -537,7 +597,7 @@ def gh_newest_release(module, repo, pattern, installed=False, pin_to_cache=False
     wanted = _wanted_sha256(digest)
     if not digest.startswith("sha256:") or not re.match(r"^[0-9a-f]{64}$", wanted):
         module.fail_json(msg="unexpected digest %r on %s %s" % (digest, repo, tag))
-    _remember_gh_release(repo, pattern, tag, wanted)
+    _remember_gh_release(repo, pattern, tag, wanted, tag_prefix, skip_prereleases)
     return tag, wanted
 
 
@@ -781,6 +841,40 @@ def verify_sha256(module, apk_path, expected):
         module.fail_json(msg="APK checksum mismatch: expected sha256:%s, got sha256:%s" % (wanted, actual))
 
 
+def verify_signer_and_package(module, apk_path):
+    """Refuse an APK whose signer is not signer_sha256 or whose package is not the one being installed."""
+    wanted = (module.params.get("signer_sha256") or "").lower()
+    if not wanted:
+        return
+    if not re.match(r"^[0-9a-f]{64}$", wanted):
+        module.fail_json(msg="signer_sha256 must be a 64-character hex SHA-256")
+    apksigner = module.params.get("apksigner_bin")
+    if not apksigner:
+        apksigner = os.path.join(
+            os.path.expanduser("~"), "Library", "Android", "sdk", "build-tools", "36.0.0", "apksigner"
+        )
+    aapt2 = os.path.join(os.path.dirname(apksigner), "aapt2")
+    for tool in (apksigner, aapt2):
+        if not os.path.isfile(tool):
+            module.fail_json(msg="signer_sha256 needs %s (set apksigner_bin to the SDK build-tools apksigner)" % tool)
+    rc, out, err = module.run_command([apksigner, "verify", "--print-certs", apk_path])
+    if rc != 0:
+        module.fail_json(msg="apksigner verify failed for the downloaded APK: %s" % (err or out).strip()[:300])
+    signers = set(re.findall(r"certificate SHA-256 digest: ([0-9a-fA-F]{64})", out))
+    if {s.lower() for s in signers} != {wanted}:
+        module.fail_json(
+            msg="the downloaded APK is not signed by the pinned certificate sha256:%s (it carries %s); not installing"
+            % (wanted, ", ".join(sorted(signers)) or "none")
+        )
+    rc, out, err = module.run_command([aapt2, "dump", "badging", apk_path])
+    found = re.search(r"package: name='([^']+)'", out) if rc == 0 else None
+    if not found or found.group(1) != module.params["package"]:
+        module.fail_json(
+            msg="the downloaded APK is package %r, not %r; not installing"
+            % (found.group(1) if found else "unreadable", module.params["package"])
+        )
+
+
 def resign_apk(module, apk_path):
     apksigner = module.params.get("apksigner_bin")
     if not apksigner:
@@ -852,6 +946,8 @@ def main():
             gh_pattern=dict(type="str"),
             gh_tag=dict(type="str"),
             gh_latest=dict(type="bool", default=False),
+            gh_tag_prefix=dict(type="str"),
+            gh_skip_prereleases=dict(type="bool", default=False),
             gh_latest_pin_to_cache=dict(type="bool", default=False),
             version_name=dict(type="str"),
             checksum=dict(type="str"),
@@ -866,6 +962,7 @@ def main():
             connect=dict(type="bool", default=True),
             resign=dict(type="bool", default=False),
             apksigner_bin=dict(type="path"),
+            signer_sha256=dict(type="str"),
             keystore=dict(type="path"),
             keystore_pass=dict(type="str", default="android", no_log=True),
             key_alias=dict(type="str", default="androiddebugkey"),
@@ -880,6 +977,7 @@ def main():
             ["gh_latest", "gh_tag"],
             ["gh_latest", "checksum"],
             ["gh_latest", "version_name"],
+            ["gh_tag_prefix", "gh_tag"],
         ],
         required_if=[["gh_latest", True, ["gh_repo"]]],
         supports_check_mode=True,
@@ -887,6 +985,11 @@ def main():
 
     device = module.params["device"]
     package = module.params["package"]
+
+    if not module.params["gh_latest"]:
+        for option in ("gh_tag_prefix", "gh_skip_prereleases"):
+            if module.params[option]:
+                module.fail_json(msg="%s needs gh_latest" % option)
 
     if module.params["detached_install"]:
         for option in ("clean", "work_profile"):
@@ -905,6 +1008,8 @@ def main():
             module.params["gh_pattern"],
             installed=present,
             pin_to_cache=module.params["gh_latest_pin_to_cache"],
+            tag_prefix=module.params["gh_tag_prefix"],
+            skip_prereleases=module.params["gh_skip_prereleases"],
         )
         module.params["gh_tag"] = latest_tag
         module.params["checksum"] = digest
@@ -941,6 +1046,7 @@ def main():
         )
 
     verify_sha256(module, apk, module.params["checksum"])
+    verify_signer_and_package(module, apk)
 
     if latest_tag and not digest:
         module.warn(

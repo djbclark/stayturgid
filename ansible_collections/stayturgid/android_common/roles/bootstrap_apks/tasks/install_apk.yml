@@ -79,8 +79,13 @@
         gh_repo: "{{ _apk.gh_repo }}"
         gh_tag: "{{ _apk.gh_tag | default(omit) }}"
         gh_latest: "{{ _apk.gh_latest | default(omit) }}"
+        gh_tag_prefix: "{{ _apk.gh_tag_prefix | default(omit) }}"
+        gh_skip_prereleases: "{{ _apk.gh_skip_prereleases | default(omit) }}"
         gh_latest_pin_to_cache: "{{ stayturgid_bootstrap_apks_pin_to_fleet | default(false) }}"
         gh_pattern: "{{ _apk.gh_pattern }}"
+        signer_sha256: "{{ _apk.signer_sha256 | default(omit) }}"
+        # A rolling entry never uninstalls an app to take a release signed by someone else.
+        clean_on_incompatible: "{{ _apk.clean_on_incompatible | default(not (_apk.gh_latest | default(false) | bool)) }}"
         checksum: "{{ _apk.checksum | default(omit) }}"
         resign: "{{ _apk.resign | default(false) }}"
         clean: "{{ _apk.clean | default(false) }}"
