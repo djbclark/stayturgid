@@ -112,16 +112,19 @@ on the command line.
 - A dispatch from any other branch cannot read the environment's secrets, and the
   `check`, `sign`, `verify` and `release` jobs are skipped there. A branch dispatch has its
   own concurrency group, so it cannot replace a pending master release.
-- **Tag rulesets** on `djbclark/stayturgid` (`agent-r tags: only the release workflow creates` and
-  `agent-r tags: no update or delete`), target `refs/tags/agent-r*`. The first restricts creating
-  those tags; its bypass actors are the GitHub Actions integration (every Actions token with
-  `contents: write`, not this workflow alone) and repository admins (the shared Mac `gh` token
-  is one). The second forbids updating and deleting them, with no bypass (an admin disables the
+- **Tag ruleset** on `djbclark/stayturgid`, `agent-r tags: no update or delete`, target
+  `refs/tags/agent-r*`: nobody can move or delete those tags, no bypass (an admin disables the
   ruleset to change one on purpose). `agent-release.yml` never deletes a tag: pruning and
   repairing delete the release only, and `release` refuses an existing tag that points at
-  another commit. Creating a release on an old existing tag creates no ref, so the rulesets do
-  not stop it; the client side does: `gh_latest` takes the highest `agent-r<N>` number, not the
-  first listed, and refuses an APK whose `versionCode` is not the tag's number.
+  another commit. A second ruleset restricting who may _create_ `agent-r*` tags is not
+  possible yet: GitHub only lets the Actions integration be a bypass actor in an
+  organization-owned repository (the API answers 422 "Actor GitHub Actions integration must be
+  part of the ruleset source or owner organization"), and without that bypass it would block this
+  workflow. Revisit when the repository moves to an organization. Until then any Actions token
+  with `contents: write` and any admin (the shared Mac `gh` token) can create an `agent-r*` tag,
+  and a release created on an existing old tag creates no ref at all, so the client side does
+  the work: `gh_latest` takes the highest `agent-r<N>` number, not the first listed, and refuses
+  an APK whose `versionCode` is not the tag's number.
 - `gh_latest` accepts a release only if its whole tag is `agent-r` plus a plain
   integer (`agent-rz`, `agent-r1x`, `agent-r999.1` and `agent-r1-evil` are ignored).
 - The phones do not trust the workflow alone: the signer pin above holds even if a
