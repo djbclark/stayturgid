@@ -70,6 +70,7 @@ key_state:
 
 from ansible.module_utils.basic import AnsibleModule
 
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
 from ansible_collections.stayturgid.termux.plugins.module_utils.termux_run_as import (
     adbkey_state,
     wait_for_unlocked_screen,
@@ -88,6 +89,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
     device = module.params["device"]
     if not device or module.check_mode:
         module.exit_json(changed=False, checked=False, waited=False, key_state="")

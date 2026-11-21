@@ -264,6 +264,7 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shel
 from ansible_collections.stayturgid.android_common.plugins.module_utils.apk_install import (
     parse_install_result,
 )
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
 
 # Google Play Protect intercepts adb installs with an on-device "unsafe app
 # blocked" dialog that nobody is there to tap (observed live 2026-10-03 on
@@ -1002,6 +1003,7 @@ def main():
         required_if=[["gh_latest", True, ["gh_repo"]]],
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     device = module.params["device"]
     package = module.params["package"]

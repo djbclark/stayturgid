@@ -2,6 +2,11 @@
 
 ## Unreleased (galaxy.yml still says 1.5.0; recorded 2026-10-09 from git history)
 
+- New module_util `plain_run` (2026-11-21): `plain_run_command(module)` makes `module.run_command` stop
+  expanding `$VAR` and `~` in argv (Ansible's default expands them on the control node). Every module
+  that sends a device script to adb now calls it right after `AnsibleModule(...)`. Without it a script's
+  `$HOME` became the Mac's (s24: `mkdir: cannot create directory '/Users'`). `stayturgid.termux` and
+  `stayturgid.play` need this collection's new `plain_run` module_util.
 - Add `device_quirks` role (2026-11-20): reads each `stayturgid_device_quirks` item over adb,
   applies only the ones that differ, reads them back and fails on a mismatch; healing ID
   `DEVICE-QUIRKS`. First data: `model_idea_tab_11` (rotation lock, ZUI memory cleaner, Doze

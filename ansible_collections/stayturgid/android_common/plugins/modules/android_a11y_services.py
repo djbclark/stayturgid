@@ -43,6 +43,7 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils import (
     a11y_services_util as a11y,
 )
 from ansible_collections.stayturgid.android_common.plugins.module_utils import adb_shell
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
 
 
 def settings_get(run_command, device):
@@ -64,6 +65,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     device = module.params["device"]
 

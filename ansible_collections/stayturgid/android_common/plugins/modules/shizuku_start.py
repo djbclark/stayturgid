@@ -125,6 +125,7 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shel
     adb_shell,
     normalize_adb_output,
 )
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
 from ansible_collections.stayturgid.android_common.plugins.module_utils.shizuku_lifecycle import (
     SHIZUKU_START_WITHHELD_MSG,
     resolve_apk,
@@ -451,6 +452,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     device = module.params["device"]
     pkg = module.params["shizuku_pkg"]

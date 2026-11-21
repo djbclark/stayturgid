@@ -97,6 +97,7 @@ import os
 
 from ansible.module_utils.basic import AnsibleModule
 
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
 from ansible_collections.stayturgid.termux.plugins.module_utils.termux_run_as import (
     bootstrap_device,
     discover_pubkey_paths,
@@ -132,6 +133,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     try:
         lines = resolve_pubkey_lines(module)

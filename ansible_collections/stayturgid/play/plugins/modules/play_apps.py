@@ -122,6 +122,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_resolve import (
     resolve_adb,
 )
+from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
 
 
 def run_cmd(module, cmd):
@@ -394,6 +395,7 @@ def main():
         ),
         supports_check_mode=True,
     )
+    plain_run_command(module)
 
     apps = module.params["apps"]
     device = resolve_adb(module.params["device"], module.run_command)
