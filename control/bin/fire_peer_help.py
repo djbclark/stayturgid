@@ -95,7 +95,7 @@ def _ensure_connected(target: str, timeout: float = 20) -> None:
 _SERIAL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}")
 # A peer-help target is a routable IPv4 LAN/Tailscale address on the fleet's adb port: never
 # loopback (the helper's own adbd), a hostname, or a USB serial the local adb server also lists.
-_TARGET_RE = re.compile(r"(?:\d{1,3}\.){3}\d{1,3}:5555")
+_TARGET_RE = re.compile(r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}:5555")
 
 
 def valid_serial(serial: str | None) -> bool:
