@@ -101,9 +101,9 @@ def adb_targets(name: str, ts_ip: str, lan_ip: str) -> list[str]:
     """Ordered adb endpoints: shared resolve_adb first (USB / mDNS wireless-debug),
     then classic LAN/TS :5555. Fire often only has wireless-debugging (random port).
 
-    The raw LAN/TS endpoints are added only for devices.conf rows without a USB serial;
-    with one, resolve_adb has already tried both and checked ro.serialno, and a stale LAN
-    address may now belong to another tablet, so nothing unconfirmed is guessed here.
+    No raw LAN/TS endpoint is guessed: resolve_adb has already tried both and checked
+    ro.serialno, and a stale LAN address may now belong to another tablet. A devices.conf
+    row without a USB serial gets no endpoint at all (it cannot be identity-checked).
     """
     out: list[str] = []
     seen: set[str] = set()
@@ -116,19 +116,16 @@ def adb_targets(name: str, ts_ip: str, lan_ip: str) -> list[str]:
         out.append(t)
 
     usb = dev.usb_serial_for(name)
+    if usb in ("", "-"):
+        log("%s has no USB serial in devices.conf: no identity-checked adb endpoint" % name)
+        return out
     try:
         resolved = dev.resolve_adb(name)
     except Exception:
         resolved = ""
     # resolve_adb answers with the bare alias when nothing is reachable: not an endpoint to adb connect.
-    if resolved and not (resolved == name and usb not in ("", "-")):
+    if resolved and resolved != name:
         add(resolved)
-    if usb not in ("", "-"):
-        return out
-    if lan_ip and lan_ip != "-":
-        add("%s:5555" % lan_ip)
-    if ts_ip and ts_ip != "-":
-        add("%s:5555" % ts_ip)
     return out
 
 

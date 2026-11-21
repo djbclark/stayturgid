@@ -142,7 +142,7 @@ def identity_ok(addr, expected, alias):
     try:
         from stayturgid_device import endpoint_identity_ok
     except Exception:
-        return expected in ("", "-")
+        return False  # no identity check, no endpoint
     return endpoint_identity_ok(addr, expected, report=lambda m: log(alias, m))
 
 

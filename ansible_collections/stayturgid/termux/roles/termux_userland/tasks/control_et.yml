@@ -88,3 +88,50 @@
     - _termux_home_stat.stat.exists
     - _control_et_enabled | bool
     - _control_et_ts_ip | length > 0
+
+# The Mac's host key under the alias `mac` in the phone's known_hosts. Both the
+# `mac-lan` block above (HostKeyAlias mac, StrictHostKeyChecking yes) and the
+# peer-help ssh (stayturgid_peer_bootstrap.py: HostKeyAlias <peer name>,
+# StrictHostKeyChecking=yes) look the key up under it, so a DHCP LAN address
+# that now answers for another device fails the check instead of being trusted.
+# The key is the one the control node's own sshd serves on its Tailscale
+# address, scanned once per run; known_hosts state=present replaces a changed
+# key in place (never an empty alias) and reports ok when nothing changed.
+- name: Scan the control node's ssh host key over Tailscale (once per run)
+  ansible.builtin.command:
+    argv:
+      - ssh-keyscan
+      - -p
+      - "{{ stayturgid_mac_peer.port | default(22) }}"
+      - -t
+      - ed25519
+      - "{{ _control_et_ts_ip }}"
+  delegate_to: localhost
+  run_once: true
+  register: _control_et_hostkeyscan
+  changed_when: false
+  failed_when: false
+  when:
+    - _control_et_enabled | bool
+    - _control_et_ts_ip | length > 0
+
+- name: Pin the control node's host key under the alias mac in the phone's known_hosts
+  vars:
+    _control_et_key_fields: >-
+      {{
+        (_control_et_hostkeyscan.stdout_lines | default([])
+         | reject('match', '^#') | select | first | default('')).split()
+      }}
+    _control_et_alias_port: "{{ stayturgid_mac_peer.port | default(22) | int }}"
+  ansible.builtin.known_hosts:
+    path: "{{ termux_home }}/.ssh/known_hosts"
+    name: "{{ 'mac' if _control_et_alias_port | int == 22 else '[mac]:' ~ _control_et_alias_port }}"
+    key: >-
+      {{ 'mac' if _control_et_alias_port | int == 22 else '[mac]:' ~ _control_et_alias_port }}
+      {{ _control_et_key_fields[-2] }} {{ _control_et_key_fields[-1] }}
+    state: present
+  when:
+    - _termux_home_stat.stat.exists
+    - _control_et_enabled | bool
+    - _control_et_ts_ip | length > 0
+    - _control_et_hostkeyscan.stdout_lines | default([]) | reject('match', '^#') | select | list | length > 0

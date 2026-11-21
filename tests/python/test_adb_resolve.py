@@ -32,10 +32,10 @@ def _devices_listing(*lines):
     return run
 
 
-def test_resolve_adb_lan_fallback(tmp_path):
+def test_resolve_adb_refuses_a_lan_only_row_without_a_serial(tmp_path):
     conf = tmp_path / "devices.conf"
     conf.write_text("stock-android-device - - 192.0.2.9\n")
-    assert adb_resolve.resolve_adb("stock-android-device", _devices_listing(), str(conf)) == "192.0.2.9:5555"
+    assert adb_resolve.resolve_adb("stock-android-device", _devices_listing(), str(conf)) == "stock-android-device"
 
 
 def test_resolve_adb_no_dash_tailscale(tmp_path):

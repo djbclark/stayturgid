@@ -142,6 +142,37 @@ def _strict_lines(body: list[str]) -> list[str]:
     return [*kept, "  StrictHostKeyChecking yes"]
 
 
+TOMBSTONE_MARK = "STAYTURGID-TOMBSTONE"
+
+
+def tombstone_lines(name: str) -> list[str]:
+    """A ``Host <name>-lan`` block that fails loudly: the device has no usable LAN address.
+
+    Without any ``-lan`` block, ``ssh <name>-lan`` falls through to name
+    resolution and the catch-all ``Host`` block and may reach something else.
+    The HostName is under ``.invalid`` (RFC 6761: never resolves) and says why,
+    so ssh stops with ``Could not resolve hostname <name>-no-usable-lan-address.invalid``;
+    ``ProxyCommand none`` and ``ProxyJump none`` keep a later catch-all block from
+    routing the name somewhere that could resolve it, and the agent is never
+    reached. Keep in step with the tombstone branch of
+    ansible/roles/control_node/templates/ssh_config_stayturgid.j2.
+    """
+    return [
+        "Host %s-lan" % name,
+        "  # %s: no usable LAN address for %s (control/lib/lan_ips.py); fails loudly instead of falling through"
+        % (TOMBSTONE_MARK, name),
+        "  HostName %s-no-usable-lan-address.invalid" % name,
+        "  ProxyCommand none",
+        "  ProxyJump none",
+        "  IdentityAgent none",
+        "  IdentitiesOnly yes",
+    ]
+
+
+def _is_tombstone(body: list[str]) -> bool:
+    return any(TOMBSTONE_MARK in b for b in body)
+
+
 def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
     """Point each ``Host <name>-lan`` block's HostName at ``ips[name]``.
 
@@ -151,11 +182,14 @@ def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
     CA host certificate still validates whatever the current IP is. Every
     ``-lan`` block is held to ``StrictHostKeyChecking yes`` (a changed or
     unknown key fails instead of being trusted). A block for a device with no
-    live address is removed when its HostName is an address another device's
-    live entry holds.
+    live address whose HostName is an address another device's live entry holds
+    becomes a tombstone (``tombstone_lines``), as does a device that has no
+    ``-lan`` block and no live address; a tombstone gives way to a real block
+    when the device has a live address again.
     """
     out: list[str] = []
     lines = text.splitlines(keepends=True)
+    known = {p for patterns, _ in _host_blocks(text) for p in patterns}
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -173,6 +207,15 @@ def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
         while block and not block[-1].strip():
             trailing.insert(0, block.pop())
         ip = ips.get(name)
+        if _is_tombstone(block):
+            if ip is not None and name in known:
+                i = j  # a real block is cloned from the device's own block below
+                continue
+            out.append(line)
+            out.extend(b if b.endswith("\n") else b + "\n" for b in block)
+            out.extend(trailing)
+            i = j
+            continue
         if ip is None:
             current = next(
                 (
@@ -183,6 +226,8 @@ def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
                 None,
             )
             if current and current.group(1) in held_by_others(ips, name):
+                out.extend(b + "\n" for b in tombstone_lines(name))
+                out.extend(trailing)
                 i = j
                 continue
         body = block
@@ -212,6 +257,17 @@ def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
         keep = [b for b in source if not re.match(r"^\s*(HostName|HostKeyAlias)(\s|=)", b, re.I)]
         body = ["  HostName %s" % ip, "  HostKeyAlias %s" % name, *keep]
         extra.append("\n".join(["Host %s-lan" % name, *_strict_lines(body)]) + "\n")
+    # A fleet device (a ``Host <name> <ip>`` block) with no ``-lan`` block and no live address.
+    dead = [
+        patterns[0]
+        for patterns, _ in blocks
+        if len(patterns) == 2
+        and not patterns[0].endswith(("-lan", "-firerpa"))
+        and patterns[0] not in ips
+        and "%s-lan" % patterns[0] not in have
+    ]
+    for name in sorted(set(dead)):
+        extra.append("\n".join(tombstone_lines(name)) + "\n")
     if extra:
         result += ("" if result.endswith("\n") or not result else "\n") + "".join(extra)
     return result
@@ -473,7 +529,26 @@ def devices_from_env(value: str) -> list[tuple[str, str]]:
     return pairs
 
 
+def _pin_known_hosts_cli(argv: list[str]) -> int:
+    """``lan_ips.py pin-known-hosts [--ssh-config PATH] [--known-hosts PATH]``: pin the aliases; print each changed one."""
+    paths = {"--ssh-config": SSH_FRAGMENT, "--known-hosts": KNOWN_HOSTS}
+    args = list(argv)
+    while args:
+        if args[0] not in paths or len(args) < 2:
+            sys.stderr.write("usage: lan_ips.py pin-known-hosts [--ssh-config PATH] [--known-hosts PATH]\n")
+            return 2
+        paths[args[0]] = args[1]
+        args = args[2:]
+    with open(paths["--ssh-config"]) as f:
+        ssh_text = f.read()
+    for alias in pin_known_hosts(ssh_text, paths["--known-hosts"]):
+        print(alias)
+    return 0
+
+
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["pin-known-hosts"]:
+        sys.exit(_pin_known_hosts_cli(sys.argv[2:]))
     # The role passes the inventory's devices in STAYTURGID_LAN_DEVICES so the
     # first deploy (no devices.conf yet) and newly added phones are discovered
     # too; by hand or from fleet-health the rendered devices.conf is the source.

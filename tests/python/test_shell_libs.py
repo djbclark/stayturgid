@@ -63,7 +63,7 @@ def test_resolve_adb_cli_usb_tailscale_and_dash_ts(tmp_path):
 
     conf.write_text("stock-android-device - - 192.0.2.9\n")
     r = subprocess.run([str(cli), "stock-android-device"], capture_output=True, text=True, env=env, check=False)
-    assert r.stdout.strip() == "192.0.2.9:5555"
+    assert r.stdout.strip() == "stock-android-device"
 
     r = subprocess.run(
         [str(cli), "--ssh-host", "stock-android-device"],

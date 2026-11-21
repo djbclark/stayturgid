@@ -63,10 +63,20 @@ def test_endpoint_identity_rejects_an_unreadable_serial(monkeypatch):
     assert "could not read" in said[0]
 
 
-def test_endpoint_identity_has_nothing_to_compare_without_a_known_serial(monkeypatch):
+def test_endpoint_identity_refuses_a_wireless_endpoint_without_a_known_serial(monkeypatch):
     monkeypatch.setattr(sd, "_run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not call adb")))
-    assert sd.endpoint_identity_ok(STALE_LAN, "-")
-    assert sd.endpoint_identity_ok(STALE_LAN, "")
+    said: list[str] = []
+    assert not sd.endpoint_identity_ok(STALE_LAN, "-", report=said.append)
+    assert not sd.endpoint_identity_ok(STALE_LAN, "")
+    assert said and "no USB serial" in said[0] and STALE_LAN in said[0]
+
+
+def test_resolve_adb_uses_no_wireless_endpoint_for_a_row_without_a_serial(tmp_path, monkeypatch, capsys):
+    conf = tmp_path / "devices.conf"
+    conf.write_text("noserial - 100.64.0.9 192.168.1.50\n")
+    monkeypatch.setattr(sd, "_run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not call adb")))
+    assert sd.resolve_adb("noserial", str(conf)) == "noserial"  # bare alias: nothing to connect to
+    assert "no USB serial" in capsys.readouterr().err
 
 
 def test_usb_serial_for(tmp_path):
@@ -121,10 +131,12 @@ def test_fleet_health_adb_reachable_checks_an_already_listed_endpoint_too(monkey
     assert fh.adb_reachable([STALE_LAN], HD8_USB) is None
 
 
-def test_fleet_health_adb_reachable_unchanged_without_a_serial(monkeypatch):
+def test_fleet_health_adb_reachable_refuses_every_endpoint_without_a_serial(monkeypatch):
     adb = fake_adb({STALE_LAN: M11_USB})
     monkeypatch.setattr(fh.subprocess, "run", lambda args, **kw: adb(args))
-    assert fh.adb_reachable([STALE_LAN]) == "adb:%s" % STALE_LAN
+    monkeypatch.setattr(sd, "_run", lambda args, **kw: adb(args))
+    assert fh.adb_reachable([STALE_LAN]) is None
+    assert fh.adb_reachable([STALE_LAN], "-") is None
 
 
 def test_fleet_health_resolve_path_looks_the_serial_up_by_name(monkeypatch):
@@ -178,7 +190,7 @@ def test_adb_reconnect_identity_ok_rejects_another_device(monkeypatch):
     monkeypatch.setattr(ar, "log", lambda alias, msg: logged.append(msg))
     assert not ar.identity_ok(STALE_LAN, HD8_USB, "hd8")
     assert logged and M11_USB in logged[0]
-    assert ar.identity_ok(STALE_LAN, "-", "hd8")
+    assert not ar.identity_ok(STALE_LAN, "-", "hd8")  # no serial, no identity check, no endpoint
 
 
 def test_adb_reconnect_does_not_call_a_stale_address_connected(tmp_path, monkeypatch):
@@ -220,10 +232,13 @@ def test_fire_help_never_guesses_the_raw_lan_address_of_a_device_with_a_serial(m
     assert fhm.adb_targets("hd8", "100.64.0.8", "192.168.1.157") == [HD8_USB]
 
 
-def test_fire_help_keeps_the_raw_endpoints_for_a_row_without_a_serial(monkeypatch):
-    monkeypatch.setattr(fhm.dev, "resolve_adb", lambda name: name)
+def test_fire_help_has_no_endpoint_at_all_for_a_row_without_a_serial(monkeypatch):
+    monkeypatch.setattr(fhm.dev, "resolve_adb", lambda name: (_ for _ in ()).throw(AssertionError("no adb")))
     monkeypatch.setattr(fhm.dev, "usb_serial_for", lambda name: "-")
-    assert fhm.adb_targets("x", "100.64.0.8", "192.168.1.157") == ["x", "192.168.1.157:5555", "100.64.0.8:5555"]
+    logged: list[str] = []
+    monkeypatch.setattr(fhm, "log", logged.append)
+    assert fhm.adb_targets("x", "100.64.0.8", "192.168.1.157") == []
+    assert logged and "no USB serial" in logged[0]
 
 
 def test_fire_help_does_not_repair_the_tablet_that_answers_on_a_stale_address(monkeypatch):

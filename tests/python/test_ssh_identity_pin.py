@@ -64,7 +64,7 @@ def test_every_device_block_is_pinned_and_never_uses_proxy_or_agent():
     for name, lines in _blocks(text).items():
         assert "IdentityAgent none" in lines, name
         assert "IdentitiesOnly yes" in lines, name
-        assert not any(re.match(r"Proxy(Jump|Command)\b", ln) for ln in lines), name
+        assert not any(re.match(r"Proxy(Jump|Command)\s+(?!none\b)", ln) for ln in lines), name
     # Only the explicit passphrase-less key is ever named for the SSH blocks.
     identity = {ln.split()[1] for ln in text.splitlines() if ln.strip().startswith("IdentityFile")}
     assert identity == {KEY, "/k"}

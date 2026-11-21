@@ -175,16 +175,18 @@ def resolve_adb(alias, conf_path=None):
 
     # Minimal fallback when collection path is unavailable.
     usb, ts_ip, _lan = row
-    if usb != "-":
-        r = _run([adb_bin(), "devices"])
-        if r and ("%s\tdevice" % usb) in (r.stdout or ""):
-            return usb
+    if usb in ("", "-"):
+        # No serial, no identity check: no wireless endpoint is guessed.
+        sys.stderr.write(
+            "stayturgid_device: %s has no USB serial in devices.conf; its wireless endpoints are not used\n" % alias
+        )
+        return alias
+    r = _run([adb_bin(), "devices"])
+    if r and ("%s\tdevice" % usb) in (r.stdout or ""):
+        return usb
+    # A LAN address cannot be confirmed here and may now belong to another phone.
     if ts_ip not in ("", "-"):
         return "%s:5555" % ts_ip
-    lan = row[2] if len(row) > 2 else "-"
-    # A LAN address cannot be confirmed here and may now belong to another phone.
-    if lan not in ("", "-") and usb == "-":
-        return "%s:5555" % lan
     return alias
 
 
@@ -201,11 +203,16 @@ def endpoint_identity_ok(endpoint, usb_serial, timeout=10, report=None):
     another phone (hd8's .157 is m11's), and adb connects to whatever answers.
     Every wireless endpoint a monitor or resolver is about to trust goes
     through this check; a mismatch or an unreadable serial rejects it and is
-    reported. With no known USB serial there is nothing to compare: accepted.
+    reported. With no known USB serial there is nothing to compare, so the
+    endpoint is refused as well: no wireless endpoint skips the check.
     Mirrors ansible_collections/.../adb_resolve.py endpoint_identity_ok().
     """
     if not usb_serial or usb_serial == "-":
-        return True
+        (report or (lambda m: sys.stderr.write("stayturgid_device: %s\n" % m)))(
+            "skipping %s: the inventory has no USB serial for this device, so a wireless endpoint cannot be "
+            "identity-checked" % endpoint
+        )
+        return False
     r = _run([adb_bin(), "-s", endpoint, "shell", "getprop", "ro.serialno"], timeout=timeout)
     found = (r.stdout or "").replace("\r", "").strip() if r is not None and r.returncode == 0 else ""
     if found == usb_serial:

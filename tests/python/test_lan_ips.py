@@ -7,7 +7,6 @@ import datetime
 import hashlib
 import hmac
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -136,7 +135,7 @@ def test_templates_prefer_live_lan_ip_over_inventory():
     assert "hd8 H 100.124.55.39 192.168.1.157 " in conf
 
 
-def test_template_omits_lan_alias_when_inventory_lan_ip_is_a_dash():
+def test_template_tombstones_lan_alias_when_inventory_lan_ip_is_a_dash():
     hostvars = {"t2e": {"ansible_host": "100.73.253.10", "device_lan_ip": "-", "device_usb_serial": "T"}}
     ctx = dict(
         groups={"stayturgid": ["t2e"]},
@@ -145,7 +144,9 @@ def test_template_omits_lan_alias_when_inventory_lan_ip_is_a_dash():
         stayturgid_firerpa_certificate_path="/k",
         stayturgid_live_lan_ips={},
     )
-    assert "t2e-lan" not in _render("ssh_config_stayturgid.j2", **ctx)
+    ssh = _render("ssh_config_stayturgid.j2", **ctx)
+    assert "\n".join(lan_ips.tombstone_lines("t2e")) + "\n" in ssh  # the exact text lan_ips writes
+    assert "HostKeyAlias t2e" not in ssh and "StrictHostKeyChecking yes" not in ssh
 
 
 def test_refresh_drops_offline_entries_after_the_ttl_and_stops_applying_them(tmp_path, monkeypatch):
@@ -231,7 +232,7 @@ def test_dedupe_tie_prefers_the_adb_reading_then_the_name():
     assert list(state) == ["b"]
 
 
-def test_ssh_config_drops_a_lan_block_whose_address_another_device_holds():
+def test_ssh_config_tombstones_a_lan_block_whose_address_another_device_holds():
     text = (
         "Host hd8 100.124.55.39\n  HostName 100.124.55.39\n  Port 8022\n"
         "Host hd8-lan\n  HostName 192.168.1.157\n  HostKeyAlias hd8\n  Port 8022\n  StrictHostKeyChecking yes\n"
@@ -239,7 +240,8 @@ def test_ssh_config_drops_a_lan_block_whose_address_another_device_holds():
         "Host t2e-firerpa\n  HostName 100.73.253.10\n"
     )
     out = lan_ips.rewrite_ssh_config(text, {"m11": "192.168.1.157"})
-    assert "Host hd8-lan" not in out
+    assert "HostName 192.168.1.157\n  HostKeyAlias hd8" not in out  # hd8 no longer claims it
+    assert "\n".join(lan_ips.tombstone_lines("hd8")) + "\n" in out
     assert "Host hd8 100.124.55.39" in out and "Host t2e-firerpa" in out
     assert "Host m11-lan\n  HostName 192.168.1.157\n" in out
     # A device nobody else holds keeps its (unconfirmed) block.
@@ -287,7 +289,7 @@ def test_refresh_evicts_the_older_claim_end_to_end(tmp_path, monkeypatch):
     )
     assert changes["hd8"] == ("192.168.1.157", None)
     assert "hd8" not in json.loads(state.read_text())
-    assert "Host hd8-lan" not in ssh.read_text()
+    assert lan_ips.TOMBSTONE_MARK in ssh.read_text() and "192.168.1.157\n  HostKeyAlias hd8" not in ssh.read_text()
     assert "hd8 GN43 100.124.55.39 - Kindle -" in conf.read_text()
     assert "m11 HA2PMV18 100.1.1.2 192.168.1.157 Lenovo -" in conf.read_text()
 
@@ -305,14 +307,15 @@ def test_templates_skip_an_inventory_fallback_another_device_holds():
         "stayturgid_live_lan_ips": {"m11": {"ip": "192.168.1.157"}},
     }
     ssh = env.get_template("ssh_config_stayturgid.j2").render(**ctx)
-    assert "Host hd8-lan" not in ssh
+    assert "\n".join(lan_ips.tombstone_lines("hd8")) + "\n" in ssh  # a tombstone, not hd8's old address
+    assert "HostName 192.168.1.157\n  HostKeyAlias hd8" not in ssh
     assert "Host m11-lan\n" in ssh and "HostName 192.168.1.157" in ssh
     conf = env.get_template("devices.conf.j2").render(**ctx)
     assert "hd8 - 100.124.55.39 - hd8 -" in conf
     assert "m11 - 100.1.1.2 192.168.1.157 m11 -" in conf
     # No live entry anywhere: the inventory value still applies.
     ctx["stayturgid_live_lan_ips"] = {}
-    assert "Host hd8-lan" in env.get_template("ssh_config_stayturgid.j2").render(**ctx)
+    assert "HostKeyAlias hd8" in env.get_template("ssh_config_stayturgid.j2").render(**ctx)
 
 
 def test_template_lan_blocks_are_strict_but_tailscale_blocks_still_accept_new():
@@ -415,37 +418,56 @@ def test_ssh_config_rewrite_handles_equals_and_lowercase_keywords():
     assert "192.168.68.63" not in out and "HostKeyAlias t2e" in out
 
 
-def test_deploy_pins_the_alias_key_from_the_tailscale_scan():
-    tasks = yaml.safe_load((REPO / "ansible/roles/control_node/tasks/agents.yml").read_text())
+def _agents_tasks() -> list[dict]:
+    return yaml.safe_load((REPO / "ansible/roles/control_node/tasks/agents.yml").read_text())
+
+
+def test_deploy_pins_the_alias_with_one_idempotent_atomic_task_after_the_tailscale_trust():
+    tasks = _agents_tasks()
     names = [t.get("name", "") for t in tasks]
     pin = next(t for t in tasks if t.get("name", "").startswith("Pin fleet SSH host keys under each device alias"))
     assert names.index("Trust fleet SSH host keys on Mac (ansible.builtin.known_hosts)") < names.index(pin["name"])
-    drop = next(
-        t for t in tasks if t.get("name", "").startswith("Drop every known_hosts line under each scanned device alias")
-    )
-    assert names.index(drop["name"]) < names.index(pin["name"])
-    assert (
-        drop["ansible.builtin.known_hosts"]["state"] == "absent"
-        and drop["ansible.builtin.known_hosts"]["name"] == "{{ item.item }}"
-    )
-    args = pin["ansible.builtin.known_hosts"]
-    assert args["name"] == "{{ item.item }}" and args["state"] == "present"
-    assert "regex_replace" in args["key"]
+    # No drop-then-add pair: that reported changed on every deploy and left the alias empty in between.
+    assert not any(n.startswith("Drop every known_hosts line") for n in names)
+    argv = pin["ansible.builtin.command"]["argv"]
+    assert argv[argv.index("pin-known-hosts") - 1].endswith("control/lib/lan_ips.py")
+    assert "--ssh-config" in argv and "--known-hosts" in argv
+    # Changed only when the helper printed an alias it rewrote.
+    assert "stdout" in pin["changed_when"] and "length > 0" in pin["changed_when"]
 
 
-def test_deploy_pin_task_key_expression_rewrites_the_scanned_host_field():
-    tasks = yaml.safe_load((REPO / "ansible/roles/control_node/tasks/agents.yml").read_text())
-    pin = next(t for t in tasks if t.get("name", "").startswith("Pin fleet SSH host keys under each device alias"))
-    env = jinja2.Environment()
-    env.filters["regex_replace"] = lambda v, pat, repl: re.sub(pat, repl, v)
-    env.tests["match"] = lambda v, pat: re.match(pat, v) is not None
-    env.filters["select"] = lambda seq, test, *a: [x for x in seq if env.tests[test](x, *a)]
-    item = {
-        "item": "hd8",
-        "stdout_lines": ["# 100.124.55.39:8022 SSH-2.0-x", "[100.124.55.39]:8022 ssh-ed25519 %s" % _KEY_A],
-    }
-    out = env.from_string(pin["ansible.builtin.known_hosts"]["key"]).render(item=item)
-    assert out == "hd8 ssh-ed25519 %s" % _KEY_A
+def test_pin_known_hosts_cli_prints_changed_aliases_once_then_nothing(tmp_path, capsys):
+    ssh, kh = tmp_path / "frag", tmp_path / "known_hosts"
+    ssh.write_text(_FRAG)
+    kh.write_text("[100.124.55.39]:8022 ssh-ed25519 %s\nhd8 ssh-ed25519 %s\n" % (_KEY_A, _KEY_B))
+    argv = ["--ssh-config", str(ssh), "--known-hosts", str(kh)]
+    assert lan_ips._pin_known_hosts_cli(argv) == 0
+    assert capsys.readouterr().out.split() == ["hd8"]
+    assert kh.read_text().splitlines() == [
+        "[100.124.55.39]:8022 ssh-ed25519 %s" % _KEY_A,
+        "hd8 ssh-ed25519 %s" % _KEY_A,
+    ]
+    before = kh.stat().st_ino
+    assert lan_ips._pin_known_hosts_cli(argv) == 0
+    assert capsys.readouterr().out == "" and kh.stat().st_ino == before  # unchanged: not even rewritten
+    assert lan_ips._pin_known_hosts_cli(["--bogus"]) == 2
+
+
+def test_pin_known_hosts_swaps_the_file_in_one_step_so_the_alias_is_never_empty(tmp_path, monkeypatch):
+    kh = tmp_path / "known_hosts"
+    kh.write_text("[100.124.55.39]:8022 ssh-ed25519 %s\nhd8 ssh-ed25519 %s\n" % (_KEY_A, _KEY_B))
+    seen = {}
+    real_replace = lan_ips.os.replace
+
+    def replace(src, dst):
+        seen["before"] = Path(dst).read_text()  # the old, complete file is still in place...
+        seen["staged"] = Path(src).read_text()  # ...and the new one is complete before the rename
+        real_replace(src, dst)
+
+    monkeypatch.setattr(lan_ips.os, "replace", replace)
+    assert lan_ips.pin_known_hosts(_FRAG, str(kh)) == ["hd8"]
+    assert "hd8 ssh-ed25519 %s" % _KEY_B in seen["before"]
+    assert "hd8 ssh-ed25519 %s" % _KEY_A in seen["staged"] and "ssh-ed25519 %s" % _KEY_B not in seen["staged"]
 
 
 def test_refresh_pins_the_alias_end_to_end_and_never_uses_the_real_known_hosts(tmp_path, monkeypatch):
@@ -481,3 +503,54 @@ def test_pin_known_hosts_also_removes_indented_uppercase_and_wildcard_alias_line
     assert "other ssh-ed25519 %s" % _KEY_B in lines
     assert not any(ln.split()[0].lower() in ("hd8", "hd?") for ln in lines if "ssh-ed25519 %s" % _KEY_B in ln)
     assert len(lines) == 4  # SRC, other, m11, pinned alias
+
+
+def test_tombstone_is_idempotent_and_replaced_by_a_real_block_when_an_address_returns():
+    text = "Host hd8 100.124.55.39\n  HostName 100.124.55.39\n  Port 8022\n"
+    dead = lan_ips.rewrite_ssh_config(text, {})  # a device with no -lan block and no address
+    assert "\n".join(lan_ips.tombstone_lines("hd8")) + "\n" in dead
+    assert lan_ips.rewrite_ssh_config(dead, {}) == dead
+    live = lan_ips.rewrite_ssh_config(dead, {"hd8": "192.168.1.50"})
+    assert lan_ips.TOMBSTONE_MARK not in live and ".invalid" not in live
+    assert "Host hd8-lan\n  HostName 192.168.1.50\n" in live and "StrictHostKeyChecking yes" in live
+    assert lan_ips.rewrite_ssh_config(live, {"hd8": "192.168.1.50"}) == live
+    back = lan_ips.rewrite_ssh_config(live, {})  # its address is now unknown but not held by anyone: keep the block
+    assert "Host hd8-lan\n  HostName 192.168.1.50\n" in back and lan_ips.TOMBSTONE_MARK not in back
+
+
+def test_tombstone_leaves_devices_with_an_address_and_non_device_blocks_alone():
+    text = (
+        "Host s24 100.1.1.1\n  HostName 100.1.1.1\n"
+        "Host s24-firerpa\n  HostName 100.1.1.1\n"
+        "Host vps-primary\n  HostName example.org\n"
+    )
+    out = lan_ips.rewrite_ssh_config(text, {"s24": "192.168.68.9"})
+    assert lan_ips.TOMBSTONE_MARK not in out and "Host s24-lan\n  HostName 192.168.68.9\n" in out
+    assert "vps-primary-lan" not in out and "firerpa-lan" not in out
+
+
+def test_tombstone_block_fails_loudly_and_beats_a_catch_all_block(tmp_path):
+    import shutil
+    import subprocess
+
+    ssh = shutil.which("ssh")
+    if not ssh:
+        return
+    cfg = tmp_path / "config"
+    cfg.write_text(
+        "Host hd8 100.124.55.39\n  HostName 100.124.55.39\n"
+        + "\n".join(lan_ips.tombstone_lines("hd8"))
+        + "\nHost *\n  ProxyCommand /bin/false\n  HostName catch-all.example\n"
+    )
+    eff = subprocess.run([ssh, "-G", "-F", str(cfg), "hd8-lan"], capture_output=True, text=True, timeout=20)
+    assert eff.returncode == 0, eff.stderr
+    got = dict(ln.split(" ", 1) for ln in eff.stdout.splitlines() if " " in ln)
+    assert got["hostname"] == "hd8-no-usable-lan-address.invalid"  # never the catch-all's name
+    assert "proxycommand" not in got  # `ProxyCommand none` wins over the catch-all's /bin/false
+    run = subprocess.run(
+        [ssh, "-F", str(cfg), "-o", "BatchMode=yes", "-o", "ConnectTimeout=3", "hd8-lan", "true"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert run.returncode != 0 and "hd8-no-usable-lan-address.invalid" in run.stderr

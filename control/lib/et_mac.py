@@ -35,6 +35,9 @@ SSH_CFG_END = "# END STAYTURGID-CONTROL-ET"
 DEFAULT_ET_PORT = 2022
 DEFAULT_SSH_PORT = 22
 FLEET_IDENTITY = "id_ed25519_fleet"
+# The control node's name in the phones' peers file (``name`` of the ``mac`` peer) and the
+# ``HostKeyAlias`` of the ``mac-lan`` block: its host key sits in the phone's known_hosts under it.
+MAC_PEER_ALIAS = "mac"
 STATE_SUBDIR = "et-mac"
 
 _PUBKEY_LINE = re.compile(r"^(ssh-(?:ed25519|rsa|dss)|ecdsa-sha2-\S+|sk-ssh-\S+)\s+\S+")
@@ -340,15 +343,20 @@ def render_device_ssh_config(
         *hk,
     ]
     if lan_ip and lan_ip != tailscale_ip:
+        # The LAN address is DHCP: pin the key to the Mac (HostKeyAlias), never accept a new one.
+        # The deploy writes the Mac's host key under the alias in the phone's known_hosts
+        # (termux_userland control_et.yml), so no first-use trust is needed.
         lines += [
             "",
             "Host mac-lan",
             f"    HostName {lan_ip}",
+            f"    HostKeyAlias {MAC_PEER_ALIAS}",
             f"    User {user}",
             f"    IdentityFile ~/.ssh/{identity}",
             "    IdentitiesOnly yes",
             "    PreferredAuthentications publickey",
-            *hk,
+            "    StrictHostKeyChecking yes",
+            *[ln for ln in hk if not ln.lstrip().startswith("StrictHostKeyChecking")],
         ]
     return "\n".join(lines)
 

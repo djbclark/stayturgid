@@ -74,6 +74,18 @@
   run_once: true
   tags: [ssh-config]
 
+# A row without its USB serial would be a wireless endpoint no monitor or
+# resolver can identity-check (ro.serialno): refuse to render it.
+- name: Refuse devices.conf rows without a USB serial
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].device_usb_serial | default('-') | string | trim not in ['', '-']
+    fail_msg: >-
+      {{ item }} has no device_usb_serial in the site inventory; devices.conf
+      rows need it so every wireless adb endpoint can be identity-checked.
+    quiet: true
+  loop: "{{ groups['stayturgid'] }}"
+
 - name: Render devices.conf from inventory (alias usb_serial tailscale_ip lan_ip)
   ansible.builtin.template:
     src: devices.conf.j2
@@ -142,27 +154,26 @@
   when: item.stdout_lines | select('match', '^\\[') | list | length > 0
 
 # `ssh <dev>-lan` uses HostKeyAlias <dev> with StrictHostKeyChecking yes, so a
-# reassigned LAN address fails the key check. Give that alias the key just
-# scanned over Tailscale, and nothing else: every older line under the alias
-# (another phone's key learned while a reassigned LAN address answered, other
-# key types, duplicates) goes first. fleet-health re-checks this every 15 min
-# (control/lib/lan_ips.py pin_known_hosts, which also removes hashed lines).
-- name: Drop every known_hosts line under each scanned device alias
-  ansible.builtin.known_hosts:
-    path: "{{ ssh_config_dir }}/known_hosts"
-    name: "{{ item.item }}"
-    state: absent
-  loop: "{{ _fleet_host_keyscan.results }}"
-  when: item.stdout_lines | select('match', '^\\[') | list | length > 0
-
+# reassigned LAN address fails the key check. The alias gets the keys the task
+# above just trusted over Tailscale, and nothing else: every other line under
+# it (another phone's key learned while a reassigned LAN address answered,
+# other key types, duplicates, hashed lines) goes. One atomic rewrite of
+# known_hosts (temp file, then rename), so the alias is never empty in between,
+# and no change means no rewrite and an `ok` task. fleet-health runs the same
+# code every 15 min (control/lib/lan_ips.py pin_known_hosts).
 - name: Pin fleet SSH host keys under each device alias (HostKeyAlias for <dev>-lan)
-  ansible.builtin.known_hosts:
-    path: "{{ ssh_config_dir }}/known_hosts"
-    name: "{{ item.item }}"
-    key: "{{ item.stdout_lines | select('match', '^\\[') | first | trim | regex_replace('^\\S+', item.item) }}"
-    state: present
-  loop: "{{ _fleet_host_keyscan.results }}"
-  when: item.stdout_lines | select('match', '^\\[') | list | length > 0
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/env
+      - python3
+      - "{{ stayturgid_repo_root | realpath }}/control/lib/lan_ips.py"
+      - pin-known-hosts
+      - --ssh-config
+      - "{{ ssh_config_fragment }}"
+      - --known-hosts
+      - "{{ ssh_config_dir }}/known_hosts"
+  register: _fleet_alias_pin
+  changed_when: (_fleet_alias_pin.stdout | default('') | trim) | length > 0
 
 - name: Add @cert-authority for stayturgid CA to Mac known_hosts
   ansible.builtin.lineinfile:

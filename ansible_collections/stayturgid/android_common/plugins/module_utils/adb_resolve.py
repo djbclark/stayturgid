@@ -185,10 +185,16 @@ def endpoint_identity_ok(run_command, endpoint, usb_serial, timeout=DEFAULT_FAST
     wireless endpoint is checked against the inventory USB serial
     (``ro.serialno``); a mismatch, or a serial that cannot be read, rejects
     the endpoint and is reported. With no known USB serial there is nothing to
-    compare and the endpoint is accepted, as before.
+    compare, so the endpoint is refused too: a wireless endpoint never skips
+    the identity check (a devices.conf row needs its USB serial to be reached
+    over Wi-Fi).
     """
     if not usb_serial_known(usb_serial):
-        return True
+        (report or _report_identity_mismatch)(
+            "skipping %s: the inventory has no USB serial for this device, so a wireless endpoint cannot be "
+            "identity-checked" % endpoint
+        )
+        return False
     found = endpoint_serial(run_command, endpoint, timeout=timeout)
     if found == usb_serial:
         return True
@@ -208,20 +214,14 @@ def static_fallback(row, alias):
 
     With a known USB serial the guess is Tailscale only (a Tailscale address
     belongs to one device for good), or the bare alias: a LAN address cannot be
-    confirmed here and may now belong to another phone.
+    confirmed here and may now belong to another phone. Without a USB serial
+    no wireless endpoint can be identity-checked, so the answer is the bare
+    alias.
     """
-    if usb_serial_known(row[0]):
-        _usb, ts_ip, _lan = row
-        return "%s:5555" % ts_ip if ts_ip and ts_ip != "-" else alias
-    endpoints = wireless_endpoints(row)
-    for ep in endpoints:
-        if tcp_reachable(ep):
-            return ep
-    if len(endpoints) > 1:
-        return endpoints[-1]
-    if endpoints:
-        return endpoints[0]
-    return alias
+    if not usb_serial_known(row[0]):
+        return alias
+    _usb, ts_ip, _lan = row
+    return "%s:5555" % ts_ip if ts_ip and ts_ip != "-" else alias
 
 
 def discover_mdns_endpoint(run_command, usb_serial, timeout=DEFAULT_FAST_TIMEOUT):
@@ -257,6 +257,11 @@ def resolve_adb(alias, run_command=None, conf_path=None):
     """
     row = device_row(alias, conf_path)
     if not row:
+        return alias
+
+    if not usb_serial_known(row[0]):
+        # No serial, no identity check: no wireless endpoint is tried (not even adb connect).
+        _report_identity_mismatch("%s has no USB serial in devices.conf; its wireless endpoints are not used" % alias)
         return alias
 
     if run_command is None:

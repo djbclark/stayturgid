@@ -137,3 +137,49 @@ def test_bootstrap_ssh_user_arg(monkeypatch):
     monkeypatch.setattr(pb, "DEFAULT_SSH_USER", "original-user")
     pb.main(["--ssh-user", "custom-user", "--port", "9012"])
     assert pb.DEFAULT_SSH_USER == "custom-user"
+
+
+def _captured_ssh_argv(monkeypatch, tmp_path, peer, host):
+    monkeypatch.setattr(pb, "FLEET_KEY", str(tmp_path / "fleet"))
+    monkeypatch.setattr(pb, "PEERHELP_KEY", str(tmp_path / "missing-peerhelp"))
+    seen = {}
+
+    def fake_run(argv, **kwargs):
+        seen["argv"] = argv
+        return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(pb.subprocess, "run", fake_run)
+    pb._ssh_help(host, verb="handsets-start", target="192.0.2.13:5555", port=9012, peer=peer)
+    return seen["argv"]
+
+
+def _opts(argv):
+    return [argv[i + 1] for i, a in enumerate(argv) if a == "-o"]
+
+
+def test_peer_ssh_pins_the_host_key_to_the_peer_name_on_both_endpoints(monkeypatch, tmp_path):
+    peer = {"name": "s24", "ssh_port": 8022, "ssh_user": "termux"}
+    for host in ("192.168.68.56", "100.123.218.30"):  # LAN (DHCP) and Tailscale share one alias
+        opts = _opts(_captured_ssh_argv(monkeypatch, tmp_path, peer, host))
+        assert "HostKeyAlias=s24" in opts
+        assert "StrictHostKeyChecking=yes" in opts
+        assert not any("accept-new" in o or o.endswith("=no") for o in opts)
+
+
+def test_peer_ssh_without_a_name_still_fails_closed(monkeypatch, tmp_path):
+    opts = _opts(_captured_ssh_argv(monkeypatch, tmp_path, {"ssh_port": 8022}, "192.0.2.7"))
+    assert "StrictHostKeyChecking=yes" in opts and "HostKeyAlias=192.0.2.7" in opts
+
+
+def test_peer_ssh_alias_matches_the_known_hosts_names_the_deploy_writes():
+    """The mesh writes `[<inventory name>]:<port>` and the control-ET tasks `mac`: the alias must be the peer `name`."""
+    import yaml
+
+    tpl = (REPO / "ansible_collections/stayturgid/termux/roles/termux_userland/templates/peers.json.j2").read_text()
+    assert "'name': h," in tpl and "'name': 'mac'," in tpl
+    tasks = yaml.safe_load(
+        (REPO / "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/control_et.yml").read_text()
+    )
+    pin = next(t for t in tasks if t.get("name", "").startswith("Pin the control node's host key under the alias mac"))
+    args = pin["ansible.builtin.known_hosts"]
+    assert args["state"] == "present" and "'mac'" in args["name"] and args["key"].lstrip().startswith("{{ 'mac'")
