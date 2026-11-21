@@ -21,8 +21,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --no-wait) wait=0 ;;
     --tests) mode=tests ;;
-    --agent) mode=agent ;;
-    --all) mode=all ;;
+    --agent|--all) echo "github-ci-run: $1 is retired. The agent is built, signed and published from master by .github/workflows/agent-release.yml (push to master; a branch: just agent-ci-run BRANCH)." >&2; exit 2 ;;
     --) shift; break ;;
     -*) echo "github-ci-run: unknown option $1" >&2; exit 2 ;;
     *) break ;;
