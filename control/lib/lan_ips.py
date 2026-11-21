@@ -22,6 +22,15 @@ Devices neither source can see keep their last known entry for ``STALE_AFTER``
 applies again. A device with a live address but no ``<name>-lan`` SSH block
 gets one cloned from its ``Host <name>`` block. Fixing the address itself is a
 router DHCP reservation (MAC-keyed), not code.
+
+An address is only ever trusted for one device. When another device's live
+entry holds an address (DHCP handed it over), the older claim is dropped: the
+state entry, the ``<name>-lan`` ssh block and the ``devices.conf`` column of
+the device that lost it (a stale hd8 address now held by m11, 2026-11-21).
+Every ``<name>-lan`` block also pins the host key under ``HostKeyAlias <name>``
+with ``StrictHostKeyChecking yes``; ``pin_known_hosts`` copies the keys the
+Tailscale entry already trusts onto that alias, so a reassigned LAN address
+fails the key check instead of trusting whatever answers.
 """
 
 from __future__ import annotations
@@ -39,6 +48,7 @@ ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 STATE_PATH = os.path.join(ROOT, "state", "lan_ips.json")
 DEVICES_CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))
 SSH_FRAGMENT = os.path.join(os.path.expanduser("~"), ".ssh", "config.d", "stayturgid")
+KNOWN_HOSTS = os.path.join(os.path.expanduser("~"), ".ssh", "known_hosts")
 
 _TAILSCALE_CGNAT = ipaddress.IPv4Network("100.64.0.0/10")
 _INET_RE = re.compile(r"\binet (\d+\.\d+\.\d+\.\d+)/")
@@ -117,25 +127,66 @@ def _host_blocks(text: str) -> list[tuple[list[str], list[str]]]:
     return blocks
 
 
+def held_by_others(ips: dict[str, str], name: str) -> set[str]:
+    """Addresses that a device other than ``name`` currently holds."""
+    return {ip for other, ip in ips.items() if other != name}
+
+
+def _strict_lines(body: list[str]) -> list[str]:
+    """Body lines with one ``StrictHostKeyChecking yes`` (replacing any other value)."""
+    kept = [b for b in body if not re.match(r"^\s*StrictHostKeyChecking\s", b)]
+    return [*kept, "  StrictHostKeyChecking yes"]
+
+
 def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
     """Point each ``Host <name>-lan`` block's HostName at ``ips[name]``.
 
     A device with a live address but no ``<name>-lan`` block (added to the
     fleet, or its inventory had no LAN address at deploy time) gets one,
     cloned from its ``Host <name>`` block with ``HostKeyAlias <name>`` so the
-    CA host certificate still validates whatever the current IP is.
+    CA host certificate still validates whatever the current IP is. Every
+    ``-lan`` block is held to ``StrictHostKeyChecking yes`` (a changed or
+    unknown key fails instead of being trusted). A block for a device with no
+    live address is removed when its HostName is an address another device's
+    live entry holds.
     """
-    out = []
-    new_ip = None
-    for line in text.splitlines(keepends=True):
+    out: list[str] = []
+    lines = text.splitlines(keepends=True)
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         m = re.match(r"^Host\s+(\S+)\s*$", line)
-        if m:
-            alias = m.group(1)
-            new_ip = ips.get(alias[: -len("-lan")]) if alias.endswith("-lan") else None
-        elif new_ip:
-            ip = new_ip
-            line = re.sub(r"^(\s*HostName\s+)\S+", lambda mm: mm.group(1) + ip, line)
+        if not (m and m.group(1).endswith("-lan")):
+            out.append(line)
+            i += 1
+            continue
+        name = m.group(1)[: -len("-lan")]
+        j = i + 1
+        while j < len(lines) and (lines[j][:1] in (" ", "\t") or not lines[j].strip()):
+            j += 1
+        block = lines[i + 1 : j]
+        trailing: list[str] = []
+        while block and not block[-1].strip():
+            trailing.insert(0, block.pop())
+        ip = ips.get(name)
+        if ip is None:
+            current = next(
+                (re.match(r"^\s*HostName\s+(\S+)", b) for b in block if re.match(r"^\s*HostName\s", b)), None
+            )
+            if current and current.group(1) in held_by_others(ips, name):
+                i = j
+                continue
+        body = block
+        if ip:
+            new_ip = ip
+            body = [re.sub(r"^(\s*HostName\s+)\S+", lambda mm: mm.group(1) + new_ip, b) for b in block]
+        has_alias = any(re.match(r"^\s*HostKeyAlias\s", b) for b in body)
+        if not has_alias:
+            body = [*body, "  HostKeyAlias %s" % name]
         out.append(line)
+        out.extend(b if b.endswith("\n") else b + "\n" for b in _strict_lines([b.rstrip("\n") for b in body]))
+        out.extend(trailing)
+        i = j
     result = "".join(out)
     blocks = _host_blocks(result)
     have = {p for patterns, _ in blocks for p in patterns}
@@ -147,21 +198,82 @@ def rewrite_ssh_config(text: str, ips: dict[str, str]) -> str:
         if source is None:
             continue
         keep = [b for b in source if not re.match(r"^\s*(HostName|HostKeyAlias)\s", b)]
-        extra.append("\n".join(["Host %s-lan" % name, "  HostName %s" % ip, "  HostKeyAlias %s" % name, *keep]) + "\n")
+        body = ["  HostName %s" % ip, "  HostKeyAlias %s" % name, *keep]
+        extra.append("\n".join(["Host %s-lan" % name, *_strict_lines(body)]) + "\n")
     if extra:
         result += ("" if result.endswith("\n") or not result else "\n") + "".join(extra)
     return result
 
 
 def rewrite_devices_conf(text: str, ips: dict[str, str]) -> str:
-    """Set the lan_ip column (4th field) of each device line in ``ips``."""
+    """Set the lan_ip column (4th field) of each device line in ``ips``.
+
+    A device with no live address whose column holds an address another
+    device's live entry holds gets ``-`` (unknown) instead.
+    """
     out = []
     for line in text.splitlines(keepends=True):
         m = re.match(r"^(\S+)(\s+\S+\s+\S+\s+)(\S+)", line)
-        if m and not line.startswith("#") and m.group(1) in ips:
-            line = m.group(1) + m.group(2) + ips[m.group(1)] + line[m.end() :]
+        if m and not line.startswith("#"):
+            name = m.group(1)
+            if name in ips:
+                line = name + m.group(2) + ips[name] + line[m.end() :]
+            elif m.group(3) in held_by_others(ips, name):
+                line = name + m.group(2) + "-" + line[m.end() :]
         out.append(line)
     return "".join(out)
+
+
+_KEY_LINE = re.compile(r"^(?P<hosts>\S+)\s+(?P<type>(?:ssh|ecdsa|sk)-\S+)\s+(?P<key>\S+)")
+
+
+def pin_known_hosts(ssh_text: str, known_hosts_path: str = KNOWN_HOSTS, report=None) -> list[str]:
+    """Give each ``<name>-lan`` HostKeyAlias the host keys already trusted for the device.
+
+    The ``Host <name> <ip>`` block says which ``[ip]:port`` entry in
+    ``known_hosts`` the Tailscale deploy scanned and trusted; copy its keys to
+    a ``<name>`` entry (what ``HostKeyAlias <name>`` looks up). An alias entry
+    with a different key of the same type is replaced: the Tailscale entry is
+    the authenticated one. Hashed or missing source entries change nothing
+    (the connection then fails closed, or the CA host certificate validates
+    it). Returns the aliases changed.
+    """
+    try:
+        with open(known_hosts_path) as f:
+            old = f.read()
+    except OSError:
+        return []
+    trusted: dict[str, dict[str, str]] = {}
+    for patterns, body in _host_blocks(ssh_text):
+        if len(patterns) != 2 or patterns[0].endswith(("-lan", "-firerpa")):
+            continue
+        name, ip = patterns
+        port = next((m.group(1) for b in body if (m := re.match(r"^\s*Port\s+(\d+)", b))), "22")
+        source = "[%s]:%s" % (ip, port) if port != "22" else ip
+        for line in old.splitlines():
+            km = _KEY_LINE.match(line)
+            if km and source in km.group("hosts").split(","):
+                trusted.setdefault(name, {}).setdefault(km.group("type"), km.group("key"))
+    lines = old.splitlines()
+    changed: list[str] = []
+    for name, keys in sorted(trusted.items()):
+        for ktype, key in sorted(keys.items()):
+            have = [
+                (idx, km)
+                for idx, line in enumerate(lines)
+                if (km := _KEY_LINE.match(line)) and name in km.group("hosts").split(",") and km.group("type") == ktype
+            ]
+            if any(km.group("key") == key for _, km in have):
+                continue
+            for idx, _ in reversed(have):
+                del lines[idx]
+            lines.append("%s %s %s" % (name, ktype, key))
+            changed.append(name)
+            if report:
+                report("host key pinned for %s (%s)%s" % (name, ktype, ", replaced a different key" if have else ""))
+    if changed:
+        _atomic_rewrite(known_hosts_path, lambda _t: "\n".join(lines) + "\n")
+    return sorted(set(changed))
 
 
 def _atomic_rewrite(path: str, transform) -> bool:
@@ -214,12 +326,46 @@ def prune_stale(state: dict[str, dict[str, str]], now: datetime.datetime) -> dic
     return dropped
 
 
+def _seen(entry) -> datetime.datetime:
+    try:
+        seen = datetime.datetime.fromisoformat(entry["seen"])
+    except (KeyError, TypeError, ValueError):
+        return datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+    return seen if seen.tzinfo else seen.replace(tzinfo=datetime.timezone.utc)
+
+
+def dedupe_state(state: dict[str, dict[str, str]]) -> dict[str, str]:
+    """One address, one device: drop the older claim to a shared address; return ``{name: old_ip}``.
+
+    The device seen most recently keeps it (adb reading beats the Tailscale
+    endpoint on a tie, then the name decides). A phone that lost its address to
+    another device falls back to the inventory value only if that is not held
+    by yet another live entry (see ``rewrite_ssh_config``).
+    """
+    by_ip: dict[str, list[str]] = {}
+    for name, entry in state.items():
+        ip = entry.get("ip") if isinstance(entry, dict) else None
+        if ip:
+            by_ip.setdefault(ip, []).append(name)
+    dropped = {}
+    for ip, names in by_ip.items():
+        if len(names) < 2:
+            continue
+        names.sort(key=lambda n: (_seen(state[n]), state[n].get("source") == "adb", n))
+        for loser in names[:-1]:
+            dropped[loser] = ip
+            del state[loser]
+    return dropped
+
+
 def refresh(
     devices,
     state_path: str = STATE_PATH,
     ssh_path: str = SSH_FRAGMENT,
     conf_path: str = DEVICES_CONF,
     adb: str = "adb",
+    known_hosts_path: str | None = None,
+    report=None,
 ) -> dict[str, tuple[str | None, str | None]]:
     """Discover, persist, and apply; return ``{name: (old_ip, new_ip)}`` for changes."""
     state = load_state(state_path)
@@ -231,9 +377,10 @@ def refresh(
         if old != ip:
             changes[name] = (old, ip)
         state[name] = {"ip": ip, "source": source, "seen": now}
-    for name, old_ip in prune_stale(state, now_dt).items():
-        if old_ip:
-            changes[name] = (old_ip, None)
+    for dropper in (prune_stale, lambda st, _now: dedupe_state(st)):
+        for name, old_ip in dropper(state, now_dt).items():
+            if old_ip:
+                changes[name] = (old_ip, None)
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(state_path), prefix=".lan_ips.")
     with os.fdopen(fd, "w") as f:
@@ -243,6 +390,11 @@ def refresh(
     ips = {name: entry["ip"] for name, entry in state.items() if entry.get("ip")}
     _atomic_rewrite(ssh_path, lambda t: rewrite_ssh_config(t, ips))
     _atomic_rewrite(conf_path, lambda t: rewrite_devices_conf(t, ips))
+    try:
+        with open(ssh_path) as f:
+            pin_known_hosts(f.read(), known_hosts_path or KNOWN_HOSTS, report=report)
+    except OSError:
+        pass
     return changes
 
 

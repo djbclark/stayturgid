@@ -1058,10 +1058,12 @@ def refresh_lan_ips() -> None:
         import lan_ips
 
         devices = [(name, ts_ip) for name, ts_ip, _lan in read_devices(CONF)]
-        for name, (old, new) in lan_ips.refresh(devices).items():
+        for name, (old, new) in lan_ips.refresh(devices, report=lambda m: _fleet_log(INFO, m)).items():
             if new is None:
                 _fleet_log(
-                    INFO, "%s LAN IP %s expired (offline past the TTL); inventory value applies again" % (name, old)
+                    INFO,
+                    "%s LAN IP %s dropped (offline past the TTL, or another device holds it now); "
+                    "the inventory value applies again unless a live entry holds it" % (name, old),
                 )
             else:
                 _fleet_log(INFO, "%s LAN IP %s -> %s (ssh -lan alias + devices.conf updated)" % (name, old or "-", new))
