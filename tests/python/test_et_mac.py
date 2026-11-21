@@ -70,7 +70,10 @@ def test_render_device_ssh_config_includes_identity_and_ips():
     assert "IdentitiesOnly yes" in cfg
     assert "Host mac-lan" in cfg
     assert "192.0.2.1" in cfg
-    assert "StrictHostKeyChecking accept-new" in cfg
+    assert "StrictHostKeyChecking accept-new" in cfg  # the Tailscale block
+    lan = cfg.split("Host mac-lan\n")[1]
+    assert "HostKeyAlias mac" in lan and "StrictHostKeyChecking yes" in lan and "accept-new" not in lan
+    assert lan.count("StrictHostKeyChecking") == 1
 
 
 def test_ssh_host_key_pin_env(monkeypatch):
@@ -83,6 +86,15 @@ def test_ssh_host_key_pin_env(monkeypatch):
     cfg = em.render_device_ssh_config(user="u", tailscale_ip="100.0.0.1", lan_ip="", aliases=["mac"])
     assert "StrictHostKeyChecking yes" in cfg
     assert "UserKnownHostsFile /tmp/kh" in cfg
+
+
+def test_mac_lan_block_is_strict_whatever_the_env_override_says(monkeypatch):
+    monkeypatch.setenv("STAYTURGID_SSH_STRICT_HOST_KEY", "no")
+    cfg = em.render_device_ssh_config(user="u", tailscale_ip="100.0.0.1", lan_ip="192.0.2.5", aliases=["mac"])
+    lan = cfg.split("Host mac-lan\n")[1]
+    assert "StrictHostKeyChecking yes" in lan and "StrictHostKeyChecking no" not in lan
+    assert "HostKeyAlias %s" % em.MAC_PEER_ALIAS in lan
+    assert "StrictHostKeyChecking no" in cfg.split("Host mac-lan")[0]  # the Tailscale block keeps the override
 
 
 def test_apply_authorized_keys_file(tmp_path, monkeypatch):
@@ -117,3 +129,40 @@ def test_apply_device_ssh_config_text_roundtrip():
     assert em.SSH_CFG_BEGIN in new
     new2, changed2 = em.apply_device_ssh_config_text(new, frag)
     assert changed2 is False
+
+
+TERMUX_ROLE = ROOT / "ansible_collections/stayturgid/termux/roles/termux_userland"
+
+
+def test_template_mac_lan_block_pins_like_the_python_renderer():
+    import jinja2
+
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(TERMUX_ROLE / "templates")))
+    out = env.get_template("ssh_config_control_et.j2").render(
+        stayturgid_mac_peer={"user": "operator", "tailscale": "100.1.2.3", "lan": "192.0.2.1"},
+    )
+    lan = out.split("Host mac-lan\n")[1]
+    assert "HostKeyAlias %s" % em.MAC_PEER_ALIAS in lan
+    assert "StrictHostKeyChecking yes" in lan and "accept-new" not in lan
+    assert "StrictHostKeyChecking accept-new" in out.split("Host mac-lan")[0]  # the Tailscale block is unchanged
+    py = em.render_device_ssh_config(user="operator", tailscale_ip="100.1.2.3", lan_ip="192.0.2.1").split(
+        "Host mac-lan\n"
+    )[1]
+    keys = lambda text: {ln.split()[0] for ln in text.splitlines() if ln.strip()}  # noqa: E731
+    assert keys(lan) == keys(py)
+
+
+def test_deploy_scans_then_pins_the_mac_host_key_under_the_alias():
+    import yaml
+
+    tasks = yaml.safe_load((TERMUX_ROLE / "tasks/control_et.yml").read_text())
+    names = [t.get("name", "") for t in tasks]
+    scan = next(n for n in names if n.startswith("Scan the control node's ssh host key"))
+    assert any(n.startswith("Warn when the control node's host key could not be scanned") for n in names)
+    pin = next(n for n in names if n.startswith("Pin the control node's host key under the alias mac"))
+    assert names.index(scan) < names.index(pin)
+    assert tasks[names.index(pin)]["ansible.builtin.known_hosts"]["state"] == "present"  # in place: never empty
+    scan_task = tasks[names.index(scan)]
+    # Per phone, not run_once: a run_once task takes its `when` from the first host only.
+    assert scan_task["delegate_to"] == "localhost" and "run_once" not in scan_task
+    assert scan_task["changed_when"] is False

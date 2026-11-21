@@ -88,14 +88,22 @@ def test_match_usb_serial_mdns_id_with_spaces(tmp_path):
 
 
 def test_resolve_static_fallback_without_run_command(tmp_path, monkeypatch):
-    # Static fallback prefers the first reachable endpoint (LAN is listed first).
-    # Without a monkeypatch, the real network state makes this test flaky.
-    def _reachable(ep, timeout=None):
-        return ep == "192.0.2.9:5555"
+    # A row with a serial: the static guess is Tailscale only, never the LAN address.
+    monkeypatch.setattr(ar, "tcp_reachable", lambda ep, timeout=None: True)
+    conf = _conf(tmp_path, "stock-android-device SERIAL1 100.0.0.11 192.0.2.9\n")
+    assert ar.resolve_adb("stock-android-device", None, conf) == "100.0.0.11:5555"
 
-    monkeypatch.setattr(ar, "tcp_reachable", _reachable)
+
+def test_resolve_refuses_every_wireless_endpoint_for_a_row_without_a_serial(tmp_path, monkeypatch):
+    # No serial, no identity check: no endpoint is guessed, probed or connected, with or without a runner.
+    monkeypatch.setattr(ar, "tcp_reachable", lambda ep, timeout=None: (_ for _ in ()).throw(AssertionError("probe")))
     conf = _conf(tmp_path, "stock-android-device - 100.0.0.11 192.0.2.9\n")
-    assert ar.resolve_adb("stock-android-device", None, conf) == "192.0.2.9:5555"
+
+    def boom(cmd):
+        raise AssertionError("must not run adb: %r" % (cmd,))
+
+    assert ar.resolve_adb("stock-android-device", None, conf) == "stock-android-device"
+    assert ar.resolve_adb("stock-android-device", boom, conf) == "stock-android-device"
 
 
 def test_connect_wireless_skips_unreachable(monkeypatch):
@@ -213,9 +221,11 @@ def test_resolve_rejects_an_endpoint_whose_serial_cannot_be_read(tmp_path, monke
     assert ar.resolve_adb("hd8", run, conf) == HD8_TS  # nothing verified: Tailscale guess, never the LAN one
 
 
-def test_endpoint_identity_without_a_known_serial_accepts(monkeypatch):
+def test_endpoint_identity_without_a_known_serial_refuses(monkeypatch):
     def boom(cmd):
         raise AssertionError("must not run adb")
 
-    assert ar.endpoint_identity_ok(boom, STALE_LAN, "-")
-    assert ar.endpoint_identity_ok(boom, STALE_LAN, "")
+    said = []
+    assert not ar.endpoint_identity_ok(boom, STALE_LAN, "-", report=said.append)
+    assert not ar.endpoint_identity_ok(boom, STALE_LAN, "")
+    assert said and "no USB serial" in said[0]

@@ -29,6 +29,19 @@ def test_render_row_matches_the_template_columns():
     assert row == "m11 HA2 10.0.0.9 - Lenovo Idea Tab 11 (TB336FU) -"
 
 
+def test_refuses_a_row_without_a_usb_serial(tmp_path):
+    import pytest
+
+    for serial in (None, "", "-", "  "):
+        with pytest.raises(ValueError, match="nodrive has no device_usb_serial"):
+            dcs.render_row("nodrive", {"ansible_host": "10.0.0.7", "device_usb_serial": serial})
+    conf = tmp_path / "devices.conf"
+    inv = {"_meta": {"hostvars": {"nodrive": {"ansible_host": "10.0.0.7"}}}}
+    with pytest.raises(ValueError):
+        dcs.ensure_aliases(inv, ["nodrive"], conf)
+    assert not conf.exists()  # nothing half-written
+
+
 def test_appends_only_missing_hosts_and_keeps_existing_rows(tmp_path):
     conf = tmp_path / "devices.conf"
     conf.write_text("# header\nt2e T2 100.1.1.1 10.0.0.5 Titan 2 -\n", encoding="utf-8")

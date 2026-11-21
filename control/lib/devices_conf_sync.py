@@ -35,10 +35,14 @@ def render_row(host: str, hostvars: dict[str, Any]) -> str:
     """The same columns as devices.conf.j2: alias usb_serial tailscale_ip lan_ip label phone."""
     ip = hostvars.get("ansible_host") or "-"
     lan = hostvars.get("device_lan_ip") or "-"
+    serial = str(hostvars.get("device_usb_serial") or "-").strip()
+    if serial in ("", "-"):
+        # No serial, no identity check on its wireless endpoints: refuse the row.
+        raise ValueError("%s has no device_usb_serial in the inventory; refusing a devices.conf row for it" % host)
     return " ".join(
         [
             host,
-            str(hostvars.get("device_usb_serial") or "-"),
+            serial,
             str(ip),
             str(lan),
             str(hostvars.get("device_label") or host),

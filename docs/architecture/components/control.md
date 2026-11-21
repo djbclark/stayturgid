@@ -174,6 +174,10 @@ Do **not** use `et --macserver` on Apple Silicon Homebrew (wrong
 `StrictHostKeyChecking=accept-new`. To pin known hosts:
 `STAYTURGID_SSH_STRICT_HOST_KEY=yes` and
 `STAYTURGID_SSH_KNOWN_HOSTS=~/.ssh/known_hosts_stayturgid` (see `control/lib/et_mac.py`).
+The `mac-lan` block (the Mac's DHCP LAN address) is the exception: it is always
+`HostKeyAlias mac` with `StrictHostKeyChecking yes`, and the deploy writes the Mac's host
+key under `mac` in the phone's `known_hosts`. The phone-side peer ssh
+(`stayturgid_peer_bootstrap.py`) pins every peer the same way, under the peer's name.
 
 **Agents — session start:** `just health` — if exit ≠ 0,
 surface host/`issues=` to the operator immediately (see [docs/STATUS.md](../../STATUS.md)).

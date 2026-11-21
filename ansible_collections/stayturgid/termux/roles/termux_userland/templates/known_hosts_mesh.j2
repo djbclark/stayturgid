@@ -33,6 +33,12 @@
             }) %}
 {%       endif %}
 {%     endfor %}
+{#     HostKeyAlias <peer> (stayturgid_peer_bootstrap.py peer ssh) looks the key up under the BARE alias: OpenSSH never
+       appends the port to an alias. One plain `<peer>` entry per peer, whatever its port. #}
+{%     set _ = entries.append({
+          'name': peer,
+          'key': peer ~ ' ' ~ key_body
+        }) %}
 {%   endif %}
 {% endfor %}
 {{ entries | to_json }}

@@ -64,6 +64,8 @@ def test_peer_outside_the_play_comes_from_its_control_node_record(tmp_path: Path
     assert entries == [
         {"name": "[p7a]:8022", "key": "[p7a]:8022 " + KEY_B},
         {"name": "[100.64.0.7]:8022", "key": "[100.64.0.7]:8022 " + KEY_B},
+        # HostKeyAlias <peer> looks the key up bare (no port)
+        {"name": "p7a", "key": "p7a " + KEY_B},
     ]
 
 
@@ -79,7 +81,10 @@ def test_hostvars_key_wins_over_a_stale_record(tmp_path: Path) -> None:
         },
     }
     entries = _render("s24", hostvars, tmp_path)
-    assert entries == [{"name": "[p7a]:8022", "key": "[p7a]:8022 " + KEY_B}]
+    assert entries == [
+        {"name": "[p7a]:8022", "key": "[p7a]:8022 " + KEY_B},
+        {"name": "p7a", "key": "p7a " + KEY_B},
+    ]
 
 
 def test_self_excluded_and_peer_without_key_or_record_skipped(tmp_path: Path) -> None:

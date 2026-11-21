@@ -380,7 +380,7 @@ def get_pending_ui(hostname: str) -> dict | None:
     serial = None
     for name, usb, ts_ip, lan, label in iter_devices_conf(str(DEVICES_CONF)):
         if name == hostname:
-            serial = usb if usb != "-" else f"{ts_ip}:5555" if ts_ip != "-" else ""
+            serial = usb if usb != "-" else ""  # no USB serial: no identity-checked endpoint
             break
     if serial:
         rc, out = mac_adb_shell(serial, "cat", "/sdcard/stayturgid/state/pending_ui.json", timeout=1.0)
@@ -673,7 +673,7 @@ def api_pending_ui_done(host: str):
     serial = None
     for name, usb, ts_ip, lan, label in iter_devices_conf(str(DEVICES_CONF)):
         if name == host:
-            serial = usb if usb != "-" else f"{ts_ip}:5555" if ts_ip != "-" else ""
+            serial = usb if usb != "-" else ""  # no USB serial: no identity-checked endpoint
             break
     if serial:
         rc, out = mac_adb_shell(serial, "cat", "/sdcard/stayturgid/state/pending_ui.json", timeout=1.0)

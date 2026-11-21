@@ -182,9 +182,9 @@ def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
     )
     conf.write_text("oneui-device RFCX - -\n")
     assert dev.resolve_adb("oneui-device", str(conf)) == "oneui-device"
-    # lan fallback when tailscale missing
+    # no USB serial: no wireless endpoint can be identity-checked, so none is guessed (not even a LAN one)
     conf.write_text("stock-android-device - - 192.0.2.9\n")
-    assert dev.resolve_adb("stock-android-device", str(conf)) == "192.0.2.9:5555"
+    assert dev.resolve_adb("stock-android-device", str(conf)) == "stock-android-device"
 
 
 def test_read_shizuku_json_missing_ok():

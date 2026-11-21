@@ -17,9 +17,10 @@ Host {{ host_tokens | join(' ') }}
 
 Host mac-lan
     HostName {{ lan_ip }}
+    HostKeyAlias mac
     User {{ et_user }}
     IdentityFile ~/.ssh/{{ ident }}
     IdentitiesOnly yes
     PreferredAuthentications publickey
-    StrictHostKeyChecking accept-new
+    StrictHostKeyChecking yes
 {% endif %}

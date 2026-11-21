@@ -44,6 +44,16 @@ Host {{ h }}-lan
 {%     for key in stayturgid_ssh_identity_files %}
   IdentityFile {{ key }}
 {%     endfor %}
+{%   else %}
+{#   No usable LAN address: a tombstone, so `ssh {{ h }}-lan` fails loudly instead of falling through to the catch-all Host block. Same text as lan_ips.tombstone_lines. #}
+Host {{ h }}-lan
+  # STAYTURGID-TOMBSTONE: no usable LAN address for {{ h }} (control/lib/lan_ips.py); fails loudly instead of falling through
+  HostName {{ h }}-no-usable-lan-address.invalid.
+  CanonicalizeHostname no
+  ProxyCommand none
+  ProxyJump none
+  IdentityAgent none
+  IdentitiesOnly yes
 {%   endif %}
 Host {{ h }}-firerpa
   HostName {{ hostvars[h].ansible_host }}

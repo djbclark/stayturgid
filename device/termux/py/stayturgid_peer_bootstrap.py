@@ -120,6 +120,24 @@ def _remote_help_cmd(
     )
 
 
+def _host_key_opts(peer: dict[str, Any], peer_host: str) -> list[str]:
+    """``-o`` options that pin the peer's host key to the peer, not to its address.
+
+    ``peer_host`` is a DHCP LAN address or a Tailscale address; a reassigned LAN
+    address may now answer for another device, and accept-new would trust and
+    remember whatever key it presented. ``HostKeyAlias <peer name>`` makes ssh
+    look the key up under the bare peer name (a plain ``<name>`` line in
+    ``known_hosts``: OpenSSH never appends the port to an alias; written by the
+    Ansible deploy, the SSH mesh for phone peers and the control-ET tasks for
+    the Mac), and ``StrictHostKeyChecking=yes`` fails on an unknown or changed
+    key instead of learning it. Both endpoints of a peer share the alias, so
+    LAN and Tailscale are checked against the same keys. A stayturgid-CA host
+    certificate whose principals include the name validates too.
+    """
+    alias = (peer.get("name") or "").strip() or peer_host
+    return ["-o", "HostKeyAlias=%s" % alias, "-o", "StrictHostKeyChecking=yes"]
+
+
 def _ssh_help(
     peer_host: str,
     *,
@@ -141,8 +159,7 @@ def _ssh_help(
             "BatchMode=yes",
             "-o",
             "ConnectTimeout=5",
-            "-o",
-            "StrictHostKeyChecking=accept-new",
+            *_host_key_opts(peer, peer_host),
             "-p",
             str(ssh_port),
             "-i",
