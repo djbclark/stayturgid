@@ -255,6 +255,7 @@ def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0, preflight=None):
 
     monkeypatch.setattr(df, "apply_site_preflight", apply_site_preflight)
     monkeypatch.setattr(df, "preview_site_preflight", preview_site_preflight)
+    monkeypatch.setattr(df, "ensure_device_aliases", lambda targets: [])
 
     def run_playbook(playbook, *, limit=None, check, tags, skip_tags=None, extra_vars=None, verbose=0):
         calls.append(("playbook", tags, check, skip_tags))
@@ -595,3 +596,20 @@ def test_deploy_without_withheld_hosts_prints_no_warning(monkeypatch, capsys):
 
 def test_read_withheld_hosts_missing_file(tmp_path):
     assert df.read_withheld_hosts(tmp_path / "absent") == []
+
+
+def test_deploy_adds_device_aliases_before_the_playbook(monkeypatch):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+    monkeypatch.setattr(df, "ensure_device_aliases", lambda targets: calls.append(("aliases", list(targets))) or [])
+    assert df.deploy(df.Scope.FULL, ["m11"], check=False, devices_only=True) == 0
+    assert calls[0] == ("aliases", ["m11"])
+    assert calls[1][0] == "playbook"
+
+
+def test_deploy_dry_run_does_not_touch_devices_conf(monkeypatch):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+    monkeypatch.setattr(df, "ensure_device_aliases", lambda targets: calls.append(("aliases", list(targets))) or [])
+    df.deploy(df.Scope.FULL, ["m11"], check=True, devices_only=True)
+    assert not any(c[0] == "aliases" for c in calls)

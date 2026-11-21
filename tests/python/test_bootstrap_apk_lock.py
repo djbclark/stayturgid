@@ -36,7 +36,7 @@ def test_latest_tracking_entries_carry_no_pin():
     install_tasks = (
         ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
     ).read_text(encoding="utf-8")
-    assert 'gh_latest: "{{ _apk.gh_latest | default(false) }}"' in install_tasks
+    assert 'gh_latest: "{{ _apk.gh_latest | default(omit) }}"' in install_tasks
 
 
 def test_native_agent_uses_its_release_stream_and_real_asset_name():

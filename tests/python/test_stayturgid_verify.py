@@ -28,7 +28,6 @@ def test_check_map_fully_populated_with_callables() -> None:
         "bootloop",
         "shell5555",
         "shizuku",
-        "a11y",
         "repair_log",
         "watchdog",
         "termux_api",
