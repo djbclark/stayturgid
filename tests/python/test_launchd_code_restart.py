@@ -318,3 +318,47 @@ def test_control_node_records_the_hash_only_after_the_health_wait() -> None:
     assert record["ansible.builtin.copy"]["content"] == "{{ item.stdout_lines | first }}\n"
     assert tasks.index(record) > tasks.index(_find(tasks, "Wait for HTTP health on keepalive launchd agents"))
     assert tasks.index(record) == len(tasks) - 1
+
+
+def _state_probe_script() -> str:
+    task = _find(_control_node_tasks(), "Probe configured launchd job states")
+    return (
+        task["ansible.builtin.shell"]
+        if isinstance(task["ansible.builtin.shell"], str)
+        else task["ansible.builtin.shell"]["cmd"]
+    )
+
+
+def _run_state_probe(tmp_path: Path, label: str, listed: str, disabled: str) -> str:
+    """Run the state probe verbatim against a fake launchctl (list / print-disabled)."""
+    fake = tmp_path / "bin"
+    fake.mkdir(exist_ok=True)
+    (fake / "launchctl").write_text(
+        "#!/bin/sh\n"
+        'case "$1" in\n'
+        f"  list) printf '%s' '{listed}' ;;\n"
+        f"  print-disabled) printf '%s' '{disabled}' ;;\n"
+        "esac\n"
+    )
+    (fake / "launchctl").chmod(0o755)
+    script = _state_probe_script().replace("{{ item.name }}", label)
+    env = {**os.environ, "PATH": f"{fake}:{os.environ['PATH']}"}
+    out = subprocess.run(
+        ["bash", "-c", script.replace('export PATH="/opt/homebrew/bin:$PATH"', "")],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert out.returncode == 0, out.stderr
+    return out.stdout.strip()
+
+
+def test_state_probe_reports_a_launchd_disabled_agent_as_disabled(tmp_path: Path) -> None:
+    """An agent the operator disabled (offline phone) is not 'unloaded': the load task would fail the play on it."""
+    label = "com.stayturgid.adb-reconnect-hd8"
+    disabled = f'disabled services = {{\n\t"{label}" => disabled\n\t"com.other" => enabled\n}}\n'
+    assert _run_state_probe(tmp_path, label, "", disabled) == "disabled"
+    assert _run_state_probe(tmp_path, label, "", 'disabled services = {\n\t"com.other" => enabled\n}\n') == "unloaded"
+    # The load task only acts on 'unloaded', so 'disabled' is left alone.
+    load = _find(_control_node_tasks(), "Load configured launchd agents when unloaded")
+    assert "item.stdout | trim == 'unloaded'" in load["when"]

@@ -40,7 +40,14 @@
     label="{{ item.name }}"
     line="$(launchctl list 2>/dev/null | gawk -v l="$label" '$3 == l {print; exit}')"
     if [ -z "$line" ]; then
-      echo unloaded
+      # An agent the operator disabled in launchd (launchctl disable) cannot be bootstrapped:
+      # starting it fails the whole play ("Unable to start ..."). Report it separately so the
+      # load task leaves a deliberate override alone (offline phones: p7a, hd8, s24).
+      if launchctl print-disabled "gui/$(id -u)" 2>/dev/null | grep -qF "\"$label\" => disabled"; then
+        echo disabled
+      else
+        echo unloaded
+      fi
       exit 0
     fi
     pid="$(echo "$line" | gawk '{print $1}')"
