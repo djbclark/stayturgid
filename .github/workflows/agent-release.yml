@@ -14,7 +14,10 @@ name: stayturgid-agent release
 #   - Only the `publish` job holds the release key, and it never runs Gradle. The key lives in the
 #     `agent-release` environment, which GitHub restricts to the master branch, so a dispatch from
 #     any other branch cannot read it. The job runs scripts/ci/agent_release.py and first-party
-#     actions pinned by commit.
+#     actions pinned by commit, in three steps: the one that first parses the Gradle-built APK has
+#     no secret, the signing step has the key but no token, the release step has the token but no key.
+#   - Phones do not trust this workflow alone: bootstrap_apks installs an agent-r* release only if
+#     its signer is the fleet certificate (signer_sha256) and its package is org.stayturgid.agent.
 #   - Dispatch with sign=false (just agent-ci-run) builds and tests any branch and uploads the
 #     unsigned APK as an artifact only; just agent-ci-fetch signs it on the Mac.
 
@@ -33,8 +36,9 @@ on:
 
 # One build and one publish at a time, in run order, so a slower older run can never publish after a
 # newer one. A run waiting behind the active one is replaced by a newer one, which is the point.
+# A branch dispatch (sign=false) has its own group, so it can never replace a pending master release.
 concurrency:
-  group: agent-release
+  group: ${{ github.ref == 'refs/heads/master' && 'agent-release' || format('agent-build-{0}', github.ref) }}
   cancel-in-progress: false
 
 permissions: {}
@@ -105,17 +109,30 @@ jobs:
         with:
           name: agent-unsigned
           path: ${{ runner.temp }}/unsigned
-      - name: Sign and publish agent-r${{ needs.build.outputs.code }}
+      - name: Check the unsigned APK (no secrets in this step)
         env:
-          GH_TOKEN: ${{ github.token }}
+          BUILD_CODE: ${{ needs.build.outputs.code }}
+        run: |
+          set -euo pipefail
+          (cd "$RUNNER_TEMP/unsigned" && sha256sum --check app-release-unsigned.apk.sha256)
+          python3 scripts/ci/agent_release.py check --apk "$RUNNER_TEMP/unsigned/app-release-unsigned.apk" --code "$BUILD_CODE"
+      - name: Sign with the release key (the key, no token)
+        env:
           BUILD_CODE: ${{ needs.build.outputs.code }}
           STAYTURGID_AGENT_KEYSTORE_B64: ${{ secrets.STAYTURGID_AGENT_KEYSTORE_B64 }}
           STAYTURGID_AGENT_KEYSTORE_PASSWORD: ${{ secrets.STAYTURGID_AGENT_KEYSTORE_PASSWORD }}
           STAYTURGID_AGENT_KEY_PASSWORD: ${{ secrets.STAYTURGID_AGENT_KEY_PASSWORD }}
-          STAYTURGID_AGENT_KEY_ALIAS: ${{ secrets.STAYTURGID_AGENT_KEY_ALIAS }}
         run: |
           set -euo pipefail
-          (cd "$RUNNER_TEMP/unsigned" && sha256sum --check app-release-unsigned.apk.sha256)
-          python3 scripts/ci/agent_release.py publish \
+          mkdir -p "$RUNNER_TEMP/signed"
+          python3 scripts/ci/agent_release.py sign \
             --apk "$RUNNER_TEMP/unsigned/app-release-unsigned.apk" \
+            --out "$RUNNER_TEMP/signed/app-release.apk" \
             --code "$BUILD_CODE"
+      - name: Publish agent-r${{ needs.build.outputs.code }} (the token, no key)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_CODE: ${{ needs.build.outputs.code }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/agent_release.py release --apk "$RUNNER_TEMP/signed/app-release.apk" --code "$BUILD_CODE"

@@ -74,7 +74,46 @@ def test_only_the_publish_job_sees_the_signing_secrets_and_it_runs_no_gradle():
     assert jobs["build"]["permissions"] == {"contents": "read"}
     for name in agent_release.SECRET_ENV.values():
         assert f"secrets.{name}" in text
-    assert text.count("secrets.") == len(agent_release.SECRET_ENV) == 4
+    assert text.count("secrets.") == len(agent_release.SECRET_ENV) == 3
+
+
+def test_no_publish_step_holds_both_the_key_and_the_token_or_parses_the_apk_with_either():
+    steps = _workflow()["jobs"]["publish"]["steps"]
+    holders = {}
+    for step in steps:
+        env = " ".join(f"{k}={v}" for k, v in (step.get("env") or {}).items())
+        holders[step["name"]] = ("secrets." in env, "github.token" in env)
+    key_steps = [n for n, (key, _tok) in holders.items() if key]
+    token_steps = [n for n, (_key, tok) in holders.items() if tok]
+    assert len(key_steps) == 1 and len(token_steps) == 1 and key_steps != token_steps
+    names = [step["name"] for step in steps]
+    # the step that first parses the Gradle-built APK (check) comes before and holds neither
+    first_check = next(i for i, n in enumerate(names) if n.startswith("Check the unsigned APK"))
+    assert first_check < names.index(key_steps[0]) < names.index(token_steps[0])
+    assert holders[names[first_check]] == (False, False)
+
+
+def test_branch_dispatches_cannot_replace_a_pending_master_release():
+    group = _workflow()["concurrency"]["group"]
+    assert "refs/heads/master" in group and "format(" in group
+
+
+def test_scrubbed_env_hides_every_signing_secret(monkeypatch):
+    for name in agent_release.SECRET_ENV.values():
+        monkeypatch.setenv(name, "x")
+    monkeypatch.setenv("GH_TOKEN", "t")
+    env = agent_release.scrubbed_env({"AGENT_STORE_PASS": "p"})
+    assert not set(agent_release.SECRET_ENV.values()) & env.keys()
+    assert env["GH_TOKEN"] == "t" and env["AGENT_STORE_PASS"] == "p"
+
+
+def test_a_draft_or_asset_less_release_is_not_complete():
+    ok = {"tag_name": "agent-r101", "draft": False, "assets": [{"name": "app-release.apk"}]}
+    assert agent_release.is_complete(ok)
+    assert not agent_release.is_complete({**ok, "draft": True})
+    assert not agent_release.is_complete({**ok, "assets": []})
+    assert not agent_release.is_complete({**ok, "assets": [{"name": "other.apk"}]})
+    assert not agent_release.is_complete({**ok, "assets": [{"name": "app-release.apk"}, {"name": "x"}]})
 
 
 def test_actions_in_the_workflow_are_pinned_by_commit():
@@ -101,12 +140,13 @@ def test_release_asset_name_is_the_one_bootstrap_apks_matches():
     agent = next(a for a in defaults["stayturgid_bootstrap_apks"] if a["id"] == "org.stayturgid.agent")
     assert agent["gh_pattern"] == agent_release.ASSET_NAME
     assert agent["gh_tag_prefix"] == agent_release.TAG_PREFIX
+    assert agent["signer_sha256"] == agent_release.SIGNER_SHA256
 
 
 def test_sign_refuses_to_run_without_the_secrets(monkeypatch, tmp_path):
     for name in agent_release.SECRET_ENV.values():
         monkeypatch.delenv(name, raising=False)
     with pytest.raises(SystemExit) as exc:
-        agent_release.sign(tmp_path / "in.apk", tmp_path / "out.apk", tmp_path)
+        agent_release.sign(tmp_path / "in.apk", tmp_path / "out.apk")
     assert "STAYTURGID_AGENT_KEYSTORE_B64" in str(exc.value)
     assert not list(tmp_path.glob("*.jks"))

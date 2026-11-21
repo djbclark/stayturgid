@@ -1295,3 +1295,87 @@ def test_gh_tag_prefix_without_gh_latest_is_refused(mocker):
         mocker, dict(device="dev", package="p", gh_repo="o/r", gh_tag="v1", gh_tag_prefix="v", connect=False)
     )
     assert out["failed"] is True
+
+
+# signer_sha256 ------------------------------------------------------------------------------
+
+SIGNER = "35bbc3d1a93c2a726df14bcc066bdc791f7f55f21b57d9455da27439c5ff9b6a"
+
+
+def _run_signed(mocker, tmp_path, monkeypatch, certs, package="org.stayturgid.agent", tools=True, present=False):
+    monkeypatch.setattr(mod, "APK_CACHE_DIR", str(tmp_path / "cache"))
+    sdk = tmp_path / "sdk"
+    sdk.mkdir()
+    if tools:
+        for name in ("apksigner", "aapt2"):
+            (sdk / name).write_text("#!/bin/sh\n")
+    digest = sha256(b"PK").hexdigest()
+    monkeypatch.setattr(mod, "download_gh_release", lambda *a: _write(tmp_path / "dl.apk"))
+    seen = []
+
+    def command_fn(cmd):
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        seen.append(joined)
+        if "api repos/djbclark/stayturgid/releases" in joined:
+            return (0, json.dumps([_rel("agent-r101", "app-release.apk", "sha256:" + digest)]), "")
+        if "apksigner verify" in joined:
+            return (0, "".join("Signer #%d certificate SHA-256 digest: %s\n" % (i, c) for i, c in enumerate(certs)), "")
+        if "dump badging" in joined:
+            return (0, "package: name='%s' versionCode='101'\n" % package, "")
+        if "pm list packages" in joined:
+            return (0, "package:org.stayturgid.agent\n" if present else "", "")
+        if " install" in joined:
+            return (0, "Success\n", "")
+        return (0, "", "")
+
+    args = dict(
+        device="dev",
+        package="org.stayturgid.agent",
+        gh_repo="djbclark/stayturgid",
+        gh_latest=True,
+        gh_tag_prefix="agent-r",
+        gh_pattern="app-release.apk",
+        signer_sha256=SIGNER,
+        apksigner_bin=str(sdk / "apksigner"),
+        connect=False,
+    )
+    return run_module(mocker, args, command_fn=command_fn), seen
+
+
+def _write(path):
+    path.write_bytes(b"PK")
+    return str(path)
+
+
+def test_signer_sha256_installs_an_apk_signed_by_the_pinned_certificate(mocker, tmp_path, monkeypatch):
+    out, seen = _run_signed(mocker, tmp_path, monkeypatch, [SIGNER])
+    assert out.get("failed") is not True, out
+    assert out["changed"] is True
+    assert any(" install " in c for c in seen)
+
+
+def test_signer_sha256_refuses_a_foreign_signer_before_any_install_or_uninstall(mocker, tmp_path, monkeypatch):
+    out, seen = _run_signed(mocker, tmp_path, monkeypatch, ["a" * 64], present=True)
+    assert out["failed"] is True
+    assert "not signed by the pinned certificate" in out["msg"]
+    assert not any(" install " in c or " uninstall " in c for c in seen)
+
+
+def test_signer_sha256_refuses_an_extra_signer(mocker, tmp_path, monkeypatch):
+    out, seen = _run_signed(mocker, tmp_path, monkeypatch, [SIGNER, "b" * 64])
+    assert out["failed"] is True
+    assert not any(" install " in c for c in seen)
+
+
+def test_signer_sha256_refuses_another_package(mocker, tmp_path, monkeypatch):
+    out, seen = _run_signed(mocker, tmp_path, monkeypatch, [SIGNER], package="com.evil.app")
+    assert out["failed"] is True
+    assert "com.evil.app" in out["msg"]
+    assert not any(" install " in c for c in seen)
+
+
+def test_signer_sha256_fails_closed_without_the_sdk_tools(mocker, tmp_path, monkeypatch):
+    out, seen = _run_signed(mocker, tmp_path, monkeypatch, [SIGNER], tools=False)
+    assert out["failed"] is True
+    assert "needs" in out["msg"]
+    assert not any(" install " in c for c in seen)

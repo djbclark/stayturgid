@@ -65,19 +65,26 @@ build is above the last hand-made one (37). `versionName` =
 `0.9.<versionCode>+<sha8>`. Gradle reads `AGENT_VERSION_CODE` and
 `AGENT_VERSION_NAME`; without them (local or fork builds) it uses 37 and 0.9.19.
 
-**Consumers follow the newest release; nothing is pinned.** `bootstrap_apks`
-installs the agent with `gh_latest` plus `gh_tag_prefix: agent-r` and
-`gh_pattern: app-release.apk`, comparing the installed `base.apk` SHA-256 with
-the asset digest GitHub publishes. On the device, `UpdateCheck.kt` watches the
-tags `agent-r<versionCode>` and compares them with `BuildConfig.VERSION_CODE`.
+**Consumers follow the newest release; the signer is pinned, not the version.**
+`bootstrap_apks` installs the agent with `gh_latest` plus `gh_tag_prefix: agent-r`
+and `gh_pattern: app-release.apk`, comparing the installed `base.apk` SHA-256 with
+the asset digest GitHub publishes. Because a release is only as trustworthy as
+whoever can create one, the entry also sets `signer_sha256` (the fleet release
+certificate): before anything is installed the module checks, with `apksigner`
+and `aapt2`, that the APK carries exactly that certificate and is the package
+`org.stayturgid.agent`, on a fresh phone too. A rolling entry never takes the
+clean-uninstall fallback on a signature mismatch. On the device, `UpdateCheck.kt`
+watches the tags `agent-r<versionCode>` and compares them with
+`BuildConfig.VERSION_CODE`.
 
-**Secrets (names only).** Held as secrets of the environment `agent-release` of
+**Secrets (names only).** Three secrets of the environment `agent-release` of
 `djbclark/stayturgid`: `STAYTURGID_AGENT_KEYSTORE_B64`,
-`STAYTURGID_AGENT_KEYSTORE_PASSWORD`, `STAYTURGID_AGENT_KEY_PASSWORD` and
-`STAYTURGID_AGENT_KEY_ALIAS`. They were set from the local, gitignored
-`agent-release.jks`, which stays on the Mac for the fallback. To rotate or
-re-set one, run `gh secret set NAME --env agent-release` with the value on
-stdin, never on the command line.
+`STAYTURGID_AGENT_KEYSTORE_PASSWORD` and `STAYTURGID_AGENT_KEY_PASSWORD`. The key
+alias (`agent`) is not secret, so it is a plain value (a secret is masked
+everywhere its word appears in a log). They were set from the local, gitignored
+`agent-release.jks`, which stays on the Mac for the fallback. To rotate or re-set
+one, run `gh secret set NAME --env agent-release` with the value on stdin, never
+on the command line.
 
 **Trust boundaries** (this is a public repository):
 
@@ -85,9 +92,15 @@ stdin, never on the command line.
 - The `build` job, which runs repo code and third-party Gradle plugins, never
   sees a secret.
 - The `publish` job holds the key but never runs Gradle: it runs only
-  `scripts/ci/agent_release.py` and first-party actions pinned by commit.
+  `scripts/ci/agent_release.py` and first-party actions pinned by commit, in three
+  steps. The step that first parses the Gradle-built APK has no secret, the
+  signing step has the key and no token, and the release step has the token and no
+  key. Only `apksigner` ever receives the two passwords.
 - A dispatch from any other branch cannot read the environment's secrets, and
-  `publish` is skipped there.
+  `publish` is skipped there. A branch dispatch has its own concurrency group, so
+  it cannot replace a pending master release.
+- The phones do not trust the workflow alone: the signer pin above holds even if a
+  release is created some other way.
 
 **Fallback (unsigned build, signed on the Mac).** `just agent-ci-run BRANCH`
 dispatches the workflow with `sign=false`: it builds and tests but publishes

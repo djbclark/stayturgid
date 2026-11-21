@@ -136,8 +136,19 @@ options:
     type: bool
     default: false
   apksigner_bin:
-    description: Path to C(apksigner) (Android SDK build-tools). Ignored unless I(resign=true).
+    description:
+      - Path to C(apksigner) (Android SDK build-tools). Used by I(resign=true) and I(signer_sha256);
+        C(aapt2) is taken from the same directory.
     type: path
+  signer_sha256:
+    description:
+      - Hex SHA-256 of the one signing certificate the downloaded APK must carry, checked with
+        C(apksigner verify --print-certs) before anything is installed or uninstalled. The package
+        name in the APK (C(aapt2 dump badging)) must also equal I(package).
+      - Pins the signer, not the version, so a C(gh_latest) release can roll while a release written by
+        anyone without the key is refused. Fails closed when apksigner or aapt2 is missing.
+      - Checked on a fresh install too, where Android has no earlier signer to compare with.
+    type: str
   keystore:
     description: Debug keystore path. Ignored unless I(resign=true).
     type: path
@@ -830,6 +841,40 @@ def verify_sha256(module, apk_path, expected):
         module.fail_json(msg="APK checksum mismatch: expected sha256:%s, got sha256:%s" % (wanted, actual))
 
 
+def verify_signer_and_package(module, apk_path):
+    """Refuse an APK whose signer is not signer_sha256 or whose package is not the one being installed."""
+    wanted = (module.params.get("signer_sha256") or "").lower()
+    if not wanted:
+        return
+    if not re.match(r"^[0-9a-f]{64}$", wanted):
+        module.fail_json(msg="signer_sha256 must be a 64-character hex SHA-256")
+    apksigner = module.params.get("apksigner_bin")
+    if not apksigner:
+        apksigner = os.path.join(
+            os.path.expanduser("~"), "Library", "Android", "sdk", "build-tools", "36.0.0", "apksigner"
+        )
+    aapt2 = os.path.join(os.path.dirname(apksigner), "aapt2")
+    for tool in (apksigner, aapt2):
+        if not os.path.isfile(tool):
+            module.fail_json(msg="signer_sha256 needs %s (set apksigner_bin to the SDK build-tools apksigner)" % tool)
+    rc, out, err = module.run_command([apksigner, "verify", "--print-certs", apk_path])
+    if rc != 0:
+        module.fail_json(msg="apksigner verify failed for the downloaded APK: %s" % (err or out).strip()[:300])
+    signers = set(re.findall(r"certificate SHA-256 digest: ([0-9a-fA-F]{64})", out))
+    if {s.lower() for s in signers} != {wanted}:
+        module.fail_json(
+            msg="the downloaded APK is not signed by the pinned certificate sha256:%s (it carries %s); not installing"
+            % (wanted, ", ".join(sorted(signers)) or "none")
+        )
+    rc, out, err = module.run_command([aapt2, "dump", "badging", apk_path])
+    found = re.search(r"package: name='([^']+)'", out) if rc == 0 else None
+    if not found or found.group(1) != module.params["package"]:
+        module.fail_json(
+            msg="the downloaded APK is package %r, not %r; not installing"
+            % (found.group(1) if found else "unreadable", module.params["package"])
+        )
+
+
 def resign_apk(module, apk_path):
     apksigner = module.params.get("apksigner_bin")
     if not apksigner:
@@ -917,6 +962,7 @@ def main():
             connect=dict(type="bool", default=True),
             resign=dict(type="bool", default=False),
             apksigner_bin=dict(type="path"),
+            signer_sha256=dict(type="str"),
             keystore=dict(type="path"),
             keystore_pass=dict(type="str", default="android", no_log=True),
             key_alias=dict(type="str", default="androiddebugkey"),
@@ -1000,6 +1046,7 @@ def main():
         )
 
     verify_sha256(module, apk, module.params["checksum"])
+    verify_signer_and_package(module, apk)
 
     if latest_tag and not digest:
         module.warn(

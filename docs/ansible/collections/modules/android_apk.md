@@ -18,6 +18,7 @@ Download and install an APK via adb with `INSTALL_FAILED_*` parsing.
 | `gh_latest`             | Follow the newest release; digest-verified   |
 | `gh_tag_prefix`         | With `gh_latest`: only tags with this prefix |
 | `gh_skip_prereleases`   | With `gh_latest`: skip prereleases (false)   |
+| `signer_sha256`         | Only this signing cert; package must match   |
 | `version_name`          | Install only when installed version differs  |
 | `checksum`              | Expected pre-resigning SHA-256               |
 | `force`                 | Reinstall even when present                  |

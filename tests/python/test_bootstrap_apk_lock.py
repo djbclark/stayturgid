@@ -52,6 +52,18 @@ def test_latest_tracking_entries_carry_no_pin():
     assert 'gh_skip_prereleases: "{{ _apk.gh_skip_prereleases | default(omit) }}"' in install_tasks
 
 
+def test_rolling_entries_never_uninstall_to_take_a_release_signed_by_someone_else():
+    install = (
+        ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
+    ).read_text(encoding="utf-8")
+    assert (
+        'clean_on_incompatible: "{{ _apk.clean_on_incompatible | default(not (_apk.gh_latest | default(false) | bool)) }}"'
+        in install
+    )
+    assert 'signer_sha256: "{{ _apk.signer_sha256 | default(omit) }}"' in install
+    assert not [a["id"] for a in _catalog() if a.get("gh_latest") and a.get("clean_on_incompatible")]
+
+
 def test_rolling_stable_upstreams_skip_prereleases():
     # Termux publishes v0.119.0-beta.N prereleases next to the stable tag; a deploy must not install them.
     by_id = {apk["id"]: apk for apk in _catalog()}
@@ -110,6 +122,9 @@ def test_native_agent_uses_its_release_stream_and_real_asset_name():
     assert agent["gh_tag_prefix"] == "agent-r"
     assert agent["gh_pattern"] == "app-release.apk"
     assert not {"gh_tag", "version_name", "checksum"} & agent.keys()
+    # The signer is pinned instead of the version: whoever can create an agent-r* release cannot get
+    # a foreign APK onto a phone (adversary review H1).
+    assert agent["signer_sha256"] == "35bbc3d1a93c2a726df14bcc066bdc791f7f55f21b57d9455da27439c5ff9b6a"
     assert agent["remove_packages"] == ["org.stayturgid.agent.debug"]
     assert agent["service_component"] == "org.stayturgid.agent/.HostService"
     assert agent["start_broadcast_action"] == "org.stayturgid.agent.action.PEER_START_NOW"

@@ -24,6 +24,9 @@
 #                 published asset digest. Excludes gh_tag/version_name/checksum
 #   gh_tag_prefix — with gh_latest: only releases whose tag starts with this
 #                 (agent-r for the agent, which also has agent-ci-*/agent-v* tags)
+#   signer_sha256 — hex SHA-256 of the only signing certificate the APK may carry (checked
+#                 with apksigner and aapt2 before any install); gh_latest entries never take the
+#                 clean-uninstall fallback unless clean_on_incompatible: true is set on the entry
 #   gh_skip_prereleases — with gh_latest: ignore releases marked prerelease
 #                 (Termux betas); leave unset for a nightly-only upstream
 #   gh_pattern  — Asset glob for `gh release download --pattern` (required)
@@ -79,6 +82,9 @@ stayturgid_bootstrap_apks:
     gh_latest: true
     gh_tag_prefix: agent-r
     gh_pattern: app-release.apk
+    # Pin the signer, not the version: only a release signed with the fleet's key (cert SHA-256 35bbc3d1...,
+    # the same key as agent-v0.9.19) installs, whoever can create an agent-r* release.
+    signer_sha256: "35bbc3d1a93c2a726df14bcc066bdc791f7f55f21b57d9455da27439c5ff9b6a"
     resign: false
     start_broadcast_action: org.stayturgid.agent.action.PEER_START_NOW
     start_broadcast_component: org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver
