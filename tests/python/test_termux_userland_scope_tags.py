@@ -45,8 +45,21 @@ OUT_OF_SCOPE = {
 }
 
 
+def _flatten(tasks: list[dict], inherited: set[str] | None = None) -> list[dict]:
+    """Tasks inside block/rescue/always, each carrying the tags its blocks pass down."""
+    flat: list[dict] = []
+    for task in tasks:
+        tags = (inherited or set()) | _tags(task)
+        if "block" in task:
+            for part in ("block", "rescue", "always"):
+                flat.extend(_flatten(task.get(part, []), tags))
+        else:
+            flat.append({**task, "tags": sorted(tags)} if tags else task)
+    return flat
+
+
 def _tasks() -> list[dict]:
-    return yaml.safe_load(TASKS.read_text(encoding="utf-8"))
+    return _flatten(yaml.safe_load(TASKS.read_text(encoding="utf-8")))
 
 
 def _tags(task: dict) -> set[str]:

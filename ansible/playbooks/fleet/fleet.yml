@@ -38,6 +38,18 @@
     # from stayturgid_device_quirks; a no-op where none are defined.
     - role: stayturgid.android_common.device_quirks
       tags: [device-quirks, full]
+  # post_tasks run after the roles' handlers are flushed, so a handler that
+  # restarts sshd (ca.yml's `reload sshd`) is probed too. sshd answering is not the
+  # same as sshd accepting a login: a stale listener resets every connection before
+  # the banner (p7a, 2026-11-21), and only a handshake from here shows it.
+  post_tasks:
+    - name: Probe sshd banner and key exchange from the control node
+      stayturgid.termux.termux_ssh_probe:
+        # delegate_to: localhost makes ansible_host/ansible_port mean localhost's, so read this host's.
+        host: "{{ hostvars[inventory_hostname].ansible_host | default(inventory_hostname) }}"
+        port: "{{ hostvars[inventory_hostname].ansible_port | default(8022) }}"
+        retries: 5
+      delegate_to: localhost
 
 # F5: helpers get ForceCommand keys after Fire published peerhelp pubs.
 - name: Import peer-help ForceCommand install

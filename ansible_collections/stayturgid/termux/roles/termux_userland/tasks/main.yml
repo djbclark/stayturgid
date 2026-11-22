@@ -50,32 +50,46 @@
         ) | float
       }}
 
-- name: Update and upgrade all Termux packages (if >24h since last)
-  stayturgid.termux.termux_pkg:
-    name: []
-    state: present
-    update_cache: true
-    upgrade: true
-    force_confold: true
-    _termux_prefix: "{{ termux_prefix }}"
-  register: pkg_upgrade
-  # A running sshd hands its host keys to the newly installed sshd-session, which
-  # rejects them after an openssh upgrade ("parse_hostkeys: unexpected internal
-  # error"), so every login drops before the banner (s24/t2e, 2026-10-08). HUP
-  # makes sshd re-exec its new binary.
-  notify: reload sshd
-  when: >-
-    ((_now_epoch.stdout | trim | float) - (_pkg_upgrade_epoch | float)) > 86400
+# A running sshd hands its host keys to the newly installed sshd-session, which
+# rejects them after an openssh upgrade ("parse_hostkeys: unexpected internal
+# error"), so every login drops before the banner (s24/t2e, 2026-10-08; p7a,
+# 2026-11-21). The cure is the state check in `always` below, not a handler: a
+# handler is skipped when the play fails after the upgrade, and a HUP is not
+# verified. `always` runs even when a later package fails after dpkg replaced
+# openssh (the failure is still raised afterwards), so the host is not left with a
+# listener that resets every login and no way for the next run to connect and fix it.
+# State-based, not "openssh changed": it also cures a listener an earlier run left
+# stale if SSH still works. A listener not under runit is reported only; "Ensure
+# runit supervises sshd" retires it.
+- name: Upgrade and install Termux packages, then restart a stale sshd
+  block:
+    - name: Update and upgrade all Termux packages (if >24h since last)
+      stayturgid.termux.termux_pkg:
+        name: []
+        state: present
+        update_cache: true
+        upgrade: true
+        force_confold: true
+        _termux_prefix: "{{ termux_prefix }}"
+      register: pkg_upgrade
+      when: >-
+        ((_now_epoch.stdout | trim | float) - (_pkg_upgrade_epoch | float)) > 86400
 
-- name: Ensure Termux packages are installed
-  stayturgid.termux.termux_pkg:
-    name: "{{ stayturgid_termux_packages }}"
-    state: present
-    update_cache: false
-    upgrade: false
-    force_confold: true
-    _termux_prefix: "{{ termux_prefix }}"
-  register: pkg_install
+    - name: Ensure Termux packages are installed
+      stayturgid.termux.termux_pkg:
+        name: "{{ stayturgid_termux_packages }}"
+        state: present
+        update_cache: false
+        upgrade: false
+        force_confold: true
+        _termux_prefix: "{{ termux_prefix }}"
+      register: pkg_install
+  always:
+    - name: Restart a sshd listener that outlived its binary
+      stayturgid.termux.termux_sshd:
+        restart_stale: true
+        ensure_running: false
+        termux_prefix: "{{ termux_prefix }}"
 
 # pkg update selects a random mirror and rewrites sources.list — re-pin after
 # every update/upgrade so verify and later pkg runs stay deterministic.

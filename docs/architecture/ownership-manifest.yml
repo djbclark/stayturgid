@@ -202,6 +202,7 @@
     - ansible_collections/stayturgid/termux/plugins/modules/termux_screen_ready.py
     - ansible_collections/stayturgid/termux/plugins/modules/termux_ssh_bootstrap.py
     - ansible_collections/stayturgid/termux/plugins/modules/termux_sshd.py
+    - ansible_collections/stayturgid/termux/plugins/modules/termux_ssh_probe.py
     - ansible_collections/stayturgid/termux/roles/termux_userland/defaults/**
     - ansible_collections/stayturgid/termux/roles/termux_userland/handlers/**
     - ansible_collections/stayturgid/termux/roles/termux_userland/meta/**

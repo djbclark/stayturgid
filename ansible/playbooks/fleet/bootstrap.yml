@@ -52,3 +52,16 @@
         host: "{{ inventory_hostname }}"
       delegate_to: localhost
       when: not (_ssh_preflight_ok | default(false) | bool)
+
+    # sshd running is not sshd accepting logins: a listener left over from an openssh
+    # upgrade resets every connection before the banner (p7a, 2026-11-21), and the
+    # module above reported ok. A handshake from the control node is the only proof.
+    # Retries: sshd typed into Termux needs a moment to bind and answer.
+    - name: Probe sshd banner and key exchange from the control node
+      stayturgid.termux.termux_ssh_probe:
+        # delegate_to: localhost makes ansible_host/ansible_port mean localhost's, so read this host's.
+        host: "{{ hostvars[inventory_hostname].ansible_host | default(inventory_hostname) }}"
+        port: "{{ hostvars[inventory_hostname].ansible_port | default(8022) }}"
+        retries: 5
+      delegate_to: localhost
+      when: not (_ssh_preflight_ok | default(false) | bool)

@@ -35,6 +35,16 @@ options:
       prevents sshd from launching after reboot.
     type: bool
     default: true
+  restart_stale:
+    description: >-
+      Restart the runit-supervised sshd listener when it outlived its binary: its
+      C(/proc/PID/exe) is C((deleted)), or it started before C(bin/sshd) or
+      C(libexec/sshd-session) last changed. An C(openssh) package upgrade under a
+      running listener leaves it resetting every login (C(kex_exchange_identification),
+      p7a 2026-11-21). Established sessions survive the restart. A listener not
+      under runit is reported, not restarted (the role's runit fix-up retires it).
+    type: bool
+    default: false
   termux_prefix:
     description: Termux prefix.
     type: str
@@ -50,6 +60,11 @@ EXAMPLES = r"""
 - name: Ensure sshd is not disabled by a stale down file
   stayturgid.termux.termux_sshd:
     ensure_running: true
+
+- name: Restart a listener left running from a replaced openssh binary
+  stayturgid.termux.termux_sshd:
+    restart_stale: true
+    ensure_running: false
 """
 
 RETURN = r"""
@@ -64,14 +79,30 @@ down_removed:
   description: >-
     True when a stale runsv ``down`` file was removed, allowing the sshd
     service to start on next boot.
+stale_listener:
+  type: str
+  description: >-
+    With restart_stale, the listener verdict before any restart: C(fresh),
+    C(stale <reason>) or C(unknown <reason>).
+stale_restarted:
+  type: bool
+  description: True when a stale listener was restarted (or would be, in check mode).
 """
 
 import os
 import re
+import time
 
 from ansible.module_utils.basic import AnsibleModule
 
 from ansible_collections.stayturgid.android_common.plugins.module_utils.plain_run import plain_run_command
+from ansible_collections.stayturgid.termux.plugins.module_utils.sshd_stale import (
+    parse_verdict,
+    restart_script,
+    stale_check_script,
+)
+
+STALE_POLLS = 15
 
 
 def apply_config(text, options):
@@ -99,12 +130,46 @@ def read_file(path):
         return ""
 
 
+def stale_verdict(module, prefix):
+    rc, out, _err = module.run_command([os.path.join(prefix, "bin", "bash"), "-c", stale_check_script(prefix)])
+    return parse_verdict(out if rc == 0 else "")
+
+
+def restart_stale_listener(module, prefix):
+    """(listener verdict before, restarted?). Fails the module if the new one is not fresh."""
+    verdict = stale_verdict(module, prefix)
+    if not verdict.stale:
+        return verdict, False
+    if not verdict.supervised:
+        module.warn(
+            "sshd listener is stale (%s) but not supervised by runit: not restarting it here" % verdict.describe()
+        )
+        return verdict, False
+    if module.check_mode:
+        return verdict, True
+    rc, out, err = module.run_command([os.path.join(prefix, "bin", "bash"), "-c", restart_script(prefix)])
+    if rc != 0:
+        module.fail_json(
+            msg="sv restart sshd failed (rc=%s): %s" % (rc, (err or out).strip()), stale_listener=verdict.describe()
+        )
+    now = verdict
+    for _ in range(STALE_POLLS):
+        now = stale_verdict(module, prefix)
+        if now.fresh:
+            return verdict, True
+        time.sleep(1)
+    module.fail_json(
+        msg="sshd listener is still stale after sv restart (%s)" % now.describe(), stale_listener=verdict.describe()
+    )
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
             config=dict(type="dict", default={}),
             restart_on_change=dict(type="bool", default=True),
             ensure_running=dict(type="bool", default=True),
+            restart_stale=dict(type="bool", default=False),
             termux_prefix=dict(type="str", default="/data/data/com.termux/files/usr"),
         ),
         supports_check_mode=True,
@@ -156,10 +221,18 @@ def main():
         ) % {"prefix": prefix, "svdir": svdir}
         module.run_command([bash, "-c", "nohup bash -c '%s' >/dev/null 2>&1 &" % restart])
 
+    stale_listener = ""
+    stale_restarted = False
+    if module.params["restart_stale"]:
+        verdict, stale_restarted = restart_stale_listener(module, prefix)
+        stale_listener = verdict.describe()
+
     module.exit_json(
-        changed=config_changed or down_removed,
+        changed=config_changed or down_removed or stale_restarted,
         config_changed=config_changed,
         down_removed=down_removed,
+        stale_listener=stale_listener,
+        stale_restarted=stale_restarted,
     )
 
 

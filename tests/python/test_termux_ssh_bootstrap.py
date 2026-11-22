@@ -98,6 +98,105 @@ def test_ensure_sshd_replaces_runas_sshd(monkeypatch):
     assert tr.ensure_sshd(lambda c: (0, "", ""), "S") is True
 
 
+class FakePhoneSshd:
+    """run_as_termux stand-in: answers the stale check from a script of verdicts, records restarts."""
+
+    def __init__(self, verdicts, restart_rc=0, retire_rc=0):
+        self.retire_rc = retire_rc
+        self.verdicts = list(verdicts)
+        self.restart_rc = restart_rc
+        self.restarts = 0
+        self.kills = 0
+
+    def __call__(self, run_command, device, script, *a, **k):
+        if 'sv" restart sshd' in script:
+            self.restarts += 1
+            return self.restart_rc, "", "sv: fail: no" if self.restart_rc else ""
+        if "not killing" in script:  # retire_bare_listener_script: kills the pidfile's pid only
+            self.kills += 1
+            return self.retire_rc, "", "pid 1 is not sshd" if self.retire_rc else ""
+        out = self.verdicts.pop(0) if len(self.verdicts) > 1 else self.verdicts[0]
+        return 0, out, ""
+
+
+STALE_SUP = "stale deleted-exe\nsupervised=yes\n"
+STALE_BARE = "stale older-than-binary\nsupervised=no\n"
+FRESH = "fresh\nsupervised=yes\n"
+
+
+def _right_domain(monkeypatch, phone):
+    monkeypatch.setattr(tr, "sshd_domain", lambda *_a: "u:r:untrusted_app_27:s0:c1")
+    monkeypatch.setattr(tr, "run_as_termux", phone)
+    monkeypatch.setattr(tr.time, "sleep", lambda _s: None)
+
+
+def test_ensure_sshd_restarts_a_stale_runit_listener(monkeypatch):
+    phone = FakePhoneSshd([STALE_SUP, FRESH])
+    _right_domain(monkeypatch, phone)
+    assert tr.ensure_sshd(lambda c: (0, "", ""), "S") is True
+    assert phone.restarts == 1 and phone.kills == 0
+
+
+def test_ensure_sshd_check_mode_reports_a_stale_listener_without_touching_it(monkeypatch):
+    phone = FakePhoneSshd([STALE_SUP])
+    _right_domain(monkeypatch, phone)
+    assert tr.ensure_sshd(lambda c: (0, "", ""), "S", check_mode=True) is True
+    assert phone.restarts == 0 and phone.kills == 0
+
+
+def test_ensure_sshd_leaves_a_fresh_listener_alone(monkeypatch):
+    phone = FakePhoneSshd([FRESH])
+    _right_domain(monkeypatch, phone)
+    assert tr.ensure_sshd(lambda c: (0, "", ""), "S") is False
+    assert phone.restarts == 0 and phone.kills == 0
+
+
+@pytest.mark.parametrize("output", ["unknown no-pidfile\nsupervised=yes\n", "", "garbage"])
+def test_ensure_sshd_never_restarts_on_an_unknown_verdict(monkeypatch, output):
+    phone = FakePhoneSshd([output])
+    _right_domain(monkeypatch, phone)
+    assert tr.ensure_sshd(lambda c: (0, "", ""), "S") is False
+    assert phone.restarts == 0 and phone.kills == 0
+
+
+def test_ensure_sshd_a_failed_staleness_read_is_not_a_restart(monkeypatch):
+    _right_domain(monkeypatch, lambda *_a, **_k: (1, "stale deleted-exe\nsupervised=yes\n", "run-as: denied"))
+    assert tr.ensure_sshd(lambda c: (0, "", ""), "S") is False
+
+
+def test_ensure_sshd_retires_a_stale_bare_listener_and_types_sshd_again(monkeypatch):
+    phone = FakePhoneSshd([STALE_BARE, FRESH])
+    _right_domain(monkeypatch, phone)
+    started = []
+    monkeypatch.setattr(tr, "start_sshd_from_app", lambda *_a, **k: started.append(k) or True)
+    assert tr.ensure_sshd(lambda c: (0, "", ""), "S", host="m11") is True
+    assert phone.kills == 1 and phone.restarts == 0
+    assert started == [{"host": "m11"}]
+
+
+def test_ensure_sshd_never_types_sshd_over_a_listener_it_could_not_retire(monkeypatch):
+    phone = FakePhoneSshd([STALE_BARE], retire_rc=3)
+    _right_domain(monkeypatch, phone)
+    monkeypatch.setattr(tr, "start_sshd_from_app", lambda *_a, **_k: pytest.fail("must not start a second sshd"))
+    with pytest.raises(RuntimeError, match="could not retire"):
+        tr.ensure_sshd(lambda c: (0, "", ""), "S")
+
+
+def test_ensure_sshd_fails_when_the_listener_is_still_stale_after_the_restart(monkeypatch):
+    phone = FakePhoneSshd([STALE_SUP])  # stays stale forever
+    _right_domain(monkeypatch, phone)
+    with pytest.raises(RuntimeError, match="still stale after a restart"):
+        tr.ensure_sshd(lambda c: (0, "", ""), "S")
+    assert phone.restarts == 1
+
+
+def test_ensure_sshd_surfaces_a_failed_sv_restart(monkeypatch):
+    phone = FakePhoneSshd([STALE_SUP], restart_rc=1)
+    _right_domain(monkeypatch, phone)
+    with pytest.raises(RuntimeError, match="sv restart sshd failed"):
+        tr.ensure_sshd(lambda c: (0, "", ""), "S")
+
+
 def test_bootstrap_device_requires_run_as(monkeypatch):
     monkeypatch.setattr(tr, "termux_installed", lambda *_a, **_k: True)
     monkeypatch.setattr(tr, "run_as_available", lambda *_a, **_k: False)
