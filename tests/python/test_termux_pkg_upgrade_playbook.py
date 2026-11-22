@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 import termux_pkg_nightly as nightly
+from fake_sshd import FakeSshd, good, reset_close
 
 REPO = Path(__file__).resolve().parents[2]
 PLAYBOOK = REPO / "ansible" / "playbooks" / "fleet" / "termux-pkg-upgrade.yml"
@@ -73,6 +74,14 @@ _needs_ansible = pytest.mark.skipif(
 )
 
 
+@pytest.fixture
+def sshd():
+    """A healthy fake sshd: the nightly probes every upgraded host's banner and key exchange."""
+    server = FakeSshd(repeat=good)
+    yield {"ansible_host": "127.0.0.1", "ansible_port": server.port}
+    server.close()
+
+
 def _local(tmp_path: Path, name: str, **extra: object) -> dict[str, object]:
     return {
         "ansible_connection": "local",
@@ -119,10 +128,10 @@ def _run_playbook(tmp_path: Path, hosts: dict[str, dict[str, object]], result_di
 
 @_needs_ansible
 @pytest.mark.skipif(shutil.which("ssh") is None, reason="needs an ssh client for the unreachable host")
-def test_playbook_writes_one_result_per_finished_host(tmp_path):
+def test_playbook_writes_one_result_per_finished_host(tmp_path, sshd):
     hosts = {
-        "fakeok": _local(tmp_path, "fakeok"),
-        "fakestale": _local(tmp_path, "fakestale", dead_mirror=True),
+        "fakeok": _local(tmp_path, "fakeok", **sshd),
+        "fakestale": _local(tmp_path, "fakestale", dead_mirror=True, **sshd),
         "fakedisabled": _local(tmp_path, "fakedisabled", stayturgid_termux_pkg_upgrade_enabled=False),
         # Port 1 on loopback refuses at once: unreachable without a timeout.
         "fakeoff": {
@@ -159,12 +168,30 @@ def test_playbook_writes_one_result_per_finished_host(tmp_path):
 
 
 @_needs_ansible
-def test_a_failed_telemetry_write_does_not_fail_the_host(tmp_path):
+def test_a_failed_telemetry_write_does_not_fail_the_host(tmp_path, sshd):
     """Adversary review M1: the delegated write failing (here: its directory
     is missing) must leave the upgrade green, not mark the host failed."""
-    run = _run_playbook(tmp_path, {"fakeok": _local(tmp_path, "fakeok")}, tmp_path / "missing" / "dir")
+    run = _run_playbook(tmp_path, {"fakeok": _local(tmp_path, "fakeok", **sshd)}, tmp_path / "missing" / "dir")
     assert run.returncode == 0, run.stdout[-3000:] + run.stderr[-2000:]
     assert nightly.parse_host_failures(run.stdout) == {}
     assert "telemetry write failed" in run.stdout
     outcomes = nightly.host_outcomes(nightly.parse_recap_hosts(run.stdout), {}, {})
     assert {h: o.status for h, o in outcomes.items()} == {"fakeok": "skipped"}
+
+
+@_needs_ansible
+def test_a_listener_that_resets_logins_fails_the_nightly_for_that_host(tmp_path):
+    """p7a, 2026-11-21: sshd accepted the connection and reset it before the banner. The old nightly
+    HUP (`failed_when: false`) hid it; the probe must fail the host with the kex_exchange_identification reason."""
+    server = FakeSshd(repeat=reset_close)
+    try:
+        host = _local(tmp_path, "fakereset", ansible_host="127.0.0.1", ansible_port=server.port)
+        results = tmp_path / "results"
+        results.mkdir()
+        run = _run_playbook(tmp_path, {"fakereset": host}, results)
+    finally:
+        server.close()
+    assert run.returncode != 0
+    assert "kex_exchange_identification" in run.stdout
+    assert "fakereset" in nightly.parse_host_failures(run.stdout)
+    assert not list(results.glob("*.json")), "a host that failed its probe must not look cleanly upgraded"

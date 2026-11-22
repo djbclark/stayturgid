@@ -11,6 +11,15 @@ import shlex
 import subprocess
 import time
 
+try:
+    from ansible_collections.stayturgid.termux.plugins.module_utils.sshd_stale import (
+        parse_verdict,
+        restart_script,
+        stale_check_script,
+    )
+except ImportError:  # control/lib puts this directory itself on sys.path and imports us flat
+    from sshd_stale import parse_verdict, restart_script, stale_check_script  # type: ignore[no-redef]
+
 TERMUX_PKG = "com.termux"
 TERMUX_HOME = "/data/data/com.termux/files/home"
 TERMUX_PREFIX = "/data/data/com.termux/files/usr"
@@ -410,10 +419,53 @@ def start_sshd_from_app(
     )
 
 
+SSHD_RESTART_POLLS = 15
+
+
+def sshd_staleness(run_command, device):
+    """Verdict on the running sshd listener (read-only; `unknown` when unreadable)."""
+    rc, out, _err = run_as_termux(run_command, device, TERMUX_ENV + stale_check_script())
+    return parse_verdict(out if rc == 0 else "")
+
+
+def restart_stale_sshd(run_command, device, verdict, host=None, polls=SSHD_RESTART_POLLS):
+    """Replace a listener that outlived its binary; raise unless the new one is fresh.
+
+    A runit-supervised listener is restarted with `sv restart` (the new one is a
+    child of runsv, so it is not in the run-as SELinux domain). A bare listener
+    (no runit yet) is killed and typed back in from the Termux app, as for a
+    wrong-domain sshd. Established sessions survive either.
+    """
+    if verdict.supervised:
+        rc, out, err = run_as_termux(run_command, device, TERMUX_ENV + restart_script())
+        if rc != 0:
+            raise RuntimeError("sv restart sshd failed (rc=%s): %s" % (rc, (err or out).strip()))
+    else:
+        run_as_termux(run_command, device, TERMUX_ENV + "pkill -x sshd || true\n")
+        time.sleep(1)
+        start_sshd_from_app(run_command, device, host=host)
+    now = verdict
+    for _ in range(polls):
+        now = sshd_staleness(run_command, device)
+        if now.fresh:
+            return True
+        time.sleep(1)
+    raise RuntimeError(
+        "sshd is still stale after a restart (%s): see $PREFIX/var/log/sv/sshd/current on the phone" % now.describe()
+    )
+
+
 def ensure_sshd(run_command, device, check_mode=False, host=None):
     domain = sshd_domain(run_command, device)
     if domain and "runas_app" not in domain:
-        return False
+        # Running in the right domain is not the same as accepting logins: a package
+        # upgrade under a live listener leaves it resetting every connection (p7a).
+        verdict = sshd_staleness(run_command, device)
+        if not verdict.stale:
+            return False
+        if check_mode:
+            return True
+        return restart_stale_sshd(run_command, device, verdict, host=host)
     if check_mode:
         return True
     if domain:

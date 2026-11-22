@@ -61,9 +61,10 @@
   register: pkg_upgrade
   # A running sshd hands its host keys to the newly installed sshd-session, which
   # rejects them after an openssh upgrade ("parse_hostkeys: unexpected internal
-  # error"), so every login drops before the banner (s24/t2e, 2026-10-08). HUP
-  # makes sshd re-exec its new binary.
-  notify: reload sshd
+  # error"), so every login drops before the banner (s24/t2e, 2026-10-08; p7a,
+  # 2026-11-21). The cure is the state check "Restart a sshd listener that outlived
+  # its binary" below, not a handler: a handler is skipped when the play fails
+  # after the upgrade and a HUP is not verified.
   when: >-
     ((_now_epoch.stdout | trim | float) - (_pkg_upgrade_epoch | float)) > 86400
 
@@ -76,6 +77,17 @@
     force_confold: true
     _termux_prefix: "{{ termux_prefix }}"
   register: pkg_install
+
+# Straight after the package steps (and before anything that can fail the play):
+# a listener started before `openssh` was replaced resets every login, so the next
+# deploy could not even connect. State-based, not "openssh changed": it also cures a
+# listener an earlier, aborted play or the nightly upgrade left behind. A listener
+# not under runit is reported only; "Ensure runit supervises sshd" retires it.
+- name: Restart a sshd listener that outlived its binary
+  stayturgid.termux.termux_sshd:
+    restart_stale: true
+    ensure_running: false
+    termux_prefix: "{{ termux_prefix }}"
 
 # pkg update selects a random mirror and rewrites sources.list — re-pin after
 # every update/upgrade so verify and later pkg runs stay deterministic.

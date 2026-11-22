@@ -64,13 +64,26 @@
 
     # A running sshd hands its host keys to the newly installed sshd-session, which
     # rejects them after an openssh upgrade ("parse_hostkeys: unexpected internal
-    # error"), so every login drops before the banner (s24/t2e, 2026-10-08). HUP makes
-    # the runit-supervised listener re-exec its new binary.
-    - name: Reload sshd after an upgrade
-      ansible.builtin.command: "{{ termux_prefix }}/bin/sv hup {{ termux_prefix }}/var/service/sshd"
-      when: stayturgid_termux_pkg_nightly is changed
-      changed_when: true
-      failed_when: false
+    # error"), so every login drops before the banner (s24/t2e, 2026-10-08; p7a,
+    # 2026-11-21: 242 resets). A HUP that could fail silently was not enough: restart
+    # the listener when it outlived its binary (state-based, so it also cures one an
+    # earlier run left stale), then prove from the control node that a login gets as
+    # far as key exchange. Unlike the old `failed_when: false`, a failure shows.
+    - name: Restart a sshd listener that outlived its binary
+      stayturgid.termux.termux_sshd:
+        restart_stale: true
+        ensure_running: false
+        termux_prefix: "{{ termux_prefix }}"
+      when: stayturgid_termux_pkg_nightly is not unreachable
+
+    - name: Probe sshd banner and key exchange from the control node
+      stayturgid.termux.termux_ssh_probe:
+        # delegate_to: localhost makes ansible_host/ansible_port mean localhost's, so read this host's.
+        host: "{{ hostvars[inventory_hostname].ansible_host | default(inventory_hostname) }}"
+        port: "{{ hostvars[inventory_hostname].ansible_port | default(8022) }}"
+        retries: 5
+      delegate_to: localhost
+      when: stayturgid_termux_pkg_nightly is not unreachable
 
     - name: Report nightly Termux pkg result
       ansible.builtin.debug:
