@@ -15,10 +15,16 @@ try:
     from ansible_collections.stayturgid.termux.plugins.module_utils.sshd_stale import (
         parse_verdict,
         restart_script,
+        retire_bare_listener_script,
         stale_check_script,
     )
 except ImportError:  # control/lib puts this directory itself on sys.path and imports us flat
-    from sshd_stale import parse_verdict, restart_script, stale_check_script  # type: ignore[no-redef]
+    from sshd_stale import (  # type: ignore[no-redef]
+        parse_verdict,
+        restart_script,
+        retire_bare_listener_script,
+        stale_check_script,
+    )
 
 TERMUX_PKG = "com.termux"
 TERMUX_HOME = "/data/data/com.termux/files/home"
@@ -433,7 +439,7 @@ def restart_stale_sshd(run_command, device, verdict, host=None, polls=SSHD_RESTA
 
     A runit-supervised listener is restarted with `sv restart` (the new one is a
     child of runsv, so it is not in the run-as SELinux domain). A bare listener
-    (no runit yet) is killed and typed back in from the Termux app, as for a
+    (no runit yet; only the pidfile's verified pid is killed) is killed and typed back in from the Termux app, as for a
     wrong-domain sshd. Established sessions survive either.
     """
     if verdict.supervised:
@@ -441,7 +447,9 @@ def restart_stale_sshd(run_command, device, verdict, host=None, polls=SSHD_RESTA
         if rc != 0:
             raise RuntimeError("sv restart sshd failed (rc=%s): %s" % (rc, (err or out).strip()))
     else:
-        run_as_termux(run_command, device, TERMUX_ENV + "pkill -x sshd || true\n")
+        rc, out, err = run_as_termux(run_command, device, TERMUX_ENV + retire_bare_listener_script())
+        if rc != 0:
+            raise RuntimeError("could not retire the stale sshd listener: %s" % ((err or out).strip() or "rc=%s" % rc))
         time.sleep(1)
         start_sshd_from_app(run_command, device, host=host)
     now = verdict

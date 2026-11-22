@@ -42,7 +42,20 @@ STALE_MARGIN_S = 5
 _CHECK_BODY = r"""
 P="${STAYTURGID_PROC:-/proc}"
 STATCMD="${STAYTURGID_STAT:-stat}"
-verdict() { echo "$*"; if SVDIR="$PREFIX/var/service" "$PREFIX/bin/sv" status sshd >/dev/null 2>&1; then echo supervised=yes; else echo supervised=no; fi; exit 0; }
+verdict() {
+  echo "$*"
+  sup=no
+  st="$(SVDIR="$PREFIX/var/service" "$PREFIX/bin/sv" status sshd 2>/dev/null)" && sup=yes
+  # runsv existing is not enough: the pidfile's listener must be runsv's own child, or a bare
+  # listener (stale) sits beside a runsv whose sshd cannot bind, and sv could not act on it.
+  if [ "$sup" = yes ] && [ -n "${pid:-}" ]; then
+    svpid=""
+    case "$st" in *"(pid "*) svpid="${st#*(pid }"; svpid="${svpid%%)*}";; esac
+    [ "$svpid" = "$pid" ] || sup=no
+  fi
+  echo "supervised=$sup"
+  exit 0
+}
 pid="$(cat "$PREFIX/var/run/sshd.pid" 2>/dev/null)"
 case "$pid" in ''|*[!0-9]*) verdict unknown no-pidfile;; esac
 [ -d "$P/$pid" ] || verdict unknown pid-gone
@@ -64,6 +77,15 @@ SVDIR="$PREFIX/var/service" "$PREFIX/bin/sv" restart sshd
 """
 
 
+_RETIRE_BODY = r"""
+pid="$(cat "$PREFIX/var/run/sshd.pid" 2>/dev/null)"
+case "$pid" in ''|*[!0-9]*) echo "no sshd pidfile; not killing anything" >&2; exit 3;; esac
+argv0="$(tr '\0' '\n' < "/proc/$pid/cmdline" 2>/dev/null | head -n 1)"
+case "${argv0##*/}" in sshd) ;; *) echo "pid $pid is not sshd; not killing it" >&2; exit 3;; esac
+kill "$pid"
+"""
+
+
 def _prefix_line(prefix):
     return "PREFIX=%s\n" % shlex.quote(prefix)
 
@@ -71,6 +93,12 @@ def _prefix_line(prefix):
 def stale_check_script(prefix=TERMUX_PREFIX, margin=STALE_MARGIN_S):
     """Read-only shell script printing the two-line verdict for ``prefix``."""
     return _prefix_line(prefix) + _CHECK_BODY.replace("__MARGIN__", str(int(margin)))
+
+
+def retire_bare_listener_script(prefix=TERMUX_PREFIX):
+    """Shell script killing exactly the pidfile's listener (never `pkill -x sshd`: before OpenSSH
+    9.8 the per-connection children are named sshd too, and killing them drops live sessions)."""
+    return _prefix_line(prefix) + _RETIRE_BODY
 
 
 def restart_script(prefix=TERMUX_PREFIX):

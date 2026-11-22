@@ -11,14 +11,17 @@
     `libexec/sshd-session` changed. A stale one is restarted (`sv restart` under runit, kill
     plus retype from the Termux app for a bare listener) and reported `changed`.
   - `termux_sshd` gets `restart_stale` (same check on the phone, `sv restart`, verified
-    fresh). `termux_userland` runs it straight after the package steps and the nightly
-    `termux-pkg-upgrade.yml` runs it after the upgrade, replacing the `sv hup` handler and the
+    fresh). `termux_userland` and the nightly `termux-pkg-upgrade.yml` run it in the `always`
+    of their package tasks, so a package failure after `openssh` was replaced still restarts
+    the listener (the failure is raised afterwards). It replaces the `sv hup` handler and the
     `failed_when: false` HUP, which could not tell whether the cure worked. State-based, so a
-    listener an earlier aborted run left stale is cured too.
+    listener an earlier run left stale is cured too. A listener counts as supervised only when
+    `sv status` reports the pidfile's pid; a bare one is retired by that pid alone.
   - New module `termux_ssh_probe` (control node, `delegate_to: localhost`): reads the banner,
     sends one and requires the server's first packet to be `SSH_MSG_KEXINIT`. Run after
     `bootstrap.yml`'s bootstrap, in `fleet.yml`'s `post_tasks` (after the role's handlers) and
-    in the nightly; a reset fails with `kex_exchange_identification`.
+    in the nightly (last, after the telemetry record); a reset fails with `kex_exchange_identification`.
+    One attempt is bounded to three timeouts and banner bytes are shown printable-only.
 - `termux_ssh_bootstrap`, `termux_pkg`, `termux_sshd`, `termux_screen_ready` and
   `stayturgid_repair_check` no longer let Ansible expand `$HOME` or `$PATH` in the commands they
   run (`plain_run_command` from `stayturgid.android_common`, 2026-11-21). Fixes the s24 fallback

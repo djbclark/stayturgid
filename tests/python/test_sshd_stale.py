@@ -37,6 +37,7 @@ class Phone:
         self.stat_fails = ""  # "", "pidfile" or "binary": which `stat` the stub refuses
         self.pid_mtime = None
         self.supervised = True
+        self.sv_pid = 4242  # the pid runsv reports for its sshd
         self.sv_restart_rc = 0
 
     def listener(self, pid=4242, *, started_s_ago, exe=None, argv0="sshd", pidfile=True, comm="sshd"):
@@ -62,8 +63,8 @@ class Phone:
         sv.write_text(
             "#!/bin/sh\n"
             'echo "$SVDIR $*" >> %s\n'
-            'case "$1" in status) exit %d;; restart) exit %d;; esac\n'
-            % (self.sv_log, 0 if self.supervised else 1, self.sv_restart_rc)
+            'case "$1" in status) echo "run: sshd: (pid %d) 5s; run: log: (pid 9) 5s"; exit %d;; restart) exit %d;; esac\n'
+            % (self.sv_log, self.sv_pid, 0 if self.supervised else 1, self.sv_restart_rc)
         )
         sv.chmod(0o755)
         return stat
@@ -146,6 +147,43 @@ def test_supervision_is_reported_either_way(phone, supervised):
     assert "%s/var/service status sshd" % phone.prefix in phone.sv_log.read_text()
 
 
+def test_a_bare_stale_listener_beside_a_runsv_with_its_own_sshd_is_not_supervised(phone):
+    # runsv runs, but its sshd (pid 7777) is not the pidfile's listener (4242): `sv restart`
+    # would leave the stale bare one running.
+    phone.sv_pid = 7777
+    phone.listener(started_s_ago=900)
+    v = phone.verdict()
+    assert v.stale and v.supervised is False
+
+
+def test_retire_script_kills_only_the_verified_pidfile_pid(phone):
+    phone.listener(pid=os.getpid(), started_s_ago=900)
+    # A process named sshd that is really us: replace cmdline so the argv0 check passes, then
+    # use a stub `kill` to see what would be killed.
+    stub = phone.root / "stubbin"
+    stub.mkdir()
+    (stub / "kill").write_text('#!/bin/sh\necho "$@" > %s/killed\n' % phone.root)
+    (stub / "kill").chmod(0o755)
+    script = 'kill() { echo "$@" > %s/killed; }\n' % phone.root + ss.retire_bare_listener_script(str(phone.prefix))
+    script = script.replace('"/proc/$pid/cmdline"', '"%s/$pid/cmdline"' % phone.proc)
+    proc = phone.run(script)
+    assert proc.returncode == 0, proc.stderr
+    assert (phone.root / "killed").read_text().strip() == str(os.getpid())
+
+
+@pytest.mark.parametrize("pidfile_text", ["", "abc", "12 34"])
+def test_retire_script_refuses_a_bad_pidfile(phone, pidfile_text):
+    (phone.prefix / "var/run/sshd.pid").write_text(pidfile_text)
+    proc = phone.run(ss.retire_bare_listener_script(str(phone.prefix)))
+    assert proc.returncode == 3 and "not killing" in proc.stderr
+
+
+def test_retire_script_refuses_a_pid_that_is_not_sshd(phone):
+    (phone.prefix / "var/run/sshd.pid").write_text("%d\n" % os.getpid())  # a python/pytest process
+    proc = phone.run(ss.retire_bare_listener_script(str(phone.prefix)))
+    assert proc.returncode == 3 and "not sshd" in proc.stderr
+
+
 def test_no_pidfile_is_unknown_never_stale(phone):
     phone.listener(started_s_ago=900, pidfile=False)
     v = phone.verdict()
@@ -205,7 +243,7 @@ def test_prefix_is_quoted_into_the_scripts():
     assert ss.restart_script("/odd path/usr").startswith("PREFIX='/odd path/usr'\n")
 
 
-@pytest.mark.parametrize("script", [ss.stale_check_script(), ss.restart_script()])
+@pytest.mark.parametrize("script", [ss.stale_check_script(), ss.restart_script(), ss.retire_bare_listener_script()])
 def test_scripts_parse_as_bash(script):
     proc = subprocess.run(["bash", "-n"], input=script, text=True, capture_output=True, check=False)
     assert proc.returncode == 0, proc.stderr

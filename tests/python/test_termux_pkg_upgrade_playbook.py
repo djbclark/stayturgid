@@ -194,4 +194,13 @@ def test_a_listener_that_resets_logins_fails_the_nightly_for_that_host(tmp_path)
     assert run.returncode != 0
     assert "kex_exchange_identification" in run.stdout
     assert "fakereset" in nightly.parse_host_failures(run.stdout)
-    assert not list(results.glob("*.json")), "a host that failed its probe must not look cleanly upgraded"
+    # The upgrade itself succeeded and is recorded (the probe runs after the telemetry write), but
+    # the host still counts as failed: the wrapper must not show it as a clean upgrade.
+    written = {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in results.glob("*.json")}
+    assert set(written) == {"fakereset"}
+    outcomes = nightly.host_outcomes(
+        nightly.parse_recap_hosts(run.stdout),
+        nightly.read_host_results(results),
+        nightly.parse_host_failures(run.stdout),
+    )
+    assert outcomes["fakereset"].status == "failed"

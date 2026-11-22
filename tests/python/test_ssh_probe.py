@@ -8,6 +8,7 @@ peer`. Open port, `sv status` and `sshd -t` all looked fine, so the probe has to
 import socket
 import sys
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -113,3 +114,39 @@ def test_a_single_attempt_does_not_say_attempts():
     with pytest.raises(sp.ProbeError) as err:
         sp.probe("127.0.0.1", 1, timeout=0.5)
     assert str(err.value).endswith("(after 1 attempt)")
+
+
+def test_a_slow_drip_peer_cannot_hold_the_probe_past_its_deadline(fake):
+    stop = threading.Event()
+
+    def drip(conn):
+        while not stop.is_set():
+            conn.sendall(b"S")
+            stop.wait(0.15)
+
+    server = fake(drip)
+    start = time.monotonic()
+    try:
+        with pytest.raises(sp.ProbeError):
+            sp.probe("127.0.0.1", server.port, timeout=0.3)
+    finally:
+        stop.set()
+    assert time.monotonic() - start < 0.3 * sp.DEADLINE_FACTOR + 1.5
+
+
+def test_banner_bytes_that_are_not_printable_never_reach_the_message(fake):
+    server = fake(lambda conn: conn.sendall(b"\x1b[31mHTTP evil\x07\r\n"))
+    with pytest.raises(sp.ProbeError) as err:
+        sp.probe("127.0.0.1", server.port, timeout=3)
+    assert "\x1b" not in str(err.value) and "\x07" not in str(err.value)
+
+
+def test_a_banner_with_escapes_is_reported_printable_only(fake):
+    def banner_with_escape(conn):
+        conn.sendall(b"SSH-2.0-evil\x1b[2J\r\n")
+        conn.recv(64)
+        conn.sendall(kexinit_packet())
+
+    server = fake(banner_with_escape)
+    ident, _ = sp.probe("127.0.0.1", server.port, timeout=3)
+    assert ident == "SSH-2.0-evil[2J"

@@ -101,7 +101,8 @@ def test_ensure_sshd_replaces_runas_sshd(monkeypatch):
 class FakePhoneSshd:
     """run_as_termux stand-in: answers the stale check from a script of verdicts, records restarts."""
 
-    def __init__(self, verdicts, restart_rc=0):
+    def __init__(self, verdicts, restart_rc=0, retire_rc=0):
+        self.retire_rc = retire_rc
         self.verdicts = list(verdicts)
         self.restart_rc = restart_rc
         self.restarts = 0
@@ -111,9 +112,9 @@ class FakePhoneSshd:
         if 'sv" restart sshd' in script:
             self.restarts += 1
             return self.restart_rc, "", "sv: fail: no" if self.restart_rc else ""
-        if "pkill -x sshd" in script:
+        if "not killing" in script:  # retire_bare_listener_script: kills the pidfile's pid only
             self.kills += 1
-            return 0, "", ""
+            return self.retire_rc, "", "pid 1 is not sshd" if self.retire_rc else ""
         out = self.verdicts.pop(0) if len(self.verdicts) > 1 else self.verdicts[0]
         return 0, out, ""
 
@@ -171,6 +172,14 @@ def test_ensure_sshd_retires_a_stale_bare_listener_and_types_sshd_again(monkeypa
     assert tr.ensure_sshd(lambda c: (0, "", ""), "S", host="m11") is True
     assert phone.kills == 1 and phone.restarts == 0
     assert started == [{"host": "m11"}]
+
+
+def test_ensure_sshd_never_types_sshd_over_a_listener_it_could_not_retire(monkeypatch):
+    phone = FakePhoneSshd([STALE_BARE], retire_rc=3)
+    _right_domain(monkeypatch, phone)
+    monkeypatch.setattr(tr, "start_sshd_from_app", lambda *_a, **_k: pytest.fail("must not start a second sshd"))
+    with pytest.raises(RuntimeError, match="could not retire"):
+        tr.ensure_sshd(lambda c: (0, "", ""), "S")
 
 
 def test_ensure_sshd_fails_when_the_listener_is_still_stale_after_the_restart(monkeypatch):

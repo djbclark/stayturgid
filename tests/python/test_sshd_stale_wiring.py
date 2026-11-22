@@ -48,37 +48,50 @@ def _assert_probe_task(task):
     assert "failed_when" not in task and "ignore_errors" not in task
 
 
-def test_role_restarts_a_stale_listener_right_after_the_package_steps():
+def _block_with_restart(tasks, block_name):
+    block = _task(tasks, block_name)
+    # `always`, so a package failure after dpkg replaced openssh still restarts the listener
+    # (the failure is raised afterwards): the next run could not connect to fix it.
+    _assert_restart_task(_task(block["always"], RESTART))
+    return block
+
+
+def test_role_restarts_a_stale_listener_even_when_a_package_step_fails():
     tasks = _load(ROLE / "tasks/main.yml")
+    block = _block_with_restart(tasks, "Upgrade and install Termux packages, then restart a stale sshd")
+    assert _names(block["block"]) == [
+        "Update and upgrade all Termux packages (if >24h since last)",
+        "Ensure Termux packages are installed",
+    ]
     names = _names(tasks)
-    restart = _task(tasks, RESTART)
-    _assert_restart_task(restart)
-    assert names.index("Ensure Termux packages are installed") < names.index(RESTART)
-    # Before anything else that can fail the play and leave a stale listener behind.
-    assert names.index(RESTART) < names.index("Re-pin Termux main mirror after pkg operations")
+    assert names.index(block["name"]) < names.index("Re-pin Termux main mirror after pkg operations")
     # State-based: no `when` on the upgrade result or on the openssh package.
-    assert "when" not in restart
+    assert "when" not in _task(block["always"], RESTART)
+    assert "rescue" not in block and "ignore_errors" not in block
 
 
 def test_role_no_longer_relies_on_a_hup_handler_after_the_upgrade():
-    upgrade = _task(_load(ROLE / "tasks/main.yml"), "Update and upgrade all Termux packages (if >24h since last)")
+    block = _task(_load(ROLE / "tasks/main.yml"), "Upgrade and install Termux packages, then restart a stale sshd")
+    upgrade = _task(block["block"], "Update and upgrade all Termux packages (if >24h since last)")
     assert "notify" not in upgrade
     # ca.yml's config reload keeps its own handler.
     assert any(h["name"] == "reload sshd" for h in _load(ROLE / "handlers/main.yml"))
 
 
-def test_nightly_upgrade_restarts_then_probes_and_no_longer_swallows_failures():
-    play = _load(PLAYBOOKS / "termux-pkg-upgrade.yml")[0]
-    tasks = play["tasks"]
+def test_nightly_upgrade_restarts_in_always_and_probes_last_without_swallowing_failures():
+    tasks = _load(PLAYBOOKS / "termux-pkg-upgrade.yml")[0]["tasks"]
     names = _names(tasks)
     assert "Reload sshd after an upgrade" not in names
-    _assert_restart_task(_task(tasks, RESTART))
-    _assert_probe_task(_task(tasks, PROBE))
-    upgrade = names.index("Update package indexes and full-upgrade Termux packages")
-    assert upgrade < names.index(RESTART) < names.index(PROBE) < names.index("Report nightly Termux pkg result")
+    block = _block_with_restart(tasks, "Upgrade Termux packages, then restart a stale sshd")
+    assert _names(block["block"]) == ["Update package indexes and full-upgrade Termux packages"]
     # Unreachable hosts reach later tasks (ignore_unreachable): neither may run on them.
-    for name in (RESTART, PROBE):
-        assert "is not unreachable" in _task(tasks, name)["when"]
+    assert "is not unreachable" in _task(block["always"], RESTART)["when"]
+    probe = _task(tasks, PROBE)
+    _assert_probe_task(probe)
+    assert "is not unreachable" in probe["when"]
+    # Last: after the telemetry record, so a failed probe cannot make an upgraded host look skipped.
+    assert names[-1] == PROBE
+    assert names.index("Record this host's result on the control node for telemetry") < names.index(PROBE)
 
 
 def test_fleet_play_probes_after_the_roles_and_their_handlers():

@@ -22,6 +22,7 @@ import time
 CLIENT_BANNER = b"SSH-2.0-stayturgid-probe\r\n"
 SSH_MSG_KEXINIT = 20
 MAX_BANNER = 255
+DEADLINE_FACTOR = 3  # one attempt may use at most this many timeouts in total
 MAX_PACKET = 35000  # RFC 4253 section 6.1 minimum every implementation must accept
 
 
@@ -29,9 +30,17 @@ class ProbeError(Exception):
     """The handshake failed; ``str()`` is the operator-facing reason."""
 
 
-def _read_exact(sock, count):
+def _remaining(deadline, host, port):
+    left = deadline - time.monotonic()
+    if left <= 0:
+        raise ProbeError("handshake with %s:%s did not finish in time" % (host, port))
+    return left
+
+
+def _read_exact(sock, count, deadline, host, port):
     data = b""
     while len(data) < count:
+        sock.settimeout(_remaining(deadline, host, port))
         chunk = sock.recv(count - len(data))
         if not chunk:
             raise ProbeError("connection closed after %d of %d bytes" % (len(data), count))
@@ -39,16 +48,21 @@ def _read_exact(sock, count):
     return data
 
 
-def _read_banner(sock):
+def _read_banner(sock, deadline, host, port):
+    """Bytes up to and including the first newline, at most MAX_BANNER, within the deadline."""
     data = b""
-    while b"\n" not in data:
-        chunk = sock.recv(1)
+    while b"\n" not in data and len(data) < MAX_BANNER:
+        sock.settimeout(_remaining(deadline, host, port))
+        chunk = sock.recv(MAX_BANNER - len(data))
         if not chunk:
             break
         data += chunk
-        if len(data) > MAX_BANNER * 4:
-            break
     return data
+
+
+def _printable(raw):
+    """Only printable ASCII, so a hostile banner cannot put terminal escapes in logs."""
+    return "".join(chr(b) for b in raw if 0x20 <= b < 0x7F)
 
 
 def probe_once(host, port, timeout):
@@ -58,9 +72,9 @@ def probe_once(host, port, timeout):
     except OSError as exc:
         raise ProbeError("cannot connect to %s:%s: %s" % (host, port, exc))
     try:
-        sock.settimeout(timeout)
+        deadline = time.monotonic() + timeout * DEADLINE_FACTOR
         try:
-            banner = _read_banner(sock)
+            banner = _read_banner(sock, deadline, host, port)
         except ConnectionResetError:
             banner = b""
             reset = True
@@ -74,11 +88,11 @@ def probe_once(host, port, timeout):
                     "kex_exchange_identification: connection reset or closed before the ssh banner on %s:%s "
                     "(a stale sshd listener after a package upgrade does this; restart it)" % (host, port)
                 )
-            raise ProbeError("not an ssh server on %s:%s: first line %r" % (host, port, banner[:40]))
-        ident = banner.strip().decode("ascii", "replace")
+            raise ProbeError("not an ssh server on %s:%s: first line %r" % (host, port, _printable(banner[:40])))
+        ident = _printable(banner.strip())
         try:
             sock.sendall(CLIENT_BANNER)
-            header = _read_exact(sock, 6)
+            header = _read_exact(sock, 6, deadline, host, port)
         except ConnectionResetError:
             raise ProbeError(
                 "connection reset after the banner (%s) before key exchange on %s:%s" % (ident, host, port)
