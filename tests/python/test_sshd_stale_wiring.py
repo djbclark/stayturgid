@@ -78,6 +78,14 @@ def test_role_no_longer_relies_on_a_hup_handler_after_the_upgrade():
     assert any(h["name"] == "reload sshd" for h in _load(ROLE / "handlers/main.yml"))
 
 
+def test_new_host_certificate_reloads_sshd():
+    # sshd loads HostCertificate at start: a re-signed cert copied to disk must reload the
+    # listener, or it keeps serving the old principals (m11, 2026-11-22).
+    tasks = _load(ROLE / "tasks/ca.yml")
+    assert _task(tasks, "Deploy signed host certificate to device").get("notify") == "reload sshd"
+    assert _task(tasks, "Ensure HostCertificate line in sshd_config").get("notify") == "reload sshd"
+
+
 def test_nightly_upgrade_restarts_in_always_and_probes_last_without_swallowing_failures():
     tasks = _load(PLAYBOOKS / "termux-pkg-upgrade.yml")[0]["tasks"]
     names = _names(tasks)

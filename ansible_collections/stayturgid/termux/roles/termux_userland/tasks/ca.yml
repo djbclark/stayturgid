@@ -92,6 +92,9 @@
   delegate_to: localhost
   when: _termux_home_stat.stat.exists
 
+# sshd reads HostCertificate only at start, so a new cert needs the reload too:
+# m11's re-signed cert (new principals) landed on disk while the listener kept
+# serving the old one (2026-11-22).
 - name: Deploy signed host certificate to device
   ansible.builtin.copy:
     content: "{{ _stg_hostcert_slurp.content | b64decode }}"
@@ -100,6 +103,7 @@
   when:
     - _termux_home_stat.stat.exists
     - not (_stg_hostcert_slurp.skipped | default(false))
+  notify: reload sshd
 
 - name: Ensure HostCertificate line in sshd_config
   ansible.builtin.lineinfile:
