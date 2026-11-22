@@ -44,25 +44,39 @@
       {{ ([inventory_hostname, ansible_host]
           + ([device_lan_ip] if device_lan_ip is defined
              and (device_lan_ip | string | trim | length) > 0 else []))
-         | join(',') }}
+         | map('string') | map('trim') | reject('equalto', '') | unique | join(',') }}
   when: _termux_home_stat.stat.exists
 
-# Re-signs whenever the cached cert is for another key. A reinstalled Termux has
-# new host keys; a `creates:` guard here kept deploying the old cert, and sshd
-# printed "No matching private key for certificate" (t2e, 2026-10-17).
+# Re-signs whenever the cached cert is for another key OR lists a different
+# principal set than the inventory wants now. A reinstalled Termux has new host
+# keys; a `creates:` guard here kept deploying the old cert, and sshd printed
+# "No matching private key for certificate" (t2e, 2026-10-17). A moved
+# ansible_host kept the old principals, so `ssh` printed "Certificate invalid:
+# name is not a listed principal" and fell back to known_hosts. Principal sets
+# are compared de-duplicated and order-insensitively.
 - name: Sign host key with CA (delegated to control node)
   ansible.builtin.shell:
     cmd: |
       set -eu
       pub={{ (stayturgid_ca_tmpdir ~ '/' ~ inventory_hostname ~ '_host_key.pub') | quote }}
       cert={{ (stayturgid_ca_tmpdir ~ '/' ~ inventory_hostname ~ '_host_key-cert.pub') | quote }}
+      principals={{ _stg_cert_principals_str | quote }}
       want=$(ssh-keygen -lf "$pub" | awk '{print $2}')
-      if [ -f "$cert" ] && [ "$(ssh-keygen -Lf "$cert" | awk '/Public key:/ {print $NF}')" = "$want" ]; then
-        exit 0
+      if [ -f "$cert" ]; then
+        listing=$(ssh-keygen -Lf "$cert" 2>/dev/null) || listing=
+        have=$(printf '%s\n' "$listing" | awk '/Public key:/ {print $NF}')
+        want_p=$(printf '%s\n' "$principals" | tr ',' '\n' | LC_ALL=C sort -u)
+        have_p=$(printf '%s\n' "$listing" | awk '
+          /^[ \t]*Principals:/ {p=1; next}
+          p && /^[ \t]*(Critical Options|Extensions):/ {p=0}
+          p {gsub(/^[ \t]+|[ \t]+$/, ""); if (length($0)) print}' | LC_ALL=C sort -u)
+        if [ "$have" = "$want" ] && [ "$have_p" = "$want_p" ]; then
+          exit 0
+        fi
       fi
       rm -f "$cert"
       ssh-keygen -s {{ (stayturgid_ca_key_path | default(lookup('env', 'HOME') ~ '/.ssh/stayturgid_ca')) | quote }} \
-        -I {{ inventory_hostname | quote }} -h -n {{ _stg_cert_principals_str | quote }} "$pub"
+        -I {{ inventory_hostname | quote }} -h -n "$principals" "$pub"
       echo signed
   register: _stg_ca_sign
   changed_when: "'signed' in _stg_ca_sign.stdout"
