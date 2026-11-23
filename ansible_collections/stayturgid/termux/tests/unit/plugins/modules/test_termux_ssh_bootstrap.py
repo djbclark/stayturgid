@@ -36,7 +36,7 @@ def run_module(mocker, args, cmd_results=None):
             return (0, "package:com.termux\n", "")
         if "authorized_keys" in joined and "cat" in joined:
             return (1, "", "")
-        if "pgrep -x sshd" in joined:
+        if tr.sshd_liveness_pattern() in joined:
             return (1, "", "")
         if "test -x" in joined and "sshd" in joined:
             return (0, "", "")

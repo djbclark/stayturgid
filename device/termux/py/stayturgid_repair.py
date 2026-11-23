@@ -235,9 +235,13 @@ def sshd_listening():
 
 
 def sshd_up():
-    if run(["pgrep", "-x", "sshd"])[0] == 0:
-        return True
-    if run(["pgrep", "-f", "[s]shd"])[0] == 0:
+    sv = os.path.join(PREFIX, "bin", "sv")
+    svc = os.path.join(PREFIX, "var", "service", "sshd")
+    if os.access(sv, os.X_OK):
+        rc, out = run([sv, "status", svc])
+        if rc == 0 and any(line.startswith("run:") for line in (out or "").splitlines()):
+            return True
+    if run(["pgrep", "-f", _shell_lib().sshd_liveness_pattern(PREFIX)])[0] == 0:
         return True
     return sshd_listening()
 

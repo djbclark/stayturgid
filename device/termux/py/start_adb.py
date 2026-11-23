@@ -10,6 +10,7 @@ Deploy to: ~/.termux/boot/start-adb.sh (compat shim) or call directly.
 """
 
 import os
+import re
 import shlex
 import signal
 import subprocess
@@ -291,6 +292,31 @@ def try_sv_up_sshd() -> bool:
         return False
 
 
+def _sshd_liveness_pattern() -> str:
+    if _sh is not None:
+        return _sh.sshd_liveness_pattern(PREFIX)
+    return "^(%s/bin/)?sshd( |$)" % re.sub(r"([\\.^$*+?()[\]{}|])", r"\\\1", PREFIX)
+
+
+def sshd_is_running() -> bool:
+    """True when the sshd listener is up (runit `run:` first, else listener cmdline, #341)."""
+    sv = os.path.join(PREFIX, "bin", "sv")
+    svc = os.path.join(PREFIX, "var", "service", "sshd")
+    if os.access(sv, os.X_OK):
+        try:
+            r = subprocess.run([sv, "status", svc], capture_output=True, text=True, timeout=5)
+            out = getattr(r, "stdout", "") or ""
+            if r.returncode == 0 and any(line.startswith("run:") for line in out.splitlines()):
+                return True
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    try:
+        r = subprocess.run(["pgrep", "-f", _sshd_liveness_pattern()], capture_output=True, text=True, timeout=5)
+        return r.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def startup_sshd() -> None:
     """Start sshd, removing a stale runsv/down file that silently blocks it."""
     down = os.path.join(PREFIX, "var", "service", "sshd", "down")
@@ -298,20 +324,12 @@ def startup_sshd() -> None:
         os.remove(down)
     except OSError:
         pass
-    try:
-        r = subprocess.run(
-            ["pgrep", "-x", "sshd"],
-            capture_output=True,
-            timeout=5,
-        )
-        if r.returncode != 0:
-            if try_sv_up_sshd():
-                _boot_log("sshd started under runit (sv up sshd)")
-            else:
-                _run_bg(["sshd"], log_path=None)
-                _boot_log("sshd started")
-    except (OSError, subprocess.TimeoutExpired):
-        pass
+    if not sshd_is_running():
+        if try_sv_up_sshd():
+            _boot_log("sshd started under runit (sv up sshd)")
+        else:
+            _run_bg(["sshd"], log_path=None)
+            _boot_log("sshd started")
 
 
 def startup_cfserverd() -> None:
@@ -491,7 +509,7 @@ def daemon_loop() -> None:
             _ensure_dirs()
             _rotate_logs()
 
-            if _run_repair_pass() is None and _run(["pgrep", "sshd"], capture_output=True) != 0:
+            if _run_repair_pass() is None and not sshd_is_running():
                 if not try_sv_up_sshd():
                     _run_bg(["sshd"])
 

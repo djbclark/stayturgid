@@ -35,13 +35,18 @@ bundle agent stayturgid_heal {
 
 # ── Individual check bundles ──────────────────────────────────────────────
 
-# pgrep -x on the process name: the OpenSSH 10 listener shows in ps as a bare
-# "sshd" (no path), so the old ".*bin/sshd.*" process promise never matched and
-# this reported RESTARTING on every run (seen 2026-09-30 on s24). -x also keeps
-# sshd-session children from counting as a live listener.
+# Prefer runit supervision (`sv status` reporting `run:`), falling back to a
+# cmdline match on the listener itself: after `sv hup`, OpenSSH re-execs under
+# its full path (`$(p)/bin/sshd -D -e`), which Termux's `pgrep -x sshd` misses
+# (#341), while bare `pgrep sshd` also matches `sshd-session` children.
+# No shell `$(...)`/`${...}` here — CFEngine's interpolation scanner eats them
+# inside returnszero() (see check_stayturgid_agent).
 bundle agent check_sshd(p) {
   classes:
-    "sshd_up" expression => returnszero("$(p)/bin/pgrep -x sshd >/dev/null 2>&1", "useshell");
+    "sshd_up" expression => returnszero(
+      "{ [ -x $(p)/bin/sv ] && $(p)/bin/sv status $(p)/var/service/sshd 2>/dev/null | $(p)/bin/grep -q '^run:'; } || $(p)/bin/pgrep -f '^($(p)/bin/)?sshd( |$)' >/dev/null 2>&1",
+      "useshell"
+    );
     "restart_sshd" not => "sshd_up";
 
   reports:

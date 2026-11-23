@@ -7,6 +7,7 @@ __metaclass__ = type
 
 import glob
 import os
+import re
 import shlex
 import subprocess
 import time
@@ -116,23 +117,47 @@ def install_openssh_shell(termux_sshd=TERMUX_SSHD):
     )
 
 
-def start_sshd_shell():
-    return (
-        TERMUX_ENV
-        + "set -e\n"
-        + "if ! pgrep -x sshd >/dev/null 2>&1; then\n"
-        + "  sshd\n"
-        + "fi\n"
-        + "pgrep -x sshd >/dev/null\n"
+def _ere_escape(text):
+    """Escape POSIX ERE metacharacters only (unlike re.escape, leaves '-'/' ' untouched)."""
+    return re.sub(r"([\\.^$*+?()[\]{}|])", r"\\\1", text)
+
+
+def sshd_liveness_pattern(prefix=TERMUX_PREFIX):
+    """POSIX ERE matching the sshd listener cmdline (bare or re-exec'd), not sshd-session."""
+    return "^(%s/bin/)?sshd( |$)" % _ere_escape(prefix)
+
+
+def sshd_liveness_cmd(prefix=TERMUX_PREFIX):
+    """One-line POSIX shell test: 0 when the sshd listener is up, non-zero otherwise (#341).
+
+    Prefers runit state (`sv status <prefix>/var/service/sshd` reporting `run:`),
+    falling back to `pgrep -f` on the listener's cmdline so both a bare `sshd`
+    and a SIGHUP re-exec'd `<prefix>/bin/sshd -D -e` match while `sshd-session`
+    and `sshd: user` children do not. Wrapped in `{ ...; }` so `if ! <cmd>`
+    negates the entire test rather than only the runit branch.
+    """
+    sv = shlex.quote(prefix + "/bin/sv")
+    svc = shlex.quote(prefix + "/var/service/sshd")
+    pat = shlex.quote(sshd_liveness_pattern(prefix))
+    return "{ { [ -x %s ] && %s status %s 2>/dev/null | grep -q '^run:'; } || pgrep -f %s >/dev/null 2>&1; }" % (
+        sv,
+        sv,
+        svc,
+        pat,
     )
+
+
+def start_sshd_shell(prefix=TERMUX_PREFIX):
+    check = sshd_liveness_cmd(prefix)
+    return TERMUX_ENV + "set -e\n" + "if ! %s; then\n" % check + "  sshd\n" + "fi\n" + "%s\n" % check
 
 
 def read_authorized_keys_shell():
     return TERMUX_ENV + 'cat "$HOME/.ssh/authorized_keys" 2>/dev/null || true\n'
 
 
-def sshd_running_shell():
-    return TERMUX_ENV + "pgrep -x sshd >/dev/null\n"
+def sshd_running_shell(prefix=TERMUX_PREFIX):
+    return TERMUX_ENV + sshd_liveness_cmd(prefix) + "\n"
 
 
 def openssh_installed_shell(termux_sshd=TERMUX_SSHD):

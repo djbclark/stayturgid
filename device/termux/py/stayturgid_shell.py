@@ -10,6 +10,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -427,6 +428,17 @@ def lib_paths():
             break
         repo = os.path.dirname(repo)
     return paths
+
+
+def _ere_escape(text: str) -> str:
+    """Escape POSIX ERE metacharacters only (unlike re.escape, leaves '-'/' ' untouched)."""
+    return re.sub(r"([\\.^$*+?()[\]{}|])", r"\\\1", text)
+
+
+def sshd_liveness_pattern(prefix: str | None = None) -> str:
+    """POSIX ERE matching the sshd listener cmdline (bare or re-exec'd), not sshd-session (#341)."""
+    p = PREFIX if prefix is None else prefix
+    return "^(%s/bin/)?sshd( |$)" % _ere_escape(p)
 
 
 def ensure_lib_path():
