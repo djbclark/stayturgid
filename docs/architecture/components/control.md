@@ -71,7 +71,8 @@ silently falling back to a misleading success state.
 ## Standalone ADB keepalive
 
 ```bash
-# One-shot reconnect (conf-driven alias):
+# One-shot reconnect (all devices in devices.conf, or a single alias):
+python3 control/bin/adb_reconnect.py
 python3 control/bin/adb_reconnect.py oneui-device
 
 # Install launchd agents + Homebrew prereqs from inventory:
@@ -89,14 +90,14 @@ Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.c
 
 **Launchd agents** (`just deploy-mac` / `ansible/playbooks/control_node/site.yml`):
 
-| Agent                                 | Interval    | Log                                                          |
-| ------------------------------------- | ----------- | ------------------------------------------------------------ |
-| `com.stayturgid.adb-reconnect-<host>` | 60 s        | `adb-reconnect.log`                                          |
-| `com.stayturgid.access-monitor`       | 300 s       | `access-monitor.log` (reachability)                          |
-| `com.stayturgid.fleet-health`         | 300 s       | `fleet-health.log` (soft health)                             |
-| `com.stayturgid.fire-help`            | 300 s       | `fire-help.log` (Fire Shizuku/Handsets)                      |
-| `com.stayturgid.termux-pkg-nightly`   | daily 04:15 | `termux-pkg-nightly.log` (`pkg update`/`upgrade` all hosts)  |
-| `com.stayturgid.hermes-gateway`       | KeepAlive   | Hermes Agent Telegram gateway → `~/.hermes/logs/gateway.log` |
+| Agent                               | Interval    | Log                                                          |
+| ----------------------------------- | ----------- | ------------------------------------------------------------ |
+| `com.stayturgid.adb-reconnect`      | 300 s       | `adb-reconnect.log` (all devices in `devices.conf`)          |
+| `com.stayturgid.access-monitor`     | 300 s       | `access-monitor.log` (reachability; opportunistic default)   |
+| `com.stayturgid.fleet-health`       | 300 s       | `fleet-health.log` (soft health)                             |
+| `com.stayturgid.fire-help`          | 300 s       | `fire-help.log` (Fire Shizuku/Handsets)                      |
+| `com.stayturgid.termux-pkg-nightly` | daily 04:15 | `termux-pkg-nightly.log` (`pkg update`/`upgrade` all hosts)  |
+| `com.stayturgid.hermes-gateway`     | KeepAlive   | Hermes Agent Telegram gateway → `~/.hermes/logs/gateway.log` |
 
 `com.stayturgid.gui-audit` is **not** installed while app stores are parked.
 
