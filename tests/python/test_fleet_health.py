@@ -1447,3 +1447,61 @@ def test_module_docstring_advertises_stuck_prompt_heal():
     head = (REPO / "control" / "bin" / "fleet_health_monitor.py").read_text()
     assert "prompt currently pending, skipping" in head
     assert "detached" in head
+
+
+def _stub_sshd_tasker_env(tmp_path, monkeypatch):
+    import types
+
+    monkeypatch.setattr(fhm, "SSHD_RECOVER_HEAL_STATE_DIR", str(tmp_path / "sshd-heal"))
+    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", False)
+    monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
+    logs: list[str] = []
+    monkeypatch.setattr(fhm, "_fleet_log", lambda _lvl, msg: logs.append(msg))
+    events: list[tuple] = []
+    monkeypatch.setattr(fhm, "_stats_event", lambda *a, **k: events.append((a, k)))
+    calls: list[tuple] = []
+
+    def fake_adb(*args, **kwargs):
+        calls.append(args)
+        return types.SimpleNamespace(returncode=0, stdout="Broadcast completed: result=0", stderr="")
+
+    monkeypatch.setitem(sys.modules, "adb_cli", types.SimpleNamespace(adb=fake_adb))
+    return calls, logs, events
+
+
+@pytest.mark.parametrize("tailscale_state", ["down", "failed"])
+def test_sshd_tasker_skips_adb_fallback_when_tailscale_down(tmp_path, monkeypatch, tailscale_state):
+    calls, logs, events = _stub_sshd_tasker_env(tmp_path, monkeypatch)
+    fhm.maybe_heal_sshd_via_tasker(
+        "fireos-device",
+        "adb:192.0.2.10:5555",
+        {"ssh_echo": "skip", "sshd": "unknown", "tailscale": tailscale_state},
+        "192.0.2.10:5555",
+    )
+    assert calls == []
+    assert events == []
+    assert any(f"tailscale={tailscale_state}" in m for m in logs)
+
+
+def test_sshd_tasker_still_fires_when_sshd_explicitly_down_and_tailscale_down(tmp_path, monkeypatch):
+    calls, _logs, events = _stub_sshd_tasker_env(tmp_path, monkeypatch)
+    fhm.maybe_heal_sshd_via_tasker(
+        "fireos-device",
+        "adb:192.0.2.10:5555",
+        {"ssh_echo": "skip", "sshd": "down", "tailscale": "down"},
+        "192.0.2.10:5555",
+    )
+    assert len(calls) == 1
+    assert len(events) == 1
+
+
+def test_sshd_tasker_still_fires_on_adb_fallback_when_tailscale_up(tmp_path, monkeypatch):
+    calls, _logs, events = _stub_sshd_tasker_env(tmp_path, monkeypatch)
+    fhm.maybe_heal_sshd_via_tasker(
+        "stock-android-device",
+        "adb:192.0.2.11:5555",
+        {"ssh_echo": "skip", "sshd": "unknown", "tailscale": "up"},
+        "192.0.2.11:5555",
+    )
+    assert len(calls) == 1
+    assert len(events) == 1

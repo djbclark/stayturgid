@@ -663,15 +663,21 @@ def maybe_heal_sshd_via_tasker(name: str, path: str, report: dict, target: str |
     """SSHD-RUNNING: fire the Tasker SSHD_RECOVER broadcast during a real outage.
 
     Runs when SSH failed but adb answered (adb_health's ssh_echo=skip) or the
-    probe saw sshd down. That broadcast is the one recovery that still works
-    after a GID-kill behind a locked keyguard, and without this nothing sends
-    it except the weekly self-test, which needs a healthy phone. Never raises.
+    probe saw sshd down. Skips the ADB-fallback trigger when Tailscale is down
+    (unless sshd is explicitly reported down), because an unreachable Tailscale
+    tunnel explains ssh_echo=skip without sshd being dead. That broadcast is
+    the one recovery that still works after a GID-kill behind a locked
+    keyguard, and without this nothing sends it except the weekly self-test,
+    which needs a healthy phone. Never raises.
     """
     if SKIP_WATCHDOG_HEAL or SKIP_HEALTH:
         return
     try:
         adb_fallback = path.startswith("adb:") and report.get("ssh_echo") == "skip"
         if not adb_fallback and report.get("sshd") != "down":
+            return
+        if report.get("sshd") != "down" and (report.get("tailscale") or "").lower() in ("down", "failed"):
+            _fleet_log(INFO, "%s sshd-recover broadcast skipped (tailscale=%s)" % (name, report.get("tailscale")))
             return
         serial = path.split(":", 1)[1] if path.startswith("adb:") else target
         if not serial:
