@@ -61,7 +61,8 @@ class FakePhone:
 def env(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
     conf.write_text(
-        "s24 %s 100.0.0.11 192.0.2.5 Galaxy S24 -\nhd8 FIRE-SERIAL 100.0.0.13 - Kindle Fire HD 8 -\n" % SERIAL
+        "oneui-device %s 100.0.0.11 192.0.2.5 OneUI Phone -\n"
+        "fireos-device FIRE-SERIAL 100.0.0.13 - Fire Tablet - usb_heal=false\n" % SERIAL
     )
     monkeypatch.setattr(uh, "STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setattr(uh, "_log", lambda level, msg: None)
@@ -69,7 +70,7 @@ def env(tmp_path, monkeypatch):
     return {"conf": str(conf), "notices": notices, "notify": lambda t, m: notices.append(m)}
 
 
-def run_pass(env, phone, alias="s24", dry_run=False):
+def run_pass(env, phone, alias="oneui-device", dry_run=False):
     return uh.heal_alias(
         alias, dry_run=dry_run, run=phone, conf=env["conf"], notify=env["notify"], sleep=lambda s: None
     )
@@ -112,19 +113,19 @@ def test_parse_listening():
     ],
 )
 def test_decide(usb, listening, status, cool, action):
-    assert uh.decide("s24", "Galaxy S24", usb, listening, status, cool).action == action
+    assert uh.decide("oneui-device", "OneUI Phone", usb, listening, status, cool).action == action
 
 
 def test_decide_steps():
-    d = uh.decide("s24", "Galaxy S24", "device", False, "RUNNING (x)", True)
+    d = uh.decide("oneui-device", "OneUI Phone", "device", False, "RUNNING (x)", True)
     assert (d.tcpip, d.start) == (True, False)
-    d = uh.decide("s24", "Galaxy S24", "device", True, "CRASHED", True)
+    d = uh.decide("oneui-device", "OneUI Phone", "device", True, "CRASHED", True)
     assert (d.tcpip, d.start) == (False, True)
 
 
-def test_decide_excludes_hd8_and_fire_labels():
-    assert uh.decide("hd8", "x", "device", False, "", True).action == "skip"
-    assert uh.decide("tablet", "Kindle Fire HD 8", "device", False, "", True).action == "skip"
+def test_decide_respects_usb_heal_flag():
+    assert uh.decide("fireos-device", "Fire Tablet", "device", False, "", True, usb_heal=False).action == "skip"
+    assert uh.decide("fireos-device", "Fire Tablet", "device", False, "", True, usb_heal=True).action == "heal"
 
 
 # ---- full passes with a fake phone ------------------------------------------------------
@@ -151,9 +152,9 @@ def test_unauthorized_never_touched(env):
     assert phone.calls == [["devices"]]
 
 
-def test_hd8_never_touched(env):
+def test_usb_heal_false_never_touched(env):
     phone = FakePhone()
-    assert "excluded" in run_pass(env, phone, alias="hd8")
+    assert "excluded" in run_pass(env, phone, alias="fireos-device")
     assert phone.calls == []
 
 
@@ -162,7 +163,7 @@ def test_dry_run_changes_nothing(env):
     out = run_pass(env, phone, dry_run=True)
     assert "would run: tcpip 5555, HEADLESS_START, connect" in out
     assert not phone.did("tcpip") and not phone.did(uh.START_ACTION)
-    assert not os.path.exists(os.path.join(uh.STATE_DIR, "s24"))
+    assert not os.path.exists(os.path.join(uh.STATE_DIR, "oneui-device"))
 
 
 def test_full_heal_this_mornings_case(env):
@@ -224,7 +225,7 @@ def test_run_alias_honours_skip_env(env, monkeypatch):
     called = []
     monkeypatch.setattr(uh, "heal_alias", lambda alias: called.append(alias))
     monkeypatch.setenv(uh.SKIP_ENV, "1")
-    uh.run_alias("s24")
+    uh.run_alias("oneui-device")
     monkeypatch.delenv(uh.SKIP_ENV)
-    uh.run_alias("s24")
-    assert called == ["s24"]
+    uh.run_alias("oneui-device")
+    assert called == ["oneui-device"]

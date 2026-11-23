@@ -348,11 +348,18 @@ _ALLOW_LINE_RE = re.compile(
 
 
 def check_secrets(inventory_path: Path) -> list[dict]:
-    """Scan the inventory YAML for secret-shaped strings.
+    """Scan an inventory YAML file or directory for secret-shaped strings.
 
     Returns a list of finding dicts: {file, line, excerpt}
     """
-    findings: list[dict] = []
+    if inventory_path.is_dir():
+        findings: list[dict] = []
+        for child in sorted(inventory_path.rglob("*")):
+            if child.is_file() and child.suffix in {".yml", ".yaml"}:
+                findings.extend(check_secrets(child))
+        return findings
+
+    findings = []
     try:
         text = inventory_path.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
@@ -477,7 +484,8 @@ def main() -> int:
 
     # ---- Resolve inventory via shared Ansible context ----
     try:
-        inventory_path = si.resolve_inventory_path(repo_root=root)
+        inventory_paths = si.resolve_inventory_paths(repo_root=root)
+        inventory_path = inventory_paths[-1]
     except FileNotFoundError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         if args.warn_only:
@@ -489,7 +497,7 @@ def main() -> int:
     try:
         site = si.load_site_identity(
             force_refresh=args.force_refresh,
-            inventory_path=inventory_path,
+            repo_root=root,
         )
     except FileNotFoundError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -543,7 +551,8 @@ def main() -> int:
             exit_code = 1
 
     if args.check_secrets:
-        secret_findings = check_secrets(inventory_path)
+        for p in inventory_paths:
+            secret_findings.extend(check_secrets(p))
         if secret_findings:
             exit_code = 1
 

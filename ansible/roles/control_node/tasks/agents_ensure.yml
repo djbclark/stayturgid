@@ -30,7 +30,6 @@
     _mac_launchd_ensure_services: >-
       {{
         _core_launchd_agents
-        + _adb_launchd_agents
         + _termux_pkg_nightly_agents
         + _hermes_gateway_agents
         + _opencode_web_agents
@@ -40,6 +39,8 @@
       }}
   vars:
     _core_launchd_agents:
+      - name: com.stayturgid.adb-reconnect
+        plist: "{{ agents_dir }}/com.stayturgid.adb-reconnect.plist"
       - name: com.stayturgid.access-monitor
         plist: "{{ agents_dir }}/com.stayturgid.access-monitor.plist"
       - name: com.stayturgid.fleet-health
@@ -116,12 +117,6 @@
           'plist': agents_dir ~ '/com.stayturgid.termux-pkg-nightly.plist'
         }] if (stayturgid_termux_pkg_nightly_enabled | default(true) | bool) else []
       }}
-    _adb_launchd_agents: "{{ _adb_launchd_agents_yaml | from_yaml | default([], true) }}"
-    _adb_launchd_agents_yaml: |
-      {% for h in groups.get('stayturgid', []) %}
-      - name: com.stayturgid.adb-reconnect-{{ h }}
-        plist: {{ agents_dir }}/com.stayturgid.adb-reconnect-{{ h }}.plist
-      {% endfor %}
 
 - name: Ensure Mac launchd agents are loaded and healthy
   ansible.builtin.include_tasks: launchd_ensure.yml

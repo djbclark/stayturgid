@@ -30,6 +30,7 @@ for _p in (_REPO, _LIB):
         sys.path.insert(0, _p)
 import control.lib.hermes_notify as hermes_notify
 from control.lib.site_logging import (
+    INFO,
     NOTICE,
     WARNING,
     log,
@@ -147,11 +148,24 @@ def write_state(state_file, n):
         pass
 
 
-def check_device(name, ts_ip, lan_ip):
+def _alert_on_offline(name: str) -> bool:
+    """Devices are opportunistic by default; alert on offline only when opted in."""
+    try:
+        from stayturgid_device import device_flag_bool
+
+        return device_flag_bool(name, "alert_on_offline", default=False, conf_path=CONF)
+    except Exception:
+        return False
+
+
+def check_device(name, ts_ip, lan_ip, *, alert_on_offline: bool | None = None):
     addrs = []
     if lan_ip != "-":
         addrs.append("%s:5555" % lan_ip)
     addrs.append("%s:5555" % ts_ip)
+
+    if alert_on_offline is None:
+        alert_on_offline = _alert_on_offline(name)
 
     state_file = os.path.join(STATE_DIR, name)
     fails = read_state(state_file)
@@ -163,18 +177,25 @@ def check_device(name, ts_ip, lan_ip):
     if ok:
         if fails >= CONSECUTIVE_LIMIT:
             _access_log(NOTICE, "%s RECOVERED via %s" % (name, ok))
-            notify("stayturgid access", "%s reachable again (%s)" % (name, ok))
+            if alert_on_offline:
+                notify("stayturgid access", "%s reachable again (%s)" % (name, ok))
             if stats:
                 stats.record_event("device_status", name, status="online")
         write_state(state_file, 0)
     else:
         fails += 1
         write_state(state_file, fails)
-        _access_log(WARNING, "%s unreachable on all paths (consecutive: %d)" % (name, fails))
+        if alert_on_offline:
+            _access_log(WARNING, "%s unreachable on all paths (consecutive: %d)" % (name, fails))
+        else:
+            _access_log(INFO, "%s offline/unreachable (opportunistic; consecutive: %d)" % (name, fails))
         if fails == CONSECUTIVE_LIMIT:
-            notify(
-                "stayturgid access LOST", "%s unreachable on ALL paths (ADB + SSH) for ~10 min" % name, sound="Basso"
-            )
+            if alert_on_offline:
+                notify(
+                    "stayturgid access LOST",
+                    "%s unreachable on ALL paths (ADB + SSH) for ~10 min" % name,
+                    sound="Basso",
+                )
             if stats:
                 stats.record_event("device_status", name, status="offline")
 

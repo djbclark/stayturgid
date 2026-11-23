@@ -266,11 +266,13 @@ def _parse_inventory(data: dict) -> Site:
 # ---------------------------------------------------------------------------
 
 
-def _write_cache(site: Site, inventory_path: Path) -> None:
+def _write_cache(site: Site, inventory_paths: tuple[Path, ...]) -> None:
     try:
         _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        resolved = [str(p.resolve()) for p in inventory_paths]
         payload = {
-            "inventory_path": str(inventory_path.resolve()),
+            "inventory_path": resolved[-1],
+            "inventory_paths": resolved,
             "telegram_allowed_users": list(site.telegram_allowed_users),
             "telegram_home_channel": site.telegram_home_channel,
             "devices": {alias: asdict(dev) for alias, dev in site.devices.items()},
@@ -282,12 +284,18 @@ def _write_cache(site: Site, inventory_path: Path) -> None:
         pass
 
 
-def _read_cache(expected_inventory: Path) -> Site | None:
+def _read_cache(expected_inventories: tuple[Path, ...]) -> Site | None:
     try:
         payload = json.loads(_CACHE_FILE.read_text(encoding="utf-8"))
-        cached_path = payload.get("inventory_path")
-        if cached_path is None or Path(cached_path).resolve() != expected_inventory.resolve():
-            return None
+        expected = [str(p.resolve()) for p in expected_inventories]
+        cached_paths = payload.get("inventory_paths")
+        if cached_paths is not None:
+            if [str(Path(p).resolve()) for p in cached_paths] != expected:
+                return None
+        else:
+            cached_path = payload.get("inventory_path")
+            if cached_path is None or len(expected) != 1 or str(Path(cached_path).resolve()) != expected[0]:
+                return None
         devices = {alias: Device(**dev) for alias, dev in payload["devices"].items()}
         control_node = ControlNode(**payload["control_node"])
         return Site(
@@ -300,12 +308,24 @@ def _read_cache(expected_inventory: Path) -> Site | None:
         return None
 
 
-def _cache_fresh(hosts_yml: Path) -> bool:
-    """Return True if the cache is newer than the inventory source file."""
+def _newest_mtime(paths: tuple[Path, ...]) -> float:
+    newest = 0.0
+    for path in paths:
+        newest = max(newest, path.stat().st_mtime)
+        if path.is_dir():
+            for child in path.rglob("*"):
+                if child.is_file() or child.is_dir():
+                    newest = max(newest, child.stat().st_mtime)
+    return newest
+
+
+def _cache_fresh(inventory_paths: Path | tuple[Path, ...]) -> bool:
+    """Return True if the cache is newer than every inventory source file/dir."""
     if not _CACHE_FILE.is_file():
         return False
+    paths = (inventory_paths,) if isinstance(inventory_paths, Path) else inventory_paths
     try:
-        return _CACHE_FILE.stat().st_mtime > hosts_yml.stat().st_mtime
+        return _CACHE_FILE.stat().st_mtime > _newest_mtime(paths)
     except OSError:
         return False
 
@@ -315,28 +335,14 @@ def _cache_fresh(hosts_yml: Path) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def resolve_inventory_path(
+def resolve_inventory_paths(
     repo_root: Path | None = None,
     environ: Mapping[str, str] | None = None,
     inventory_path: Path | None = None,
-) -> Path:
-    """Return the inventory file used for identity loading.
-
-    Order:
-    1. Explicit ``inventory_path`` argument (tests / callers).
-    2. Inventory from :func:`ansible_context.resolve_ansible_context`.
-    3. When resolution fails without an explicit ``ANSIBLE_CONFIG``, the
-       committed generic example (``ansible/inventory/hosts.yml.example``),
-       which is always present on a fresh clone.  Ansible only auto-detects
-       ``.yml``; the example is materialised to a temporary path by the loader
-       when needed.
-
-    An explicitly supplied ``ANSIBLE_CONFIG`` is authoritative: any error it
-    produces (unreadable file, missing inventory) is fatal rather than a
-    silent downgrade to generic fixtures.
-    """
+) -> tuple[Path, ...]:
+    """Return all inventory paths (files or directories) used for identity loading."""
     if inventory_path is not None:
-        return inventory_path
+        return (inventory_path,)
 
     env = os.environ if environ is None else environ
     explicit_config = env.get("ANSIBLE_CONFIG", "").strip()
@@ -344,8 +350,9 @@ def resolve_inventory_path(
     root = repo_root if repo_root is not None else _find_repo_root()
     try:
         context = ac.resolve_ansible_context(root, environ)
-        if context.inventory.is_file():
-            return context.inventory
+        existing = tuple(p for p in context.inventory_paths if p.exists())
+        if existing and context.inventory.exists():
+            return existing
         if explicit_config:
             raise ac.AnsibleConfigError(
                 f"ANSIBLE_CONFIG {context.config} selects a missing inventory: {context.inventory}"
@@ -356,11 +363,24 @@ def resolve_inventory_path(
 
     example = root / "ansible" / "inventory" / "hosts.yml.example"
     if example.is_file():
-        return example
+        return (example,)
     raise FileNotFoundError(
         "No inventory available: set ANSIBLE_CONFIG or STAYTURGID_SITE_DIR, "
         "configure OPS_ROOT/.mysite, or ensure ansible/inventory/hosts.yml.example exists"
     )
+
+
+def resolve_inventory_path(
+    repo_root: Path | None = None,
+    environ: Mapping[str, str] | None = None,
+    inventory_path: Path | None = None,
+) -> Path:
+    """Return the primary (last-precedence) inventory path used for identity loading."""
+    return resolve_inventory_paths(
+        repo_root=repo_root,
+        environ=environ,
+        inventory_path=inventory_path,
+    )[-1]
 
 
 def _ansible_listable_path(inventory_path: Path, tmp_dir: Path | None = None) -> Path:
@@ -419,30 +439,33 @@ def load_site_identity(
         ValueError: If the inventory fails schema validation.
     """
     root = repo_root if repo_root is not None else _find_repo_root()
-    inventory_path = resolve_inventory_path(
+    inventory_paths = resolve_inventory_paths(
         repo_root=root,
         environ=environ,
         inventory_path=inventory_path,
     )
 
-    if not inventory_path.is_file():
-        raise FileNotFoundError(f"Authoritative inventory not found at: {inventory_path}")
+    for p in inventory_paths:
+        if not p.exists():
+            raise FileNotFoundError(f"Authoritative inventory not found at: {p}")
 
-    # Serve from cache when fresh for this inventory path
-    if not force_refresh and _cache_fresh(inventory_path):
-        cached = _read_cache(inventory_path)
+    # Serve from cache when fresh for this inventory stack
+    if not force_refresh and _cache_fresh(inventory_paths):
+        cached = _read_cache(inventory_paths)
         if cached is not None:
             return cached
 
-    listable = _ansible_listable_path(inventory_path)
+    listables = tuple(_ansible_listable_path(p) for p in inventory_paths)
+    inv_args = [arg for p in listables for arg in ("-i", str(p))]
+    work_dir = listables[-1] if listables[-1].is_dir() else listables[-1].parent
 
     # Export inventory to JSON via ansible-inventory
     result = subprocess.run(
-        ["ansible-inventory", "-i", str(listable), "--list"],
+        ["ansible-inventory", *inv_args, "--list"],
         capture_output=True,
         text=True,
         check=False,
-        cwd=str(listable.parent),
+        cwd=str(work_dir),
     )
     if result.returncode != 0:
         raise RuntimeError(f"ansible-inventory failed:\nstdout: {result.stdout}\nstderr: {result.stderr}")
@@ -455,5 +478,5 @@ def load_site_identity(
         ) from exc
 
     site = _parse_inventory(inventory_data)
-    _write_cache(site, inventory_path)
+    _write_cache(site, inventory_paths)
     return site

@@ -20,7 +20,8 @@ Safety rules (operator, 2026-10-06):
   * acts only on a serial that ``adb devices`` lists as ``device``; an
     ``unauthorized``/``offline`` serial is never touched;
   * never taps, accepts or dismisses a dialog, never writes adb_keys;
-  * never touches hd8 (the operator's own deploys) or any Fire OS row;
+  * skips any device whose site config sets ``device_usb_heal: false``
+    (emitted as ``usb_heal=false`` in ``devices.conf``);
   * at most one heal attempt per phone per 10 min, every attempt logged to
     ~/.config/stayturgid/logs/usb-shizuku-heal.log;
   * one Hermes notice per successful heal, one per run of failures.
@@ -59,9 +60,6 @@ PORT = 5555
 COOLDOWN_SEC = 10 * 60
 # A failure notice repeats at most this often while failures continue.
 FAIL_RENOTIFY_SEC = 6 * 60 * 60
-# hd8 deploys are the operator's own (2026-10-06): never act on it.
-EXCLUDED_ALIASES = frozenset({"hd8", "fireos-device"})
-EXCLUDED_LABEL_WORDS = ("fire", "kindle")
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 STATE_DIR = os.path.join(ROOT, "state", "usb-shizuku-heal")
 LOG_NAME = "usb-shizuku-heal.log"
@@ -120,9 +118,9 @@ def parse_listening(rc: int, text: str) -> bool | None:
     return False
 
 
-def excluded(alias: str, label: str) -> bool:
-    low = (label or "").lower()
-    return alias in EXCLUDED_ALIASES or any(w in low for w in EXCLUDED_LABEL_WORDS)
+def excluded(alias: str, label: str = "", *, usb_heal: bool = True) -> bool:
+    """True when site config disabled USB auto-heal for this device (``usb_heal=false``)."""
+    return not usb_heal
 
 
 @dataclass
@@ -140,9 +138,11 @@ def decide(
     listening: bool | None,
     status: str | None,
     cooldown_ok: bool,
+    *,
+    usb_heal: bool = True,
 ) -> Decision:
-    if excluded(alias, label):
-        return Decision("skip", "excluded (operator-managed device)")
+    if excluded(alias, label, usb_heal=usb_heal):
+        return Decision("skip", "excluded (usb_heal=false in site config)")
     if usb_state is None:
         return Decision("none", "not on USB")
     if usb_state != "device":
@@ -303,8 +303,9 @@ def heal_alias(
     if row is None:
         return "%s: not in devices.conf" % alias
     serial, ts_ip, label = row
-    if excluded(alias, label):
-        return "%s: skip: excluded (operator-managed device)" % alias
+    usb_heal_enabled = dev.device_flag_bool(alias, "usb_heal", default=True, conf_path=conf)
+    if excluded(alias, label, usb_heal=usb_heal_enabled):
+        return "%s: skip: excluded (usb_heal=false in site config)" % alias
     if serial in ("", "-"):
         return "%s: none: no USB serial in devices.conf" % alias
 
@@ -313,7 +314,7 @@ def heal_alias(
     if state == "device":
         listening = probe_listening(run, serial)
         status = probe_status(run, serial)
-    d = decide(alias, label, state, listening, status, cooldown_ok(alias))
+    d = decide(alias, label, state, listening, status, cooldown_ok(alias), usb_heal=usb_heal_enabled)
     summary = "%s (%s): %s: %s" % (alias, serial, d.action, d.reason)
     if d.action == "none":
         if state == "device" and not dry_run:

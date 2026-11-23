@@ -89,3 +89,30 @@ def test_main_caches_successful_non_mdns(tmp_path, monkeypatch):
     assert rc == 0
     cache = os.path.join(str(tmp_path), ".config", "stayturgid", "state", "device_ip_RFCX")
     assert open(cache).read() == "192.0.2.99:5555", "new address cached after DHCP move"
+
+
+def test_main_unreachable_exits_zero_opportunistically(tmp_path, monkeypatch):
+    conf = tmp_path / "devices.conf"
+    conf.write_text("oneui-device RFCX 100.0.0.11 192.0.2.55\n")
+    monkeypatch.setattr(ar, "CONF", str(conf))
+    monkeypatch.setattr(ar, "ROOT", str(tmp_path / ".config" / "stayturgid"))
+    monkeypatch.setattr(os.path, "exists", lambda p: p == ar.ADB)
+    monkeypatch.setattr(ar, "trim_log", lambda *a, **k: None)
+    monkeypatch.setattr(ar, "is_connected", lambda addr: False)
+    monkeypatch.setattr(ar, "discover_lan_ip", lambda s: None)
+    monkeypatch.setattr(ar, "discover_mdns", lambda s: None)
+    monkeypatch.setattr(ar, "log", lambda *a: None)
+    monkeypatch.setattr(ar, "adb", lambda a, timeout=15: type("R", (), {"stdout": "unable to connect"})())
+    assert ar.main(["oneui-device"]) == 0
+
+
+def test_main_no_args_iterates_all_devices(tmp_path, monkeypatch):
+    conf = tmp_path / "devices.conf"
+    conf.write_text("oneui-device USB1 100.0.0.11 -\nstock-android-device USB2 100.0.0.12 -\n")
+    monkeypatch.setattr(ar, "CONF", str(conf))
+    monkeypatch.setattr(os.path, "exists", lambda p: p == ar.ADB)
+    monkeypatch.setattr(ar, "trim_log", lambda *a, **k: None)
+    seen = []
+    monkeypatch.setattr(ar, "_reconnect_one", lambda argv: seen.append(argv) or 0)
+    assert ar.main([]) == 0
+    assert seen == [["oneui-device"], ["stock-android-device"]]

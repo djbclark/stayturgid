@@ -12,8 +12,9 @@ that behave identically on macOS and Linux.
 In alias mode it first runs usb_shizuku_heal.py for the phone (a no-op unless
 the phone is on USB as an authorised device with 5555 closed or Shizuku down).
 
-Usage: adb_reconnect.py <alias>                       (conf-driven, preferred)
-       adb_reconnect.py <serial> <ip:port> [ts:port]  (legacy positional)
+Usage: adb_reconnect.py [--all]                        (fleet-wide from devices.conf)
+       adb_reconnect.py <alias>                        (single alias from devices.conf)
+       adb_reconnect.py <serial> <ip:port> [ts:port]   (legacy positional)
 
 Candidates, tried in order:
   1. last known-good address (cached per serial)
@@ -205,16 +206,30 @@ def usb_heal(alias):
         log(alias, "usb heal error: %s" % e)
 
 
-def main(argv=None):
-    argv = argv if argv is not None else sys.argv[1:]
-    if not os.path.exists(ADB):
-        return 1
+def _all_aliases(conf_path: str) -> list[str]:
+    try:
+        from stayturgid_device import iter_devices_conf
+
+        return [row[0] for row in iter_devices_conf(conf_path)]
+    except Exception:
+        aliases = []
+        try:
+            with open(conf_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        aliases.append(line.split()[0])
+        except OSError:
+            pass
+        return aliases
+
+
+def _reconnect_one(argv) -> int:
     serial, default_ip, tailscale_ip = resolve_target(argv)
     row = device_row(argv[0], CONF) if len(argv) == 1 else None
     expected = row[0] if row else argv[0]  # legacy positional mode: the serial given is the identity
 
     device_file = os.path.join(ROOT, "state", "device_ip_%s" % serial)
-    trim_log()
     if len(argv) == 1:
         usb_heal(argv[0])
 
@@ -249,9 +264,21 @@ def main(argv=None):
             notify("Reconnected %s" % addr)
             return 0
 
-    # No notification on failure: access_monitor.py owns outage alerting.
-    log(serial, "unreachable on all candidates")
-    return 1
+    # Opportunistic: a purposefully-off device is not a failure state.
+    log(serial, "unreachable on all candidates (opportunistic; skipping)")
+    return 0
+
+
+def main(argv=None):
+    argv = argv if argv is not None else sys.argv[1:]
+    if not os.path.exists(ADB):
+        return 1
+    trim_log()
+    if not argv or argv == ["--all"]:
+        for alias in _all_aliases(CONF):
+            _reconnect_one([alias])
+        return 0
+    return _reconnect_one(argv)
 
 
 if __name__ == "__main__":

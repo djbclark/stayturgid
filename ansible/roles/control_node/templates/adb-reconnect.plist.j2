@@ -3,13 +3,12 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.stayturgid.adb-reconnect-{{ item }}</string>
+    <string>com.stayturgid.adb-reconnect</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/env</string>
         <string>python3</string>
         <string>{{ stayturgid_repo_root | realpath }}/control/bin/adb_reconnect.py</string>
-        <string>{{ item }}</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
@@ -18,9 +17,8 @@
         <key>STAYTURGID_ADB</key>
         <string>/opt/homebrew/bin/adb</string>
     </dict>
-    <!-- 60 -> 300 on 2026-09-26: four of these jobs fired every minute (5,760 spawns/day)
-         on a 16 GB laptop already at load ~70 and 11 GB swap. adb sessions over Tailscale
-         survive minutes of gap; a 5-minute reconnect is the right trade. -->
+    <!-- Single fleet-wide opportunistic loop over devices.conf every 5 minutes:
+         adding or removing a device needs no plist churn or per-host launchctl state. -->
     <key>StartInterval</key>
     <integer>300</integer>
     <key>RunAtLoad</key>

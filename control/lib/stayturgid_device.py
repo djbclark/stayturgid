@@ -113,6 +113,52 @@ def iter_monitor_hosts(conf_path=None):
         yield name, ts_ip, lan
 
 
+_FLAG_TOKEN_RE = re.compile(r"^[a-z][a-z0-9_]*=[^ ]+$")
+_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+_FALSE_VALUES = frozenset({"0", "false", "no", "off"})
+
+
+def device_flags(alias, conf_path=None) -> dict[str, str]:
+    """Return trailing ``key=value`` policy flags for ``alias`` from devices.conf.
+
+    Flags are optional trailing tokens after column 4 (v4 schema), e.g.
+    ``alert_on_offline=true`` or ``usb_heal=false``. v3 rows with no flags
+    return an empty dict.
+    """
+    conf_path = conf_path or DEVICES_CONF
+    flags: dict[str, str] = {}
+    try:
+        with open(conf_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split()
+                if len(parts) < 3 or parts[0] != alias:
+                    continue
+                for tok in parts[4:]:
+                    if _FLAG_TOKEN_RE.match(tok):
+                        k, v = tok.split("=", 1)
+                        flags[k] = v
+                return flags
+    except OSError:
+        pass
+    return flags
+
+
+def device_flag_bool(alias, key: str, default: bool, conf_path=None) -> bool:
+    """Boolean policy flag for ``alias`` from devices.conf, falling back to ``default``."""
+    raw = device_flags(alias, conf_path).get(key)
+    if raw is None:
+        return default
+    low = raw.strip().lower()
+    if low in _TRUE_VALUES:
+        return True
+    if low in _FALSE_VALUES:
+        return False
+    return default
+
+
 def device_row(alias, conf_path=None):
     """alias -> (usb_serial, tailscale_ip, lan_ip) from devices.conf, or None."""
     conf_path = conf_path or DEVICES_CONF

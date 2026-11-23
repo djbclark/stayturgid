@@ -30,3 +30,21 @@ def test_alias_for_host_reverse_lookup(tmp_path):
     assert sd.alias_for_host("192.1", str(conf)) == "oneui-device"
     assert sd.alias_for_host("100.2", str(conf)) == "stock-android-device"
     assert sd.alias_for_host("9.9.9.9", str(conf)) is None
+
+
+def test_device_flags_and_bool_defaults(tmp_path):
+    conf = tmp_path / "devices.conf"
+    conf.write_text(
+        "# v4\n"
+        "oneui-device USB1 100.1 192.1 OneUI Phone - alert_on_offline=true\n"
+        "fireos-device USB2 100.2 - Fire Tablet - usb_heal=false\n"
+        "stock-android-device USB3 100.3 - Stock Phone -\n"
+    )
+    assert sd.device_flags("oneui-device", str(conf)) == {"alert_on_offline": "true"}
+    assert sd.device_flag_bool("oneui-device", "alert_on_offline", False, str(conf)) is True
+    assert sd.device_flag_bool("oneui-device", "usb_heal", True, str(conf)) is True
+    assert sd.device_flag_bool("fireos-device", "usb_heal", True, str(conf)) is False
+    assert sd.device_flag_bool("fireos-device", "alert_on_offline", False, str(conf)) is False
+    assert sd.device_flag_bool("stock-android-device", "alert_on_offline", False, str(conf)) is False
+    assert sd.device_flag_bool("stock-android-device", "usb_heal", True, str(conf)) is True
+    assert sd.device_flag_bool("missing", "usb_heal", True, str(conf)) is True

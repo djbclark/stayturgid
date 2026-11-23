@@ -32,12 +32,12 @@ def test_recovery_notifies_once_and_resets(tmp_path, monkeypatch):
 
     sf = os.path.join(str(tmp_path), "oneui-device")
     am.write_state(sf, 3)  # was in outage past the limit
-    am.check_device("oneui-device", "100.1", "192.1")
+    am.check_device("oneui-device", "100.1", "192.1", alert_on_offline=True)
     assert am.read_state(sf) == 0
     assert len(notifs) == 1 and "reachable again" in notifs[0][1]
 
 
-def test_outage_alerts_only_at_limit(tmp_path, monkeypatch):
+def test_outage_alerts_only_at_limit_when_opted_in(tmp_path, monkeypatch):
     monkeypatch.setattr(am, "STATE_DIR", str(tmp_path))
     monkeypatch.setattr(am, "adb_reachable", lambda addrs, usb_serial="-": None)
     monkeypatch.setattr(am, "tcp_open", lambda h, p, timeout=5: False)
@@ -46,12 +46,50 @@ def test_outage_alerts_only_at_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(am, "notify", lambda *a, **k: notifs.append(a))
 
     # run 1: fails=1, no alert; run 2: fails=2 == limit, one alert; run 3: no repeat
-    am.check_device("oneui-device", "100.1", "192.1")
+    am.check_device("oneui-device", "100.1", "192.1", alert_on_offline=True)
     assert not notifs
+    am.check_device("oneui-device", "100.1", "192.1", alert_on_offline=True)
+    assert len(notifs) == 1 and "LOST" in notifs[0][0]
+    am.check_device("oneui-device", "100.1", "192.1", alert_on_offline=True)
+    assert len(notifs) == 1, "no repeat alert per run during a sustained outage"
+
+
+def test_opportunistic_default_does_not_page_on_offline_or_recovery(tmp_path, monkeypatch):
+    conf = tmp_path / "devices.conf"
+    conf.write_text("oneui-device USB1 100.1 192.1 OneUI -\n")
+    monkeypatch.setattr(am, "CONF", str(conf))
+    monkeypatch.setattr(am, "STATE_DIR", str(tmp_path / "state"))
+    os.makedirs(str(tmp_path / "state"), exist_ok=True)
+    monkeypatch.setattr(am, "adb_reachable", lambda addrs, usb_serial="-": None)
+    monkeypatch.setattr(am, "tcp_open", lambda h, p, timeout=5: False)
+    notifs = []
+    monkeypatch.setattr(am, "_access_log", lambda *_: None)
+    monkeypatch.setattr(am, "notify", lambda *a, **k: notifs.append(a))
+
+    am.check_device("oneui-device", "100.1", "192.1")
+    am.check_device("oneui-device", "100.1", "192.1")
+    assert notifs == []
+    monkeypatch.setattr(am, "adb_reachable", lambda addrs, usb_serial="-": "adb:100.1:5555")
+    am.check_device("oneui-device", "100.1", "192.1")
+    assert notifs == []
+    assert am.read_state(os.path.join(str(tmp_path / "state"), "oneui-device")) == 0
+
+
+def test_conf_flag_opts_in_to_offline_alert(tmp_path, monkeypatch):
+    conf = tmp_path / "devices.conf"
+    conf.write_text("oneui-device USB1 100.1 192.1 OneUI - alert_on_offline=true\n")
+    monkeypatch.setattr(am, "CONF", str(conf))
+    monkeypatch.setattr(am, "STATE_DIR", str(tmp_path / "state"))
+    os.makedirs(str(tmp_path / "state"), exist_ok=True)
+    monkeypatch.setattr(am, "adb_reachable", lambda addrs, usb_serial="-": None)
+    monkeypatch.setattr(am, "tcp_open", lambda h, p, timeout=5: False)
+    notifs = []
+    monkeypatch.setattr(am, "_access_log", lambda *_: None)
+    monkeypatch.setattr(am, "notify", lambda *a, **k: notifs.append(a))
+
+    am.check_device("oneui-device", "100.1", "192.1")
     am.check_device("oneui-device", "100.1", "192.1")
     assert len(notifs) == 1 and "LOST" in notifs[0][0]
-    am.check_device("oneui-device", "100.1", "192.1")
-    assert len(notifs) == 1, "no repeat alert per run during a sustained outage"
 
 
 def test_ssh_fallback_when_adb_down(tmp_path, monkeypatch):

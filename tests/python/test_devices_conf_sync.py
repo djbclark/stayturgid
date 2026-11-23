@@ -57,3 +57,17 @@ def test_creates_the_file_when_absent(tmp_path):
     conf = tmp_path / "sub" / "devices.conf"
     assert dcs.ensure_aliases(INV, ["m11"], conf) == ["m11"]
     assert conf.read_text(encoding="utf-8").startswith("m11 HA2 ")
+
+
+def test_render_row_appends_non_default_policy_flags():
+    row = dcs.render_row(
+        "fireos-device",
+        {
+            "ansible_host": "100.0.0.13",
+            "device_usb_serial": "FIRE1",
+            "device_label": "Fire Tablet",
+            "device_alert_on_offline": True,
+            "device_usb_heal": False,
+        },
+    )
+    assert row == "fireos-device FIRE1 100.0.0.13 - Fire Tablet - alert_on_offline=true usb_heal=false"

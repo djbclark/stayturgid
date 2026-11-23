@@ -31,24 +31,40 @@ def known_aliases(text: str) -> set[str]:
     return aliases
 
 
+def _as_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    low = str(value).strip().lower()
+    if low in ("1", "true", "yes", "on"):
+        return True
+    if low in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
 def render_row(host: str, hostvars: dict[str, Any]) -> str:
-    """The same columns as devices.conf.j2: alias usb_serial tailscale_ip lan_ip label phone."""
+    """The same columns as devices.conf.j2: alias usb_serial tailscale_ip lan_ip label phone [flags]."""
     ip = hostvars.get("ansible_host") or "-"
     lan = hostvars.get("device_lan_ip") or "-"
     serial = str(hostvars.get("device_usb_serial") or "-").strip()
     if serial in ("", "-"):
         # No serial, no identity check on its wireless endpoints: refuse the row.
         raise ValueError("%s has no device_usb_serial in the inventory; refusing a devices.conf row for it" % host)
-    return " ".join(
-        [
-            host,
-            serial,
-            str(ip),
-            str(lan),
-            str(hostvars.get("device_label") or host),
-            str(hostvars.get("device_phone_number") or "-"),
-        ]
-    )
+    cols = [
+        host,
+        serial,
+        str(ip),
+        str(lan),
+        str(hostvars.get("device_label") or host),
+        str(hostvars.get("device_phone_number") or "-"),
+    ]
+    if _as_bool(hostvars.get("device_alert_on_offline"), False):
+        cols.append("alert_on_offline=true")
+    if not _as_bool(hostvars.get("device_usb_heal"), True):
+        cols.append("usb_heal=false")
+    return " ".join(cols)
 
 
 def missing_rows(text: str, inventory: dict[str, Any], hosts: list[str]) -> list[str]:
