@@ -398,3 +398,43 @@ def test_agent_ships_the_same_clip():
     agent = alarm.os.path.join(root, "device/native-agent/app/src/main/res/raw/locate.mp3")
     with open(termux, "rb") as a, open(agent, "rb") as b:
         assert a.read() == b.read(), "rerun control/tools/gen_locate_sound.py"
+
+
+@pytest.mark.parametrize(
+    "dump,expected",
+    [
+        ("  mWakefulness=Awake\n", True),
+        ("  mIsInteractive: true\n", True),
+        ("  mWakefulness=Dozing\n", False),
+        ("", False),
+    ],
+)
+def test_is_screen_on(monkeypatch, dump, expected):
+    monkeypatch.setattr(alarm, "adb_shell", lambda *cmd: dump)
+    assert alarm.is_screen_on() is expected
+
+
+def test_sound_loop_ring_stops_when_screen_turns_on(state, monkeypatch):
+    _, _, runs = state
+    monkeypatch.setattr(alarm, "agent_plays_sound", lambda: False)
+    monkeypatch.setattr(alarm, "_force_audible", lambda music=True: lambda: None)
+    monkeypatch.setattr(alarm.time, "sleep", lambda s: None)
+    clock = iter(range(0, 1000, 5))
+    monkeypatch.setattr(alarm.time, "time", lambda: next(clock))
+    # Initial screen state is False; then turns True after the first clip starts.
+    screen_states = iter([False, True])
+    monkeypatch.setattr(alarm, "is_screen_on", lambda: next(screen_states))
+    alarm.sound_loop(30, why="ring")
+    assert runs.count(["termux-media-player", "play", alarm.SOUND_FILE]) == 1
+
+
+def test_sound_loop_ring_does_not_abort_if_screen_already_on(state, monkeypatch):
+    _, _, runs = state
+    monkeypatch.setattr(alarm, "agent_plays_sound", lambda: False)
+    monkeypatch.setattr(alarm, "_force_audible", lambda music=True: lambda: None)
+    monkeypatch.setattr(alarm.time, "sleep", lambda s: None)
+    clock = iter(range(0, 1000, 5))
+    monkeypatch.setattr(alarm.time, "time", lambda: next(clock))
+    monkeypatch.setattr(alarm, "is_screen_on", lambda: True)
+    alarm.sound_loop(10, why="ring")
+    assert ["termux-media-player", "play", alarm.SOUND_FILE] in runs

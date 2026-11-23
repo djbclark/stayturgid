@@ -313,11 +313,12 @@ verify-drift-legacy:
 verify-drift host="":
     @hosts="{{ hosts }}" just _verify_drift_impl {{ host }}
 
-# Play the battery locate sound on a device to find it by ear (ignores DND/quiet hours).
-# Example: just ring s24
-#          just ring hd8 120
-ring host secs="60":
-    python3 "{{ repo }}/control/bin/ring_device.py" "{{ host }}" "{{ secs }}"
+# Play the battery locate sound on one or more devices, or "all" (default 30s, stops when screen turns on).
+# Example: just ring t2e
+#          just ring all
+#          just ring s24,t2e 45
+ring *args:
+    python3 "{{ repo }}/control/bin/ring_device.py" {{ args }}
 
 # Battery watch (also runs inside every fleet-health pass): --dry-run prints, --test pings.
 # Example: just battery-watch --dry-run

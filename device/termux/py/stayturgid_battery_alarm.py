@@ -147,6 +147,12 @@ def adb_shell(*cmd):
     return out_of(["adb", "-s", "localhost:5555", "shell"] + list(cmd))
 
 
+def is_screen_on():
+    """True when the device screen is awake/interactive (local adb)."""
+    dump = adb_shell("dumpsys", "power")
+    return "mWakefulness=Awake" in dump or "mIsInteractive: true" in dump
+
+
 def dnd_or_sleep_quiet():
     if adb_shell("settings", "get", "global", "zen_mode") in ("1", "2", "3"):
         return True
@@ -514,6 +520,8 @@ def sound_loop(secs, delay=0, why="ring"):
         )  # fmt: skip
         agent = agent_plays_sound()
         restore = _force_audible(music=not agent)
+        prev_screen_on = is_screen_on() if why == "ring" else False
+        first_clip = True
         end = time.time() + secs
         while not os.path.exists(SOUND_STOP):
             if secs > 0 and time.time() >= end:
@@ -525,12 +533,33 @@ def sound_loop(secs, delay=0, why="ring"):
             if why != "ring" and on_power(read_battery()):
                 _log("power connected; sound stopped (%s)" % why)
                 break
+            if why == "ring" and not first_clip:
+                scr = is_screen_on()
+                if scr and not prev_screen_on:
+                    _log("screen turned on; sound stopped (%s)" % why)
+                    break
+                prev_screen_on = scr
+            first_clip = False
             if agent:
                 agent_sound(AGENT_LEASE_SEC, force=why == "ring")
             else:
                 run(["termux-media-player", "play", SOUND_FILE])
                 run(["termux-vibrate", "-f", "-d", str(int(SOUND_CLIP_SEC * 1000))])
-            time.sleep(SOUND_CLIP_SEC)
+            if why == "ring":
+                until_next = time.time() + SOUND_CLIP_SEC
+                stop_on_screen = False
+                while time.time() < until_next and not os.path.exists(SOUND_STOP):
+                    scr = is_screen_on()
+                    if scr and not prev_screen_on:
+                        _log("screen turned on; sound stopped (%s)" % why)
+                        stop_on_screen = True
+                        break
+                    prev_screen_on = scr
+                    time.sleep(min(0.5, max(0.05, until_next - time.time())))
+                if stop_on_screen:
+                    break
+            else:
+                time.sleep(SOUND_CLIP_SEC)
     finally:
         if agent:
             agent_sound(0)
