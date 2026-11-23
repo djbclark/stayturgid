@@ -293,8 +293,9 @@ def try_sv_up_sshd() -> bool:
 
 
 def _sshd_liveness_pattern() -> str:
-    if _sh is not None:
-        return _sh.sshd_liveness_pattern(PREFIX)
+    fn = getattr(_sh, "sshd_liveness_pattern", None)
+    if fn is not None:
+        return fn(PREFIX)
     return "^(%s/bin/)?sshd( |$)" % re.sub(r"([\\.^$*+?()[\]{}|])", r"\\\1", PREFIX)
 
 

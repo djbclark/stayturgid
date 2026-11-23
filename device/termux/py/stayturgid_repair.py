@@ -234,6 +234,16 @@ def sshd_listening():
     return rc == 0 and ":8022 " in out
 
 
+def _sshd_liveness_pattern():
+    try:
+        fn = getattr(_shell_lib(), "sshd_liveness_pattern", None)
+        if fn is not None:
+            return fn(PREFIX)
+    except ImportError:
+        pass
+    return "^(%s/bin/)?sshd( |$)" % re.sub(r"([\\.^$*+?()[\]{}|])", r"\\\1", PREFIX)
+
+
 def sshd_up():
     sv = os.path.join(PREFIX, "bin", "sv")
     svc = os.path.join(PREFIX, "var", "service", "sshd")
@@ -241,7 +251,7 @@ def sshd_up():
         rc, out = run([sv, "status", svc])
         if rc == 0 and any(line.startswith("run:") for line in (out or "").splitlines()):
             return True
-    if run(["pgrep", "-f", _shell_lib().sshd_liveness_pattern(PREFIX)])[0] == 0:
+    if run(["pgrep", "-f", _sshd_liveness_pattern()])[0] == 0:
         return True
     return sshd_listening()
 

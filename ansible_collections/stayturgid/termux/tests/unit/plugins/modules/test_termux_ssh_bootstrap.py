@@ -138,7 +138,7 @@ def test_termux_ssh_bootstrap_idempotent_when_present(mocker, tmp_path):
     # Idempotent means it left the running sshd alone: no restart typed into
     # the Termux app's terminal, and no pkill of the existing one.
     assert not [c for c in calls if "input text sshd" in c]
-    assert not [c for c in calls if "pkill -x sshd" in c]
+    assert not [c for c in calls if "pkill " in c]
 
 
 def fake_adb(inversion_after_put):

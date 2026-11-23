@@ -242,10 +242,14 @@ def test_cfengine_check_sshd_has_no_shell_interpolation_and_matches_live_cases(t
     cases = [
         ("run: sshd: (pid 29807) 10s; run: log: (pid 9) 10s", 0, [], True),
         ("down: sshd: 5s; run: log: (pid 9) 10s", 0, [], False),
+        ("fail: sshd: unable to change to service directory", 1, [], False),
+        ("fail: sshd: runsv not running", 1, [f"{host.prefix}/bin/sshd -D -e"], True),
         (None, 0, [f"{host.prefix}/bin/sshd -D -e"], True),
         (None, 0, ["sshd -D"], True),
         (None, 0, ["sshd"], True),
         (None, 0, ["sshd-session: u0_a601@pts/0", f"{host.prefix}/libexec/sshd-session -R"], False),
+        # Self-match guard: the shell running the returnszero() command itself must not match.
+        (None, 0, [f"/bin/sh -c {cmd}", f"{host.prefix}/bin/pgrep -f ^({host.prefix}/bin/)?sshd( |$)"], False),
         (None, 0, [], False),
     ]
     for sv_out, sv_rc, procs, want_up in cases:
@@ -253,6 +257,77 @@ def test_cfengine_check_sshd_has_no_shell_interpolation_and_matches_live_cases(t
         host.set_processes(procs)
         res = host.run(cmd, shell="sh")
         assert (res.returncode == 0) is want_up, (sv_out, procs, res.returncode, res.stderr)
+
+
+def test_liveness_matcher_never_self_matches_actual_shell_commands(tmp_path):
+    host = FakeTermuxHost(tmp_path)
+    host.set_sv(None)
+    cmd = tr.sshd_liveness_cmd(str(host.prefix))
+    pat = tr.sshd_liveness_pattern(str(host.prefix))
+    host.set_processes(
+        [
+            f"/bin/sh -c {cmd}",
+            f"bash -c {tr.start_sshd_shell(str(host.prefix))}",
+            f"pgrep -f {pat}",
+        ]
+    )
+    assert host.run(cmd, shell="sh").returncode != 0
+    assert host.run(cmd, shell="bash").returncode != 0
+
+
+def test_run_as_termux_two_layer_quoting(tmp_path):
+    """Verify start_sshd_shell / sshd_running_shell survive adb shell's extra sh -c parse layer."""
+    host = FakeTermuxHost(tmp_path, prefix_name="odd.dir+1 with space")
+    host.set_sv(None)
+    host.set_processes([f"{host.prefix}/bin/sshd -D -e"])
+
+    for script in (tr.sshd_running_shell(str(host.prefix)), tr.start_sshd_shell(str(host.prefix))):
+        outer = "bash -c " + shlex.quote(script)
+        res = host.run(outer, shell="sh")
+        assert res.returncode == 0, res.stderr
+    assert not host.sshd_log.exists()
+
+    # With only sshd-session running, sshd_running_shell exits non-zero through the two-layer parse.
+    host.set_processes(["sshd-session: u0_a601@pts/0"])
+    outer = "bash -c " + shlex.quote(tr.sshd_running_shell(str(host.prefix)))
+    assert host.run(outer, shell="sh").returncode != 0
+
+
+@pytest.mark.parametrize(
+    ("ps_out", "want"),
+    [
+        ("u:r:untrusted_app:s0 u0_a601 4321 1 sshd\n", "u:r:untrusted_app:s0"),
+        (
+            "u:r:untrusted_app:s0 u0_a601 29807 1 /data/data/com.termux/files/usr/bin/sshd\n",
+            "u:r:untrusted_app:s0",
+        ),
+        ("u:r:untrusted_app:s0 u0_a601 4322 4321 sshd-session\n", ""),
+        ("u:r:untrusted_app:s0 u0_a601 4323 4322 sshd-auth\n", ""),
+        ("", ""),
+    ],
+)
+def test_sshd_domain_recognises_reexecd_listener_and_ignores_children(ps_out, want):
+    assert tr.sshd_domain(lambda _cmd: (0, ps_out, ""), "dev") == want
+
+
+def test_on_device_helpers_survive_missing_or_old_stayturgid_shell(monkeypatch, tmp_path):
+    """Rolling rsync updates start_adb.py and stayturgid_repair.py before stayturgid_shell.py."""
+    host = FakeTermuxHost(tmp_path)
+    host.set_sv(None)
+    host.set_processes([f"{host.prefix}/bin/sshd -D -e"])
+    monkeypatch.setenv("PATH", f"{host.bin}:/usr/bin:/bin")
+
+    monkeypatch.setattr(start_adb, "PREFIX", str(host.prefix))
+    for stale_sh in (None, object()):
+        monkeypatch.setattr(start_adb, "_sh", stale_sh)
+        assert start_adb.sshd_is_running() is True
+
+    monkeypatch.setattr(repair, "PREFIX", str(host.prefix))
+    monkeypatch.setattr(repair, "sshd_listening", lambda: False)
+    monkeypatch.setattr(repair, "_shell_lib", lambda: object())
+    assert repair.sshd_up() is True
+    monkeypatch.setattr(repair, "_shell_lib", lambda: (_ for _ in ()).throw(ImportError("no stayturgid_shell")))
+    assert repair.sshd_up() is True
 
 
 @pytest.mark.parametrize(

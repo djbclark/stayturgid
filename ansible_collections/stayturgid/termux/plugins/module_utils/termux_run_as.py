@@ -147,9 +147,24 @@ def sshd_liveness_cmd(prefix=TERMUX_PREFIX):
     )
 
 
+def _termux_env(prefix=TERMUX_PREFIX):
+    if prefix == TERMUX_PREFIX:
+        return TERMUX_ENV
+    return (
+        'export PATH=%s:%s:"$PATH"\nexport HOME=%s\nexport PREFIX=%s\nexport TMPDIR=%s\nexport LD_LIBRARY_PATH=%s\n'
+    ) % (
+        shlex.quote(os.path.join(prefix, "bin")),
+        shlex.quote(os.path.join(prefix, "sbin")),
+        shlex.quote(TERMUX_HOME),
+        shlex.quote(prefix),
+        shlex.quote(os.path.join(prefix, "tmp")),
+        shlex.quote(os.path.join(prefix, "lib")),
+    )
+
+
 def start_sshd_shell(prefix=TERMUX_PREFIX):
     check = sshd_liveness_cmd(prefix)
-    return TERMUX_ENV + "set -e\n" + "if ! %s; then\n" % check + "  sshd\n" + "fi\n" + "%s\n" % check
+    return _termux_env(prefix) + "set -e\n" + "if ! %s; then\n" % check + "  sshd\n" + "fi\n" + "%s\n" % check
 
 
 def read_authorized_keys_shell():
@@ -157,7 +172,7 @@ def read_authorized_keys_shell():
 
 
 def sshd_running_shell(prefix=TERMUX_PREFIX):
-    return TERMUX_ENV + sshd_liveness_cmd(prefix) + "\n"
+    return _termux_env(prefix) + sshd_liveness_cmd(prefix) + "\n"
 
 
 def openssh_installed_shell(termux_sshd=TERMUX_SSHD):
@@ -379,13 +394,17 @@ def adbkey_state(run_command, device):
 
 
 def sshd_domain(run_command, device):
-    """SELinux domain of the running sshd ('' if none / unknown)."""
+    """SELinux domain of the running sshd listener ('' if none / unknown).
+
+    Matches both a bare ``sshd`` and a SIGHUP re-exec'd ``TERMUX_SSHD`` listener
+    without matching ``sshd-session`` or ``sshd-auth`` children (#341).
+    """
     rc, out, _err = adb_cmd(run_command, device, "shell", "ps", "-A", "-Z")
     if rc != 0:
         return ""
     for line in (out or "").splitlines():
         parts = line.split()
-        if parts and parts[-1] == "sshd" and len(parts) > 1:
+        if parts and parts[-1] in ("sshd", TERMUX_SSHD) and len(parts) > 1:
             return parts[0]
     return ""
 
@@ -503,7 +522,11 @@ def ensure_sshd(run_command, device, check_mode=False, host=None):
         return True
     if domain:
         # Wrong-domain sshd (adb shell cannot kill it; run-as can).
-        run_as_termux(run_command, device, TERMUX_ENV + "pkill -x sshd || true\n")
+        run_as_termux(
+            run_command,
+            device,
+            TERMUX_ENV + "pkill -f %s || true\n" % shlex.quote(sshd_liveness_pattern()),
+        )
         time.sleep(1)
     start_sshd_from_app(run_command, device, host=host)
     if "runas_app" in sshd_domain(run_command, device):
