@@ -11,7 +11,8 @@
 {%   for o in live if o != h %}{% if (live[o] or {}).get('ip') == lan_ip %}{% set _ = held.append(o) %}{% endif %}{% endfor %}
 {%   if held and not (live.get(h) or {}).get('ip') %}{% set lan_ip = '-' %}{% endif %}
 {%   set flags = [] %}
-{%   if hostvars[h].device_alert_on_offline | default(false) | bool %}{% set _ = flags.append('alert_on_offline=true') %}{% endif %}
-{%   if not (hostvars[h].device_usb_heal | default(true) | bool) %}{% set _ = flags.append('usb_heal=false') %}{% endif %}
-{{ h }} {{ hostvars[h].device_usb_serial | default('-') }} {{ hostvars[h].ansible_host }} {{ lan_ip }} {{ hostvars[h].device_label | default(h) }} {{ hostvars[h].device_phone_number | default('-') }}{% if flags %} {{ flags | join(' ') }}{% endif %}
+{%   if hostvars[h].get('device_alert_on_offline', false) in [true, 'true', 'True', '1', 'yes', 'on'] %}{% set _ = flags.append('alert_on_offline=true') %}{% endif %}
+{%   if hostvars[h].get('device_usb_heal', true) in [false, 'false', 'False', '0', 'no', 'off'] %}{% set _ = flags.append('usb_heal=false') %}{% endif %}
+{%   set suffix = (' ' ~ (flags | join(' '))) if flags else '' %}
+{{ h }} {{ hostvars[h].device_usb_serial | default('-') }} {{ hostvars[h].ansible_host }} {{ lan_ip }} {{ hostvars[h].device_label | default(h) }} {{ hostvars[h].device_phone_number | default('-') }}{{ suffix }}
 {% endfor %}
