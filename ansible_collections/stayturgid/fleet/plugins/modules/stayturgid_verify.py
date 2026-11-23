@@ -62,6 +62,7 @@ healthy:
 
 import hashlib
 import os
+import re
 import subprocess
 import time
 
@@ -132,11 +133,19 @@ def _file_hash(path):
         return None
 
 
+def _sshd_liveness_pattern(prefix=TERMUX_PREFIX):
+    escaped = re.sub(r"([\\.^$*+?()[\]{}|])", r"\\\1", prefix)
+    return "^(%s/bin/)?sshd( |$)" % escaped
+
+
 def check_sshd():
-    rc, out, _ = _run(["pgrep", "-x", "sshd"])
-    if rc == 0:
-        return True, "sshd running (pgrep)"
-    rc2, out2, _ = _run(["pgrep", "-f", "[s]shd"])
+    sv = os.path.join(TERMUX_PREFIX, "bin", "sv")
+    svc = os.path.join(TERMUX_PREFIX, "var", "service", "sshd")
+    if os.access(sv, os.X_OK):
+        rc, out, _ = _run([sv, "status", svc])
+        if rc == 0 and any(line.startswith("run:") for line in (out or "").splitlines()):
+            return True, "sshd running (sv status)"
+    rc2, _out2, _ = _run(["pgrep", "-f", _sshd_liveness_pattern(TERMUX_PREFIX)])
     if rc2 == 0:
         return True, "sshd running (pgrep -f)"
     # Check if port 8022 is listening

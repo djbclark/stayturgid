@@ -36,7 +36,7 @@ def run_module(mocker, args, cmd_results=None):
             return (0, "package:com.termux\n", "")
         if "authorized_keys" in joined and "cat" in joined:
             return (1, "", "")
-        if "pgrep -x sshd" in joined:
+        if tr.sshd_liveness_pattern() in joined:
             return (1, "", "")
         if "test -x" in joined and "sshd" in joined:
             return (0, "", "")
@@ -138,7 +138,7 @@ def test_termux_ssh_bootstrap_idempotent_when_present(mocker, tmp_path):
     # Idempotent means it left the running sshd alone: no restart typed into
     # the Termux app's terminal, and no pkill of the existing one.
     assert not [c for c in calls if "input text sshd" in c]
-    assert not [c for c in calls if "pkill -x sshd" in c]
+    assert not [c for c in calls if "pkill " in c]
 
 
 def fake_adb(inversion_after_put):
