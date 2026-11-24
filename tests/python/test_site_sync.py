@@ -40,6 +40,7 @@ MANAGED_PATHS = {
     "generated/stayturgid/inventory/group_vars/android_11.yml",
     "generated/stayturgid/inventory/group_vars/android_16.yml",
     "generated/stayturgid/inventory/group_vars/model_galaxy_s24.yml",
+    "generated/stayturgid/inventory/group_vars/model_idea_tab_11.yml",
     "generated/stayturgid/inventory/group_vars/model_kindle_hd8.yml",
     "generated/stayturgid/inventory/group_vars/model_pixel_7a.yml",
     "generated/stayturgid/inventory/group_vars/model_titan_2.yml",

@@ -5,6 +5,7 @@ import pathlib
 import yaml
 
 GROUP_VARS = pathlib.Path(__file__).resolve().parents[2] / "ansible" / "inventory" / "group_vars"
+SYNC_MANIFEST = pathlib.Path(__file__).resolve().parents[2] / "control" / "site_contract" / "sync_manifest.yml"
 REQUIRED = {"name", "get", "expect", "set"}
 
 
@@ -36,3 +37,13 @@ def test_idea_tab_11_keeps_rotation_tile_working_and_zui_memory_cleaner_quirks()
     assert "wm user-rotation" not in sets
     assert "user_rotation" not in sets
     assert "persist.debug.zuimemory.enable false" in sets
+
+
+def test_every_device_quirks_group_vars_is_in_site_sync_manifest():
+    manifest = yaml.safe_load(SYNC_MANIFEST.read_text(encoding="utf-8")) or {}
+    synced_paths = {entry["path"] for entry in manifest.get("files", [])}
+    for name, _ in _quirk_lists():
+        expected = f"generated/stayturgid/inventory/group_vars/{name}"
+        assert expected in synced_paths, (
+            f"{name} defines stayturgid_device_quirks but is missing from sync_manifest.yml"
+        )
