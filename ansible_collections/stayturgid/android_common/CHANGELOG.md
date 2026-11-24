@@ -7,10 +7,12 @@
   that sends a device script to adb now calls it right after `AnsibleModule(...)`. Without it a script's
   `$HOME` became the Mac's (s24: `mkdir: cannot create directory '/Users'`). `stayturgid.termux` and
   `stayturgid.play` need this collection's new `plain_run` module_util.
-- Add `device_quirks` role (2026-11-20): reads each `stayturgid_device_quirks` item over adb,
+- Add `device_quirks` role (2026-11-20; updated 2026-11-24): reads each `stayturgid_device_quirks` item over adb,
   applies only the ones that differ, reads them back and fails on a mismatch; healing ID
-  `DEVICE-QUIRKS`. First data: `model_idea_tab_11` (rotation lock, ZUI memory cleaner, Doze
-  whitelist, phantom-process limits).
+  `DEVICE-QUIRKS`. Fixed Jinja2 `item.get` dict-method collision (`item['get']`), synced
+  `model_idea_tab_11.yml` via `site-sync`, and switched `model_idea_tab_11` to
+  `wm fixed-to-user-rotation default` (keeping `camera_autorotate=0`) so the system
+  Auto-rotate Quick Settings tile works.
 - `android_apk` `gh_latest`: when GitHub is unreachable, reuse the release last resolved if its
   APK is still in the sha256 cache, else leave an installed app alone (both warn); a first
   install with nothing cached still fails (2026-11-21).
