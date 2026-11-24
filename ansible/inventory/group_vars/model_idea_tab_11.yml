@@ -3,20 +3,17 @@
 # site-public docs/plans/new-devices-2026-11-20/PLAN.md (III, tickets M1-M4).
 # Applied by the android_common.device_quirks role (get / expect / set per item).
 stayturgid_device_quirks:
-  # Rotation lock that survives boot (2026-11-20 reboot test): the fixed lock lives in
-  # WindowManager, not in an app. 0 degrees for now; 180 on power is a later design.
-  - name: accelerometer rotation off
-    get: settings get system accelerometer_rotation
-    expect: "0"
-    set: settings put system accelerometer_rotation 0
-  - name: user rotation 0
-    get: settings get system user_rotation
-    expect: "0"
-    set: wm user-rotation lock 0
-  - name: fixed-to-user rotation
+  # Keep WindowManager's fixed-to-user-rotation at default (2026-11-24): `enabled`
+  # makes DisplayRotation.needSensorRunning() return false and pins
+  # rotationForOrientation() to mUserRotation unconditionally, turning the system
+  # Auto-rotate Quick Settings tile (and floating rotate suggestion) into a no-op.
+  # Do not force accelerometer_rotation or user_rotation on deploy either, so
+  # manual Quick Settings rotation choices survive fleet deploys; Settings.System
+  # persists the user's lock across reboots once third-party rotation apps are gone.
+  - name: fixed-to-user rotation default
     get: wm fixed-to-user-rotation
-    expect: enabled
-    set: wm fixed-to-user-rotation enabled
+    expect: default
+    set: wm fixed-to-user-rotation default
   - name: camera autorotate off
     get: settings get secure camera_autorotate
     expect: "0"

@@ -27,8 +27,12 @@ def test_every_quirk_has_name_get_expect_and_set():
     assert seen > 0
 
 
-def test_idea_tab_11_keeps_the_rotation_lock_and_zui_memory_cleaner_quirks():
+def test_idea_tab_11_keeps_rotation_tile_working_and_zui_memory_cleaner_quirks():
     quirks = dict(_quirk_lists())["model_idea_tab_11.yml"]
     sets = " ".join(q["set"] for q in quirks)
-    assert "wm fixed-to-user-rotation enabled" in sets
+    assert "wm fixed-to-user-rotation default" in sets
+    assert "wm fixed-to-user-rotation enabled" not in sets
+    assert "accelerometer_rotation" not in sets
+    assert "wm user-rotation" not in sets
+    assert "user_rotation" not in sets
     assert "persist.debug.zuimemory.enable false" in sets

@@ -216,7 +216,7 @@
     },
 
     "DEVICE-QUIRKS": {
-      "description": "Per-model device quirks (rotation lock, vendor memory cleaner, Doze whitelist, phantom-process limits) come from stayturgid_device_quirks and are applied idempotently with read-back",
+      "description": "Per-model device quirks (rotation policy, vendor memory cleaner, Doze whitelist, phantom-process limits) come from stayturgid_device_quirks and are applied idempotently with read-back",
       "must_cover": ["ansible_deploy"],
       "should_cover": []
     },
