@@ -16,10 +16,10 @@
 
 - name: Read current value of each device quirk
   ansible.builtin.command:
-    argv: [adb, -s, "{{ _quirk_adb }}", shell, "{{ item.get }}"]
+    argv: [adb, -s, "{{ _quirk_adb }}", shell, "{{ item['get'] }}"]
   loop: "{{ stayturgid_device_quirks | default([]) }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item['name'] }}"
   register: _quirk_state
   changed_when: false
   failed_when: false
@@ -28,26 +28,26 @@
 
 - name: Apply each device quirk that differs
   ansible.builtin.command:
-    argv: [adb, -s, "{{ _quirk_adb }}", shell, "{{ item.item.set }}"]
+    argv: [adb, -s, "{{ _quirk_adb }}", shell, "{{ item.item['set'] }}"]
   loop: "{{ _quirk_state.results | default([]) }}"
   loop_control:
-    label: "{{ item.item.name }}"
+    label: "{{ item.item['name'] }}"
   when:
     - item.rc is defined
-    - (item.stdout | default('') | trim) != (item.item.expect | string)
+    - (item.stdout | default('') | trim) != (item.item['expect'] | string)
   register: _quirk_set
   changed_when: true
   delegate_to: localhost
 
 - name: Read back each device quirk that was applied
   ansible.builtin.command:
-    argv: [adb, -s, "{{ _quirk_adb }}", shell, "{{ item.item.item.get }}"]
+    argv: [adb, -s, "{{ _quirk_adb }}", shell, "{{ item.item.item['get'] }}"]
   loop: "{{ _quirk_set.results | default([]) | rejectattr('skipped', 'defined') | list }}"
   loop_control:
-    label: "{{ item.item.item.name }}"
+    label: "{{ item.item.item['name'] }}"
   register: _quirk_verify
   changed_when: false
-  failed_when: (_quirk_verify.stdout | default('') | trim) != (item.item.item.expect | string)
+  failed_when: (_quirk_verify.stdout | default('') | trim) != (item.item.item['expect'] | string)
   check_mode: false
   when: not ansible_check_mode
   delegate_to: localhost

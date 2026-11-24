@@ -6,6 +6,16 @@ import yaml
 
 GROUP_VARS = pathlib.Path(__file__).resolve().parents[2] / "ansible" / "inventory" / "group_vars"
 SYNC_MANIFEST = pathlib.Path(__file__).resolve().parents[2] / "control" / "site_contract" / "sync_manifest.yml"
+QUIRKS_TASKS = (
+    pathlib.Path(__file__).resolve().parents[2]
+    / "ansible_collections"
+    / "stayturgid"
+    / "android_common"
+    / "roles"
+    / "device_quirks"
+    / "tasks"
+    / "main.yml"
+)
 REQUIRED = {"name", "get", "expect", "set"}
 
 
@@ -47,3 +57,10 @@ def test_every_device_quirks_group_vars_is_in_site_sync_manifest():
         assert expected in synced_paths, (
             f"{name} defines stayturgid_device_quirks but is missing from sync_manifest.yml"
         )
+
+
+def test_device_quirks_tasks_use_bracket_lookup_for_get_key():
+    """Jinja2 resolves `item.get` to dict.get (bound method) instead of item['get']."""
+    text = QUIRKS_TASKS.read_text(encoding="utf-8")
+    assert ".get }}" not in text
+    assert "['get']" in text
