@@ -633,3 +633,24 @@ def test_medium2_cross_root_bridge_and_mysite_pair_sibling_tendcf_private_withou
     assert sel_mysite.slug == "alice"
     assert sel_mysite.private_dir == real_priv.resolve()
     assert not (ops / "site-private").exists()
+
+
+def test_r2_low1_regular_file_at_tendcf_private_fails_closed(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    _site(ops, "tendcf-public-alice", ansible=True)
+    (ops / "tendcf-private-alice").write_text("not a dir\n", encoding="utf-8")
+
+    with pytest.raises(sd.SiteDiscoveryError, match="Cannot create private companion|not a directory"):
+        sd.resolve_site_selection({"OPS_ROOT": str(ops)}, require_ansible_config=True)
+
+
+def test_r2_high1_landing_rejects_symlinked_ansible_cfg_into_private_companion(tmp_path: Path) -> None:
+    tendcf_ops = tmp_path / "tendcf-ops"
+    priv = _site(tendcf_ops, "tendcf-private-alice", ansible=True)
+    wrapper = tmp_path / "wrapper"
+    wrapper.mkdir()
+    link_cfg = wrapper / "ansible.cfg"
+    link_cfg.symlink_to(priv / "ansible.cfg")
+
+    with pytest.raises(sd.SiteDiscoveryError, match="reserved for the private companion"):
+        landing_discover._resolve_site({"TENDCF_OPS_ROOT": str(tendcf_ops), "ANSIBLE_CONFIG": str(link_cfg)})

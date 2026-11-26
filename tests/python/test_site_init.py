@@ -572,6 +572,17 @@ def test_explicit_dir_with_tendcf_ops_root_without_selector_succeeds(tmp_path: P
     assert dest == (tmp_path / "site-example").resolve()
 
 
+def test_bare_sitename_under_tendcf_ops_root_targets_tendcf_public(tmp_path: Path) -> None:
+    tendcf_ops = tmp_path / "tendcf-ops"
+    tendcf_ops.mkdir()
+    dest = si.resolve_destination(
+        "example",
+        env={"HOME": str(tmp_path), "TENDCF_OPS_ROOT": str(tendcf_ops)},
+        product_root=ROOT,
+    )
+    assert dest == (tendcf_ops / "tendcf-public-example").resolve()
+
+
 # --- Acceptance test 6: docs mode ------------------------------------------
 
 

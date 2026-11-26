@@ -138,6 +138,8 @@ def resolve_ansible_context(
 
     try:
         reject_private_companion_overlay(raw_site_dir, env)
+        if site_dir != raw_site_dir:
+            reject_private_companion_overlay(site_dir, env)
     except SiteDiscoveryError as exc:
         raise AnsibleConfigError(str(exc)) from exc
 

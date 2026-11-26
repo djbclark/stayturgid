@@ -531,6 +531,24 @@ def test_resolve_ansible_context_explicit_site_works_with_tendcf_ops_root_withou
     assert not (tendcf_ops / "site-private").exists()
 
 
+def test_resolve_ansible_context_rejects_symlinked_ansible_cfg_into_private_companion(tmp_path):
+    repo = tmp_path / "product"
+    tendcf_ops = tmp_path / "tendcf-ops"
+    priv = tendcf_ops / "tendcf-private-alice"
+    priv.mkdir(parents=True)
+    priv_cfg = write_config(priv)
+    wrapper = tmp_path / "wrapper"
+    wrapper.mkdir()
+    link_cfg = wrapper / "ansible.cfg"
+    link_cfg.symlink_to(priv_cfg)
+
+    with pytest.raises(ac.AnsibleConfigError, match="reserved for the private companion"):
+        ac.resolve_ansible_context(
+            repo,
+            {"TENDCF_OPS_ROOT": str(tendcf_ops), "ANSIBLE_CONFIG": str(link_cfg)},
+        )
+
+
 def test_resolve_ansible_context_tendcf_ops_without_selector_fails_closed(tmp_path):
     repo = tmp_path / "product"
     tendcf_ops = tmp_path / "tendcf-ops"

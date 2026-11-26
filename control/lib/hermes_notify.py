@@ -81,6 +81,8 @@ def _resolve_site_dir(environ: Mapping[str, str]) -> Path:
         selection = resolve_site_selection(environ)
         raw_site_dir = selection.path
     reject_private_companion_overlay(raw_site_dir, environ)
+    if selection.path != raw_site_dir:
+        reject_private_companion_overlay(selection.path, environ)
     if not selection.path.is_dir():
         raise SiteDiscoveryError(
             f"Selected site directory does not exist or is not a directory ({selection.source}): {selection.path}"

@@ -21,10 +21,13 @@ from typing import Literal, Sequence, TextIO
 
 from control.lib.site_discovery import (
     DEFAULT_PRIVATE_COMPANION_NAME,
+    TENDCF_PUBLIC_PREFIX,
     SiteDiscoveryError,
     expand_user_path,
+    is_strict_tendcf_root,
     ops_root,
     reject_private_companion_overlay,
+    validate_site_slug,
 )
 from control.site_contract.site_map import SiteMap, SiteMapError, is_physically_within, load_site_map
 
@@ -138,7 +141,15 @@ def resolve_destination(
             raw_destination = Path.cwd() / raw_destination
         destination = raw_destination.resolve()
     else:
-        raw_destination = _ops_root(env) / f"site-{name}"
+        root = _ops_root(env)
+        if is_strict_tendcf_root(env):
+            try:
+                slug = validate_site_slug(name, label="sitename")
+            except SiteDiscoveryError as exc:
+                raise SiteInitError(str(exc)) from exc
+            raw_destination = root / f"{TENDCF_PUBLIC_PREFIX}{slug}"
+        else:
+            raw_destination = root / f"site-{name}"
         destination = raw_destination.resolve()
 
     try:

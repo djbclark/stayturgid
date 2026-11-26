@@ -535,6 +535,12 @@ def _strict_tendcf_root(env: Mapping[str, str]) -> Path | None:
     return None
 
 
+def is_strict_tendcf_root(environ: Mapping[str, str] | None = None) -> bool:
+    """True when ``TENDCF_OPS_ROOT`` or an existing ``~/tendcf-ops`` (without explicit ``OPS_ROOT``) is active."""
+
+    return _strict_tendcf_root(_env_map(environ)) is not None
+
+
 def ops_root(environ: Mapping[str, str] | None = None) -> Path:
     """Return the active ops root (``TENDCF_OPS_ROOT`` > ``OPS_ROOT`` > ``~/tendcf-ops`` if present > ``~/ops``)."""
 
@@ -734,9 +740,9 @@ def _pair_for_discovered_tendcf_overlay(
         return slug, None
     sibling_priv = selected_path.parent / f"{TENDCF_PRIVATE_PREFIX}{slug}"
     root_priv = root / f"{TENDCF_PRIVATE_PREFIX}{slug}"
-    if sibling_priv.exists():
+    if sibling_priv.is_dir():
         return slug, _safe_resolve(sibling_priv, label="tendcf private companion")
-    if not _paths_equal_or_samefile(selected_path.parent, root) and root_priv.exists():
+    if not _paths_equal_or_samefile(selected_path.parent, root) and root_priv.is_dir():
         return slug, _safe_resolve(root_priv, label="tendcf private companion")
     return slug, ensure_private_companion(env, site_dir=selected_path, strict_tendcf=False)
 
