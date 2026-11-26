@@ -15,8 +15,8 @@ http://127.0.0.1:{{ serverapp_caddy_health_port }} {
 }
 
 {% if serverapp_caddy_public_hostname | length > 0 %}
-# ── HTTP → HTTPS redirect for public hostname ──────────────────────────────
-http://{{ serverapp_caddy_public_hostname }} {
+# ── HTTP redirects to the canonical HTTPS hostname ──────────────────────────
+:80 {
 	redir https://{{ serverapp_caddy_public_hostname }}{uri} 301
 }
 
