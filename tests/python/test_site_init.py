@@ -550,6 +550,16 @@ def test_literal_private_destination_is_reserved_with_custom_companion(tmp_path:
         )
 
 
+def test_tendcf_private_destination_is_reserved(tmp_path: Path) -> None:
+    with pytest.raises(si.SiteInitError, match="reserved for the private companion"):
+        si.resolve_destination(
+            "example",
+            dir_path=str(tmp_path / "tendcf-private-alice"),
+            env={"TENDCF_OPS_ROOT": str(tmp_path)},
+            product_root=ROOT,
+        )
+
+
 # --- Acceptance test 6: docs mode ------------------------------------------
 
 

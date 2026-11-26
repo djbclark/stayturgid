@@ -20,7 +20,12 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal, Sequence, TextIO
 
-from control.lib.site_discovery import DEFAULT_PRIVATE_COMPANION_NAME, private_companion_path
+from control.lib.site_discovery import (
+    DEFAULT_PRIVATE_COMPANION_NAME,
+    SiteDiscoveryError,
+    is_reserved_private_name,
+    private_companion_path,
+)
 from control.site_contract.site_map import SiteMap, SiteMapError, is_physically_within, load_site_map
 
 try:
@@ -134,7 +139,13 @@ def resolve_destination(
     else:
         destination = (_ops_root(env) / f"site-{name}").resolve()
 
-    if destination.name == DEFAULT_PRIVATE_COMPANION_NAME or destination == private_companion_path(env).resolve():
+    if is_reserved_private_name(destination.name):
+        raise SiteInitError(f"destination {destination} is reserved for the private companion, not a site overlay")
+    try:
+        private_dir = private_companion_path(env, site_dir=destination).resolve()
+    except SiteDiscoveryError as exc:
+        raise SiteInitError(str(exc)) from exc
+    if destination == private_dir:
         raise SiteInitError(f"destination {destination} is reserved for the private companion, not a site overlay")
     _reject_nested_in_product(destination, product)
     return destination

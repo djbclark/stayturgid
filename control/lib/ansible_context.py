@@ -43,6 +43,8 @@ class AnsibleContext:
     collections_path: Path
     source: str
     inventories: tuple[Path, ...] = ()
+    slug: str | None = None
+    private_dir: Path | None = None
 
     @property
     def site_dir(self) -> Path:
@@ -86,17 +88,17 @@ def resolve_ansible_context(
 ) -> AnsibleContext:
     """Return the explicit, site-directory, or discovered-overlay Ansible context.
 
-    Precedence is ``ANSIBLE_CONFIG``, ``STAYTURGID_SITE_DIR``,
-    ``OPS_ROOT/.mysite``, then exactly one qualifying ``site-*`` checkout.
+    Precedence is ``ANSIBLE_CONFIG``, ``STAYTURGID_SITE_DIR``, pair-bound
+    ``TENDCF_SITE`` / XDG ``active-site`` (Stage 0 dual-read for
+    ``~/tendcf-ops``), ``OPS_ROOT/.mysite``, then exactly one qualifying
+    ``site-*`` or ``tendcf-public-*`` checkout.
     """
 
     env = os.environ if environ is None else environ
-    try:
-        ensure_private_companion(env)
-    except SiteDiscoveryError as exc:
-        raise AnsibleConfigError(str(exc)) from exc
     explicit = env.get("ANSIBLE_CONFIG", "").strip()
     site_dir_value = env.get("STAYTURGID_SITE_DIR", "").strip()
+    slug: str | None = None
+    private_dir: Path | None = None
     if explicit:
         config = _expand_path(explicit, base=Path.cwd()).resolve()
         source = "ANSIBLE_CONFIG"
@@ -113,9 +115,13 @@ def resolve_ansible_context(
         site_dir = selection.path
         config = (site_dir / "ansible.cfg").resolve()
         source = selection.source
+        slug = selection.slug
+        private_dir = selection.private_dir
 
     try:
         reject_private_companion_overlay(site_dir, env)
+        if private_dir is None:
+            private_dir = ensure_private_companion(env, site_dir=site_dir)
     except SiteDiscoveryError as exc:
         raise AnsibleConfigError(str(exc)) from exc
 
@@ -151,6 +157,8 @@ def resolve_ansible_context(
         inventories=inventories,
         collections_path=collections_path,
         source=source,
+        slug=slug,
+        private_dir=private_dir,
     )
     if announce:
         announce_site_selection(

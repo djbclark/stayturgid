@@ -124,7 +124,6 @@ class _NoRedirect(HTTPRedirectHandler):
 def _resolve_site(environ: Mapping[str, str]) -> SiteSelection:
     """Resolve the landing command's site using the product-wide precedence."""
 
-    ensure_private_companion(environ)
     explicit_config = environ.get("ANSIBLE_CONFIG", "").strip()
     explicit_site = environ.get("STAYTURGID_SITE_DIR", "").strip()
     if explicit_config:
@@ -142,6 +141,8 @@ def _resolve_site(environ: Mapping[str, str]) -> SiteSelection:
     else:
         selection = resolve_site_selection(environ)
     reject_private_companion_overlay(selection.path, environ)
+    if selection.private_dir is None:
+        ensure_private_companion(environ, site_dir=selection.path)
     if not selection.path.is_dir():
         raise SiteDiscoveryError(
             f"Selected site directory does not exist or is not a directory ({selection.source}): {selection.path}"
@@ -1166,7 +1167,7 @@ def load_must_be_up_ports(registry_path: Path | None = None, *, site_dir: Path |
         if e.get("must_be_up") is False:
             continue
         bind = str(e.get("bind") or "127.0.0.1")
-        out[e["port"]] = "127.0.0.1" if bind in LOOPBACK_HOSTS or bind in ("*", "0.0.0.0") else bind
+        out[e["port"]] = "127.0.0.1" if bind in LOOPBACK_HOSTS or bind in ("*", "0.0.0.0") else bind  # nosec B104
     return out
 
 

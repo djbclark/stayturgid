@@ -273,11 +273,6 @@ def resolve_site_dir(
     product = (product_root or REPO_ROOT).resolve()
     environ = env if env is not None else os.environ
 
-    try:
-        ensure_private_companion(environ)
-    except SiteDiscoveryError as exc:
-        raise SiteSyncError(str(exc)) from exc
-
     if dir_path and str(dir_path).strip():
         destination = Path(dir_path).expanduser()
         if not destination.is_absolute():
@@ -285,11 +280,13 @@ def resolve_site_dir(
         else:
             destination = destination.resolve()
         source = "dir="
+        private_ensured = False
     else:
         site_env = environ.get("STAYTURGID_SITE_DIR", "").strip()
         if site_env:
             destination = Path(site_env).expanduser().resolve()
             source = "STAYTURGID_SITE_DIR"
+            private_ensured = False
         else:
             try:
                 selection = resolve_site_selection(environ)
@@ -297,9 +294,12 @@ def resolve_site_dir(
                 raise SiteSyncError(str(exc)) from exc
             destination = selection.path
             source = selection.source
+            private_ensured = selection.private_dir is not None
 
     try:
         reject_private_companion_overlay(destination, environ)
+        if not private_ensured:
+            ensure_private_companion(environ, site_dir=destination)
     except SiteDiscoveryError as exc:
         raise SiteSyncError(str(exc)) from exc
     _reject_nested_in_product(destination, product)
