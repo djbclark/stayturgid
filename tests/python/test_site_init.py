@@ -550,6 +550,39 @@ def test_literal_private_destination_is_reserved_with_custom_companion(tmp_path:
         )
 
 
+def test_tendcf_private_destination_is_reserved(tmp_path: Path) -> None:
+    with pytest.raises(si.SiteInitError, match="reserved for the private companion"):
+        si.resolve_destination(
+            "example",
+            dir_path=str(tmp_path / "tendcf-private-alice"),
+            env={"TENDCF_OPS_ROOT": str(tmp_path)},
+            product_root=ROOT,
+        )
+
+
+def test_explicit_dir_with_tendcf_ops_root_without_selector_succeeds(tmp_path: Path) -> None:
+    tendcf_ops = tmp_path / "tendcf-ops"
+    tendcf_ops.mkdir()
+    dest = si.resolve_destination(
+        "example",
+        dir_path=str(tmp_path / "site-example"),
+        env={"HOME": str(tmp_path), "TENDCF_OPS_ROOT": str(tendcf_ops)},
+        product_root=ROOT,
+    )
+    assert dest == (tmp_path / "site-example").resolve()
+
+
+def test_bare_sitename_under_tendcf_ops_root_targets_tendcf_public(tmp_path: Path) -> None:
+    tendcf_ops = tmp_path / "tendcf-ops"
+    tendcf_ops.mkdir()
+    dest = si.resolve_destination(
+        "example",
+        env={"HOME": str(tmp_path), "TENDCF_OPS_ROOT": str(tendcf_ops)},
+        product_root=ROOT,
+    )
+    assert dest == (tendcf_ops / "tendcf-public-example").resolve()
+
+
 # --- Acceptance test 6: docs mode ------------------------------------------
 
 

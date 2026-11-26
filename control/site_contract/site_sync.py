@@ -29,6 +29,7 @@ from control.lib.site_discovery import (
     SiteSelection,
     announce_site_selection,
     ensure_private_companion,
+    expand_user_path,
     reject_private_companion_overlay,
     resolve_site_selection,
 )
@@ -273,33 +274,39 @@ def resolve_site_dir(
     product = (product_root or REPO_ROOT).resolve()
     environ = env if env is not None else os.environ
 
-    try:
-        ensure_private_companion(environ)
-    except SiteDiscoveryError as exc:
-        raise SiteSyncError(str(exc)) from exc
-
+    raw_destination: Path
     if dir_path and str(dir_path).strip():
-        destination = Path(dir_path).expanduser()
-        if not destination.is_absolute():
-            destination = (Path.cwd() / destination).resolve()
-        else:
-            destination = destination.resolve()
+        try:
+            raw_destination = expand_user_path(str(dir_path).strip(), environ, label="dir=")
+        except SiteDiscoveryError as exc:
+            raise SiteSyncError(str(exc)) from exc
+        if not raw_destination.is_absolute():
+            raw_destination = Path.cwd() / raw_destination
+        destination = raw_destination.resolve()
         source = "dir="
+        private_ensured = False
     else:
         site_env = environ.get("STAYTURGID_SITE_DIR", "").strip()
         if site_env:
-            destination = Path(site_env).expanduser().resolve()
+            try:
+                raw_destination = expand_user_path(site_env, environ, label="STAYTURGID_SITE_DIR")
+            except SiteDiscoveryError as exc:
+                raise SiteSyncError(str(exc)) from exc
+            destination = raw_destination.resolve()
             source = "STAYTURGID_SITE_DIR"
+            private_ensured = False
         else:
             try:
                 selection = resolve_site_selection(environ)
             except SiteDiscoveryError as exc:
                 raise SiteSyncError(str(exc)) from exc
+            raw_destination = selection.path
             destination = selection.path
             source = selection.source
+            private_ensured = selection.private_dir is not None
 
     try:
-        reject_private_companion_overlay(destination, environ)
+        reject_private_companion_overlay(raw_destination, environ)
     except SiteDiscoveryError as exc:
         raise SiteSyncError(str(exc)) from exc
     _reject_nested_in_product(destination, product)
@@ -308,6 +315,12 @@ def resolve_site_dir(
         raise SiteSyncError(f"site directory does not exist ({source}): {destination}")
     if not destination.is_dir():
         raise SiteSyncError(f"site path is not a directory ({source}): {destination}")
+
+    if not private_ensured:
+        try:
+            ensure_private_companion(environ, site_dir=destination)
+        except SiteDiscoveryError as exc:
+            raise SiteSyncError(str(exc)) from exc
 
     announce_site_selection(
         SiteSelection(path=destination, source=source),

@@ -267,3 +267,16 @@ def test_load_overlay_patterns_invalid_regex_is_fatal(tmp_path: Path, monkeypatc
     monkeypatch.setenv("ANSIBLE_CONFIG", str(site / "ansible.cfg"))
     with pytest.raises(ValueError, match="Invalid regex"):
         v.load_overlay_patterns(_ROOT)
+
+
+def test_load_overlay_patterns_explicit_tendcf_selector_error_is_fatal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tendcf_ops = tmp_path / "tendcf-ops"
+    tendcf_ops.mkdir()
+    monkeypatch.delenv("ANSIBLE_CONFIG", raising=False)
+    monkeypatch.delenv("STAYTURGID_SITE_DIR", raising=False)
+    monkeypatch.setenv("TENDCF_OPS_ROOT", str(tendcf_ops))
+    monkeypatch.setenv("TENDCF_SITE", "missing")
+    with pytest.raises(ValueError, match="Explicit site selector failed"):
+        v.load_overlay_patterns(_ROOT)

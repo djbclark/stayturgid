@@ -36,6 +36,7 @@ if str(_REPO_ROOT) not in sys.path:
 from control.lib.site_discovery import (  # noqa: E402
     SiteDiscoveryError,
     SiteSelection,
+    expand_user_path,
     reject_private_companion_overlay,
     resolve_site_selection,
 )
@@ -63,18 +64,25 @@ def _resolve_site_dir(environ: Mapping[str, str]) -> Path:
     """
     explicit_config = environ.get("ANSIBLE_CONFIG", "").strip()
     explicit_site = environ.get("STAYTURGID_SITE_DIR", "").strip()
+    raw_site_dir: Path
     if explicit_config:
-        config = Path(explicit_config).expanduser()
-        if not config.is_absolute():
-            config = (Path.cwd() / config).resolve()
+        raw_config = expand_user_path(explicit_config, environ, label="ANSIBLE_CONFIG")
+        if not raw_config.is_absolute():
+            raw_config = Path.cwd() / raw_config
+        raw_site_dir = raw_config.parent
+        config = raw_config.resolve()
         if not config.is_file():
             raise SiteDiscoveryError(f"ANSIBLE_CONFIG points to a missing file: {config}")
-        selection = SiteSelection(path=config.parent.resolve(), source="ANSIBLE_CONFIG")
+        selection = SiteSelection(path=config.parent, source="ANSIBLE_CONFIG")
     elif explicit_site:
-        selection = SiteSelection(path=Path(explicit_site).expanduser().resolve(), source="STAYTURGID_SITE_DIR")
+        raw_site_dir = expand_user_path(explicit_site, environ, label="STAYTURGID_SITE_DIR")
+        selection = SiteSelection(path=raw_site_dir.resolve(), source="STAYTURGID_SITE_DIR")
     else:
         selection = resolve_site_selection(environ)
-    reject_private_companion_overlay(selection.path, environ)
+        raw_site_dir = selection.path
+    reject_private_companion_overlay(raw_site_dir, environ)
+    if selection.path != raw_site_dir:
+        reject_private_companion_overlay(selection.path, environ)
     if not selection.path.is_dir():
         raise SiteDiscoveryError(
             f"Selected site directory does not exist or is not a directory ({selection.source}): {selection.path}"

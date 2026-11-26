@@ -13,14 +13,22 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal, Sequence, TextIO
 
-from control.lib.site_discovery import DEFAULT_PRIVATE_COMPANION_NAME, private_companion_path
+from control.lib.site_discovery import (
+    DEFAULT_PRIVATE_COMPANION_NAME,
+    TENDCF_PUBLIC_PREFIX,
+    SiteDiscoveryError,
+    expand_user_path,
+    is_strict_tendcf_root,
+    ops_root,
+    reject_private_companion_overlay,
+    validate_site_slug,
+)
 from control.site_contract.site_map import SiteMap, SiteMapError, is_physically_within, load_site_map
 
 try:
@@ -83,11 +91,10 @@ class InitPlan:
 
 
 def _ops_root(env: dict[str, str] | None = None) -> Path:
-    environ = env if env is not None else os.environ
-    raw = environ.get("OPS_ROOT", "").strip()
-    if raw:
-        return Path(raw).expanduser().resolve()
-    return (Path.home() / "ops").resolve()
+    try:
+        return ops_root(env)
+    except SiteDiscoveryError as exc:
+        raise SiteInitError(str(exc)) from exc
 
 
 def validate_site_name(site_name: str) -> str:
@@ -126,16 +133,29 @@ def resolve_destination(
     name = validate_site_name(site_name)
     product = (product_root or REPO_ROOT).resolve()
     if dir_path and dir_path.strip():
-        destination = Path(dir_path).expanduser()
-        if not destination.is_absolute():
-            destination = (Path.cwd() / destination).resolve()
-        else:
-            destination = destination.resolve()
+        try:
+            raw_destination = expand_user_path(dir_path.strip(), env, label="dir=")
+        except SiteDiscoveryError as exc:
+            raise SiteInitError(str(exc)) from exc
+        if not raw_destination.is_absolute():
+            raw_destination = Path.cwd() / raw_destination
+        destination = raw_destination.resolve()
     else:
-        destination = (_ops_root(env) / f"site-{name}").resolve()
+        root = _ops_root(env)
+        if is_strict_tendcf_root(env):
+            try:
+                slug = validate_site_slug(name, label="sitename")
+            except SiteDiscoveryError as exc:
+                raise SiteInitError(str(exc)) from exc
+            raw_destination = root / f"{TENDCF_PUBLIC_PREFIX}{slug}"
+        else:
+            raw_destination = root / f"site-{name}"
+        destination = raw_destination.resolve()
 
-    if destination.name == DEFAULT_PRIVATE_COMPANION_NAME or destination == private_companion_path(env).resolve():
-        raise SiteInitError(f"destination {destination} is reserved for the private companion, not a site overlay")
+    try:
+        reject_private_companion_overlay(raw_destination, env)
+    except SiteDiscoveryError as exc:
+        raise SiteInitError(str(exc)) from exc
     _reject_nested_in_product(destination, product)
     return destination
 

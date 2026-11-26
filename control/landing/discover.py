@@ -34,6 +34,8 @@ from control.lib.site_discovery import (
     SiteSelection,
     announce_site_selection,
     ensure_private_companion,
+    expand_user_path,
+    extract_tendcf_public_slug,
     reject_private_companion_overlay,
     resolve_site_selection,
 )
@@ -124,28 +126,42 @@ class _NoRedirect(HTTPRedirectHandler):
 def _resolve_site(environ: Mapping[str, str]) -> SiteSelection:
     """Resolve the landing command's site using the product-wide precedence."""
 
-    ensure_private_companion(environ)
     explicit_config = environ.get("ANSIBLE_CONFIG", "").strip()
     explicit_site = environ.get("STAYTURGID_SITE_DIR", "").strip()
+    raw_site_dir: Path
     if explicit_config:
-        config = Path(explicit_config).expanduser()
-        if not config.is_absolute():
-            config = (Path.cwd() / config).resolve()
+        raw_config = expand_user_path(explicit_config, environ, label="ANSIBLE_CONFIG")
+        if not raw_config.is_absolute():
+            raw_config = Path.cwd() / raw_config
+        raw_site_dir = raw_config.parent
+        config = raw_config.resolve()
         if not config.is_file():
             raise SiteDiscoveryError(f"ANSIBLE_CONFIG points to a missing file: {config}")
-        selection = SiteSelection(path=config.parent.resolve(), source="ANSIBLE_CONFIG")
-    elif explicit_site:
         selection = SiteSelection(
-            path=Path(explicit_site).expanduser().resolve(),
+            path=config.parent,
+            source="ANSIBLE_CONFIG",
+            slug=extract_tendcf_public_slug(config.parent.name),
+        )
+    elif explicit_site:
+        raw_site_dir = expand_user_path(explicit_site, environ, label="STAYTURGID_SITE_DIR")
+        resolved_site = raw_site_dir.resolve()
+        selection = SiteSelection(
+            path=resolved_site,
             source="STAYTURGID_SITE_DIR",
+            slug=extract_tendcf_public_slug(resolved_site.name),
         )
     else:
         selection = resolve_site_selection(environ)
-    reject_private_companion_overlay(selection.path, environ)
+        raw_site_dir = selection.path
+    reject_private_companion_overlay(raw_site_dir, environ)
+    if selection.path != raw_site_dir:
+        reject_private_companion_overlay(selection.path, environ)
     if not selection.path.is_dir():
         raise SiteDiscoveryError(
             f"Selected site directory does not exist or is not a directory ({selection.source}): {selection.path}"
         )
+    if selection.private_dir is None:
+        ensure_private_companion(environ, site_dir=selection.path)
     return selection
 
 
@@ -1166,7 +1182,7 @@ def load_must_be_up_ports(registry_path: Path | None = None, *, site_dir: Path |
         if e.get("must_be_up") is False:
             continue
         bind = str(e.get("bind") or "127.0.0.1")
-        out[e["port"]] = "127.0.0.1" if bind in LOOPBACK_HOSTS or bind in ("*", "0.0.0.0") else bind
+        out[e["port"]] = "127.0.0.1" if bind in LOOPBACK_HOSTS or bind in ("*", "0.0.0.0") else bind  # nosec B104
     return out
 
 

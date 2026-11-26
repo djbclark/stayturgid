@@ -435,3 +435,126 @@ def test_require_fresh_checkout_skips_non_git_directory(tmp_path):
     plain.mkdir()
 
     ac.require_fresh_checkout(plain, {})  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# Stage 0 dual-read (frdminc/tendcf#98): ~/tendcf-ops + pair-bound selection
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_ansible_context_from_tendcf_ops_and_tendcf_site(tmp_path):
+    repo = tmp_path / "product"
+    (repo / "ansible").mkdir(parents=True)
+    write_config(repo / "ansible")
+    tendcf_ops = tmp_path / "tendcf-ops"
+    config = make_site(tendcf_ops, "tendcf-public-alice")
+    make_site(tendcf_ops, "tendcf-public-bob")
+
+    context = ac.resolve_ansible_context(
+        repo,
+        {"TENDCF_OPS_ROOT": str(tendcf_ops), "TENDCF_SITE": "alice"},
+    )
+
+    assert context.source == "TENDCF_SITE"
+    assert context.config == config.resolve()
+    assert context.slug == "alice"
+    assert context.private_dir == (tendcf_ops / "tendcf-private-alice").resolve()
+    assert (tendcf_ops / "tendcf-private-alice").is_dir()
+    assert not (tendcf_ops / "site-private").exists()
+    ac.require_inventory(context)
+
+
+def test_resolve_ansible_context_rejects_tendcf_private_overlay(tmp_path):
+    repo = tmp_path / "product"
+    tendcf_ops = tmp_path / "tendcf-ops"
+    priv = tendcf_ops / "tendcf-private-alice"
+    priv.mkdir(parents=True)
+    write_config(priv)
+
+    with pytest.raises(ac.AnsibleConfigError, match="reserved for the private companion"):
+        ac.resolve_ansible_context(
+            repo,
+            {"TENDCF_OPS_ROOT": str(tendcf_ops), "STAYTURGID_SITE_DIR": str(priv)},
+        )
+
+
+def test_resolve_ansible_context_explicit_tendcf_public_pairs_private_without_site_private(tmp_path):
+    repo = tmp_path / "product"
+    tendcf_ops = tmp_path / "tendcf-ops"
+    config = make_site(tendcf_ops, "tendcf-public-alice")
+
+    context = ac.resolve_ansible_context(
+        repo,
+        {
+            "TENDCF_OPS_ROOT": str(tendcf_ops),
+            "STAYTURGID_SITE_DIR": str(tendcf_ops / "tendcf-public-alice"),
+        },
+    )
+
+    assert context.config == config.resolve()
+    assert context.slug == "alice"
+    assert context.private_dir == (tendcf_ops / "tendcf-private-alice").resolve()
+    assert (tendcf_ops / "tendcf-private-alice").is_dir()
+    assert not (tendcf_ops / "site-private").exists()
+
+
+def test_resolve_ansible_context_missing_tendcf_public_does_not_create_private_dir(tmp_path):
+    repo = tmp_path / "product"
+    missing_parent = tmp_path / "nonexistent-root"
+
+    with pytest.raises(ac.AnsibleConfigError, match="missing"):
+        ac.resolve_ansible_context(
+            repo,
+            {"STAYTURGID_SITE_DIR": str(missing_parent / "tendcf-public-typo")},
+        )
+
+    assert not missing_parent.exists()
+
+
+def test_resolve_ansible_context_explicit_site_works_with_tendcf_ops_root_without_selector(tmp_path):
+    home = tmp_path / "home"
+    tendcf_ops = home / "tendcf-ops"
+    tendcf_ops.mkdir(parents=True)
+    repo = tmp_path / "product"
+    config = make_site(tmp_path / "custom", "my-site")
+
+    context = ac.resolve_ansible_context(
+        repo,
+        {
+            "HOME": str(home),
+            "TENDCF_OPS_ROOT": str(tendcf_ops),
+            "ANSIBLE_CONFIG": str(config),
+        },
+    )
+
+    assert context.config == config.resolve()
+    assert not (tendcf_ops / "site-private").exists()
+
+
+def test_resolve_ansible_context_rejects_symlinked_ansible_cfg_into_private_companion(tmp_path):
+    repo = tmp_path / "product"
+    tendcf_ops = tmp_path / "tendcf-ops"
+    priv = tendcf_ops / "tendcf-private-alice"
+    priv.mkdir(parents=True)
+    priv_cfg = write_config(priv)
+    wrapper = tmp_path / "wrapper"
+    wrapper.mkdir()
+    link_cfg = wrapper / "ansible.cfg"
+    link_cfg.symlink_to(priv_cfg)
+
+    with pytest.raises(ac.AnsibleConfigError, match="reserved for the private companion"):
+        ac.resolve_ansible_context(
+            repo,
+            {"TENDCF_OPS_ROOT": str(tendcf_ops), "ANSIBLE_CONFIG": str(link_cfg)},
+        )
+
+
+def test_resolve_ansible_context_tendcf_ops_without_selector_fails_closed(tmp_path):
+    repo = tmp_path / "product"
+    tendcf_ops = tmp_path / "tendcf-ops"
+    make_site(tendcf_ops, "tendcf-public-alice")
+
+    with pytest.raises(ac.AnsibleConfigError, match="never globs a sole directory"):
+        ac.resolve_ansible_context(repo, {"TENDCF_OPS_ROOT": str(tendcf_ops)})
+
+    assert not (tendcf_ops / "site-private").exists()
