@@ -346,6 +346,8 @@ def resolve_inventory_paths(
 
     env = os.environ if environ is None else environ
     explicit_config = env.get("ANSIBLE_CONFIG", "").strip()
+    explicit_tendcf = "TENDCF_SITE" in env or "TENDCF_OPS_ROOT" in env
+    explicit_selector = bool(explicit_config) or explicit_tendcf
 
     root = repo_root if repo_root is not None else _find_repo_root()
     try:
@@ -353,12 +355,12 @@ def resolve_inventory_paths(
         existing = tuple(p for p in context.inventory_paths if p.exists())
         if existing and context.inventory.exists():
             return existing
-        if explicit_config:
+        if explicit_selector:
             raise ac.AnsibleConfigError(
-                f"ANSIBLE_CONFIG {context.config} selects a missing inventory: {context.inventory}"
+                f"{context.source} {context.config} selects a missing inventory: {context.inventory}"
             )
     except ac.AnsibleConfigError:
-        if explicit_config:
+        if explicit_selector:
             raise
 
     example = root / "ansible" / "inventory" / "hosts.yml.example"

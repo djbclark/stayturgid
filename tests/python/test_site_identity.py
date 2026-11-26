@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+import ansible_context as ac
 import pytest
 import site_identity as si
 
@@ -526,6 +527,18 @@ def test_resolve_inventory_path_unconfigured_falls_back_to_example(tmp_path: Pat
         environ={"OPS_ROOT": str(tmp_path / "empty-ops")},
     )
     assert resolved == root / "ansible" / "inventory" / "hosts.yml.example"
+
+
+def test_resolve_inventory_path_explicit_tendcf_selector_error_does_not_downgrade(tmp_path: Path) -> None:
+    root = _repo_root_with_example(tmp_path)
+    tendcf_ops = tmp_path / "tendcf-ops"
+    tendcf_ops.mkdir()
+
+    with pytest.raises(ac.AnsibleConfigError):
+        si.resolve_inventory_path(
+            repo_root=root,
+            environ={"TENDCF_OPS_ROOT": str(tendcf_ops), "TENDCF_SITE": "missing"},
+        )
 
 
 def _repo_root_with_example(tmp_path: Path) -> Path:

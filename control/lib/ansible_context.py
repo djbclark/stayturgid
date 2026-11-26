@@ -16,6 +16,8 @@ if __package__:
         SiteSelection,
         announce_site_selection,
         ensure_private_companion,
+        expand_user_path,
+        extract_tendcf_public_slug,
         reject_private_companion_overlay,
         resolve_site_selection,
     )
@@ -25,6 +27,8 @@ else:  # direct import with control/lib on sys.path
         SiteSelection,
         announce_site_selection,
         ensure_private_companion,
+        expand_user_path,
+        extract_tendcf_public_slug,
         reject_private_companion_overlay,
         resolve_site_selection,
     )
@@ -99,19 +103,33 @@ def resolve_ansible_context(
     site_dir_value = env.get("STAYTURGID_SITE_DIR", "").strip()
     slug: str | None = None
     private_dir: Path | None = None
+    raw_site_dir: Path
     if explicit:
-        config = _expand_path(explicit, base=Path.cwd()).resolve()
+        try:
+            raw_config = expand_user_path(explicit, env, label="ANSIBLE_CONFIG")
+        except SiteDiscoveryError as exc:
+            raise AnsibleConfigError(str(exc)) from exc
+        raw_config = raw_config if raw_config.is_absolute() else (Path.cwd() / raw_config)
+        raw_site_dir = raw_config.parent
+        config = raw_config.resolve()
         source = "ANSIBLE_CONFIG"
         site_dir = config.parent
+        slug = extract_tendcf_public_slug(site_dir.name)
     elif site_dir_value:
-        site_dir = Path(site_dir_value).expanduser().resolve()
+        try:
+            raw_site_dir = expand_user_path(site_dir_value, env, label="STAYTURGID_SITE_DIR")
+        except SiteDiscoveryError as exc:
+            raise AnsibleConfigError(str(exc)) from exc
+        site_dir = raw_site_dir.resolve()
         config = (site_dir / "ansible.cfg").resolve()
         source = "STAYTURGID_SITE_DIR"
+        slug = extract_tendcf_public_slug(site_dir.name)
     else:
         try:
             selection = resolve_site_selection(env, require_ansible_config=True)
         except SiteDiscoveryError as exc:
             raise AnsibleConfigError(str(exc)) from exc
+        raw_site_dir = selection.path
         site_dir = selection.path
         config = (site_dir / "ansible.cfg").resolve()
         source = selection.source
@@ -119,9 +137,7 @@ def resolve_ansible_context(
         private_dir = selection.private_dir
 
     try:
-        reject_private_companion_overlay(site_dir, env)
-        if private_dir is None:
-            private_dir = ensure_private_companion(env, site_dir=site_dir)
+        reject_private_companion_overlay(raw_site_dir, env)
     except SiteDiscoveryError as exc:
         raise AnsibleConfigError(str(exc)) from exc
 
@@ -132,6 +148,12 @@ def resolve_ansible_context(
             f"Selected {source} Ansible config is missing: {config}. "
             "Set ANSIBLE_CONFIG or STAYTURGID_SITE_DIR to a valid site overlay."
         )
+
+    if private_dir is None:
+        try:
+            private_dir = ensure_private_companion(env, site_dir=site_dir)
+        except SiteDiscoveryError as exc:
+            raise AnsibleConfigError(str(exc)) from exc
 
     inventory_value = _config_value(config, "inventory")
     if not inventory_value:

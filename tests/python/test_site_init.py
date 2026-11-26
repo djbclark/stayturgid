@@ -560,6 +560,18 @@ def test_tendcf_private_destination_is_reserved(tmp_path: Path) -> None:
         )
 
 
+def test_explicit_dir_with_tendcf_ops_root_without_selector_succeeds(tmp_path: Path) -> None:
+    tendcf_ops = tmp_path / "tendcf-ops"
+    tendcf_ops.mkdir()
+    dest = si.resolve_destination(
+        "example",
+        dir_path=str(tmp_path / "site-example"),
+        env={"HOME": str(tmp_path), "TENDCF_OPS_ROOT": str(tendcf_ops)},
+        product_root=ROOT,
+    )
+    assert dest == (tmp_path / "site-example").resolve()
+
+
 # --- Acceptance test 6: docs mode ------------------------------------------
 
 

@@ -492,8 +492,42 @@ def test_resolve_ansible_context_explicit_tendcf_public_pairs_private_without_si
     )
 
     assert context.config == config.resolve()
+    assert context.slug == "alice"
     assert context.private_dir == (tendcf_ops / "tendcf-private-alice").resolve()
     assert (tendcf_ops / "tendcf-private-alice").is_dir()
+    assert not (tendcf_ops / "site-private").exists()
+
+
+def test_resolve_ansible_context_missing_tendcf_public_does_not_create_private_dir(tmp_path):
+    repo = tmp_path / "product"
+    missing_parent = tmp_path / "nonexistent-root"
+
+    with pytest.raises(ac.AnsibleConfigError, match="missing"):
+        ac.resolve_ansible_context(
+            repo,
+            {"STAYTURGID_SITE_DIR": str(missing_parent / "tendcf-public-typo")},
+        )
+
+    assert not missing_parent.exists()
+
+
+def test_resolve_ansible_context_explicit_site_works_with_tendcf_ops_root_without_selector(tmp_path):
+    home = tmp_path / "home"
+    tendcf_ops = home / "tendcf-ops"
+    tendcf_ops.mkdir(parents=True)
+    repo = tmp_path / "product"
+    config = make_site(tmp_path / "custom", "my-site")
+
+    context = ac.resolve_ansible_context(
+        repo,
+        {
+            "HOME": str(home),
+            "TENDCF_OPS_ROOT": str(tendcf_ops),
+            "ANSIBLE_CONFIG": str(config),
+        },
+    )
+
+    assert context.config == config.resolve()
     assert not (tendcf_ops / "site-private").exists()
 
 

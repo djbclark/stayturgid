@@ -514,3 +514,122 @@ def test_tendcf_ops_root_empty_or_relative_fails_closed(tmp_path: Path) -> None:
         sd.resolve_site_selection({"TENDCF_OPS_ROOT": "relative/tendcf-ops"})
     with pytest.raises(sd.SiteDiscoveryError, match="TENDCF_OPS_ROOT"):
         sd.resolve_site_selection({"TENDCF_OPS_ROOT": str(tmp_path / ".." / "escape")})
+    with pytest.raises(sd.SiteDiscoveryError, match="whitespace"):
+        sd.resolve_site_selection({"TENDCF_OPS_ROOT": f"{tmp_path / 'tendcf-ops'}\n"})
+
+
+# --- Adversary R1 regression tests (HIGH-1..5, MEDIUM-1..2, LOW-1) ----------
+
+
+def test_high1_partial_rename_in_legacy_ops_does_not_self_brick(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    pub = _site(ops, "tendcf-public-alice", ansible=True)
+    priv = _site(ops, "site-private-alice")
+    env = {"OPS_ROOT": str(ops), "TENDCF_SITE": "alice"}
+
+    first = sd.resolve_site_selection(env, require_ansible_config=True)
+    second = sd.resolve_site_selection(env, require_ansible_config=True)
+
+    assert first.path == pub.resolve()
+    assert first.private_dir == priv.resolve()
+    assert second == first
+    assert not (ops / "tendcf-private-alice").exists()
+
+
+def test_high1_stage2_bridge_symlink_on_private_companion_works_in_legacy_ops(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    pub = _site(ops, "tendcf-public-alice", ansible=True)
+    real_priv = _site(ops, "site-private-alice")
+    (ops / "tendcf-private-alice").symlink_to(real_priv, target_is_directory=True)
+    env = {"OPS_ROOT": str(ops), "TENDCF_SITE": "alice"}
+
+    selection = sd.resolve_site_selection(env, require_ansible_config=True)
+
+    assert selection.path == pub.resolve()
+    assert selection.private_dir == real_priv.resolve()
+
+
+def test_high2_legacy_ops_tendcf_site_rejects_symlinked_private_overlay(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    priv = _site(ops, "site-private-alice", ansible=True)
+    (ops / "site-public-alice").symlink_to(priv, target_is_directory=True)
+
+    with pytest.raises(sd.SiteDiscoveryError, match="reserved for the private companion"):
+        sd.resolve_site_selection({"OPS_ROOT": str(ops), "TENDCF_SITE": "alice"}, require_ansible_config=True)
+
+
+@pytest.mark.parametrize("name", ["Site-Private", "SITE-PRIVATE-ALICE", "Tendcf-Private", "TENDCF-PRIVATE-ALICE"])
+def test_high3_reserved_private_names_are_case_insensitive(name: str) -> None:
+    assert sd.is_reserved_private_name(name) is True
+
+
+def test_high3_reserved_private_symlink_name_rejected_before_resolve(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    real_site = _site(tmp_path / "elsewhere", "real-site", ansible=True)
+    ops.mkdir()
+    reserved_link = ops / "tendcf-private-alice"
+    reserved_link.symlink_to(real_site, target_is_directory=True)
+
+    with pytest.raises(sd.SiteDiscoveryError, match="reserved for the private companion"):
+        sd.reject_private_companion_overlay(reserved_link, {"OPS_ROOT": str(ops)})
+
+
+def test_high5_cross_slug_and_cross_root_pairing_rejected(tmp_path: Path) -> None:
+    root_a = tmp_path / "root-a" / "tendcf-ops"
+    root_b = tmp_path / "root-b" / "tendcf-ops"
+    _site(root_a, "tendcf-public-alice", ansible=True)
+    bob_legacy = _site(tmp_path / "ops", "site-public-bob", ansible=True)
+    alice_other_root = _site(root_b, "tendcf-public-alice", ansible=True)
+
+    with pytest.raises(sd.SiteDiscoveryError, match="Cross-site pairing mismatch"):
+        sd.private_companion_path(
+            {"TENDCF_OPS_ROOT": str(root_a), "TENDCF_SITE": "alice"},
+            site_dir=bob_legacy,
+        )
+    with pytest.raises(sd.SiteDiscoveryError, match="Cross-root pairing mismatch"):
+        sd.private_companion_path(
+            {"TENDCF_OPS_ROOT": str(root_a), "TENDCF_SITE": "alice"},
+            site_dir=alice_other_root,
+        )
+
+
+def test_high5_explicit_override_works_when_tendcf_ops_root_set_without_selector(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    tendcf_ops = home / "tendcf-ops"
+    tendcf_ops.mkdir(parents=True)
+    custom_site = _site(tmp_path / "custom", "my-site", ansible=True)
+
+    selection = landing_discover._resolve_site(
+        {
+            "HOME": str(home),
+            "TENDCF_OPS_ROOT": str(tendcf_ops),
+            "STAYTURGID_SITE_DIR": str(custom_site),
+        }
+    )
+
+    assert selection.path == custom_site.resolve()
+    assert not (tendcf_ops / "site-private").exists()
+
+
+def test_medium2_cross_root_bridge_and_mysite_pair_sibling_tendcf_private_without_ops_site_private(
+    tmp_path: Path,
+) -> None:
+    ops = tmp_path / "ops"
+    ops.mkdir()
+    tendcf_ops = tmp_path / "tendcf-ops"
+    real_pub = _site(tendcf_ops, "tendcf-public-alice", ansible=True)
+    real_priv = _site(tendcf_ops, "tendcf-private-alice")
+    (ops / "site-public-alice").symlink_to(real_pub, target_is_directory=True)
+
+    sel_glob = sd.resolve_site_selection({"OPS_ROOT": str(ops)}, require_ansible_config=True)
+    assert sel_glob.path == real_pub.resolve()
+    assert sel_glob.slug == "alice"
+    assert sel_glob.private_dir == real_priv.resolve()
+    assert not (ops / "site-private").exists()
+
+    (ops / ".mysite").symlink_to(real_pub, target_is_directory=True)
+    sel_mysite = sd.resolve_site_selection({"OPS_ROOT": str(ops)}, require_ansible_config=True)
+    assert sel_mysite.path == real_pub.resolve()
+    assert sel_mysite.slug == "alice"
+    assert sel_mysite.private_dir == real_priv.resolve()
+    assert not (ops / "site-private").exists()

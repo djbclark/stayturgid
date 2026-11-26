@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -193,7 +194,13 @@ def load_overlay_patterns(root: Path) -> list[tuple[str, str]]:
 
     try:
         context = ac.resolve_ansible_context(root)
-    except ac.AnsibleConfigError:
+    except ac.AnsibleConfigError as exc:
+        if (
+            os.environ.get("ANSIBLE_CONFIG", "").strip()
+            or "TENDCF_SITE" in os.environ
+            or "TENDCF_OPS_ROOT" in os.environ
+        ):
+            raise ValueError(f"Explicit site selector failed while loading overlay patterns: {exc}") from exc
         return []
     patterns_file = context.config.parent / "registry" / "identity-patterns.yml"
     if not patterns_file.is_file():

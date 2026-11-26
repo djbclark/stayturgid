@@ -738,3 +738,32 @@ def test_product_file_filter_no_silent_fallback_when_explicit_root_given(tmp_pat
         assert str(product) in str(exc)
     else:
         raise AssertionError("expected SiteSyncError for missing explicit product file")
+
+
+def test_site_sync_nested_tendcf_public_in_product_does_not_create_private_companion(tmp_path: Path) -> None:
+    fake_product = tmp_path / "product"
+    fake_product.mkdir()
+    nested_pub = fake_product / "tendcf-public-alice"
+    nested_pub.mkdir()
+
+    try:
+        ss.resolve_site_dir(dir_path=str(nested_pub), product_root=fake_product, env={"HOME": str(tmp_path)})
+    except ss.SiteSyncError as exc:
+        assert "product" in str(exc).lower()
+    else:
+        raise AssertionError("expected SiteSyncError for product-nested overlay")
+
+    assert not (fake_product / "tendcf-private-alice").exists()
+
+
+def test_site_sync_missing_tendcf_public_does_not_create_private_companion(tmp_path: Path) -> None:
+    missing_root = tmp_path / "does-not-exist"
+
+    try:
+        ss.resolve_site_dir(dir_path=str(missing_root / "tendcf-public-typo"), env={"HOME": str(tmp_path)})
+    except ss.SiteSyncError as exc:
+        assert "does not exist" in str(exc)
+    else:
+        raise AssertionError("expected SiteSyncError for missing site directory")
+
+    assert not missing_root.exists()
