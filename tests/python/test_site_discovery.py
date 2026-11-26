@@ -654,3 +654,38 @@ def test_r2_high1_landing_rejects_symlinked_ansible_cfg_into_private_companion(t
 
     with pytest.raises(sd.SiteDiscoveryError, match="reserved for the private companion"):
         landing_discover._resolve_site({"TENDCF_OPS_ROOT": str(tendcf_ops), "ANSIBLE_CONFIG": str(link_cfg)})
+
+
+def test_active_site_file_with_legacy_ops_preserves_paired_site_private(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    ops = home / "ops"
+    pub = _site(ops, "site-public-alice", ansible=True)
+    priv = _site(ops, "site-private-alice")
+    cfg = home / ".config" / "tendcf" / "active-site"
+    cfg.parent.mkdir(parents=True)
+    cfg.write_text("alice\n", encoding="utf-8")
+
+    selection = sd.resolve_site_selection({"HOME": str(home)}, require_ansible_config=True)
+
+    assert selection.path == pub.resolve()
+    assert selection.slug == "alice"
+    assert selection.private_dir == priv.resolve()
+    assert not (ops / "site-private").exists()
+
+
+def test_partial_rename_without_selector_reuses_legacy_site_private(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    pub = _site(ops, "tendcf-public-alice", ansible=True)
+    priv = _site(ops, "site-private-alice")
+
+    selection = sd.resolve_site_selection({"OPS_ROOT": str(ops)}, require_ansible_config=True)
+    assert selection.path == pub.resolve()
+    assert selection.private_dir == priv.resolve()
+    assert not (ops / "tendcf-private-alice").exists()
+
+    paired = sd.private_companion_path(
+        {"OPS_ROOT": str(ops), "STAYTURGID_SITE_DIR": str(pub), "STAYTURGID_PRIVATE_DIR": str(priv)},
+        site_dir=pub,
+    )
+    assert paired == priv.resolve()
+    assert not (ops / "tendcf-private-alice").exists()

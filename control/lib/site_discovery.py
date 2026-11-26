@@ -614,7 +614,12 @@ def private_companion_path(
         return paired
 
     if explicit_site is not None and explicit_family == "tendcf" and explicit_slug is not None:
-        paired = explicit_site.parent / f"{TENDCF_PRIVATE_PREFIX}{explicit_slug}"
+        strict_root = _strict_tendcf_root(env)
+        in_strict_parent = strict_root is not None and _paths_equal_or_samefile(explicit_site.parent, strict_root)
+        if in_strict_parent:
+            paired = explicit_site.parent / f"{TENDCF_PRIVATE_PREFIX}{explicit_slug}"
+        else:
+            paired = _resolve_legacy_slug_private(explicit_site.parent, explicit_slug, prefer_tendcf=True)
         _ensure_no_private_pairing_drift(env, explicit_site.parent, paired, slug=explicit_slug)
         return paired
 
@@ -639,6 +644,29 @@ def private_companion_path(
         )
 
     return root / DEFAULT_PRIVATE_COMPANION_NAME
+
+
+def _ensure_private_dir(path: Path, *, enforce_strict: bool) -> Path:
+    """Create (0o700) and verify a resolved private-companion directory."""
+
+    if enforce_strict and path.parent.is_dir():
+        resolved_parent = _safe_resolve(path.parent, label="private companion parent", strict=True)
+        _check_exact_site_dir(resolved_parent, path.name, required=False)
+
+    try:
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    except OSError as exc:
+        raise SiteDiscoveryError(f"Cannot create private companion directory {path}: {exc}") from exc
+
+    if enforce_strict:
+        resolved_parent = _safe_resolve(path.parent, label="private companion parent", strict=True)
+        verified = _check_exact_site_dir(resolved_parent, path.name, required=True)
+        assert verified is not None
+        return verified
+
+    if not path.is_dir():
+        raise SiteDiscoveryError(f"Private companion path is not a directory: {path}")
+    return _safe_resolve(path, label="private companion")
 
 
 def ensure_private_companion(
@@ -666,25 +694,7 @@ def ensure_private_companion(
             and _paths_equal_or_samefile(_safe_resolve(path.parent, label="private companion parent"), strict_root)
         )
     )
-
-    if enforce_strict and path.parent.is_dir():
-        resolved_parent = _safe_resolve(path.parent, label="private companion parent", strict=True)
-        _check_exact_site_dir(resolved_parent, path.name, required=False)
-
-    try:
-        path.mkdir(mode=0o700, parents=True, exist_ok=True)
-    except OSError as exc:
-        raise SiteDiscoveryError(f"Cannot create private companion directory {path}: {exc}") from exc
-
-    if enforce_strict:
-        resolved_parent = _safe_resolve(path.parent, label="private companion parent", strict=True)
-        verified = _check_exact_site_dir(resolved_parent, path.name, required=True)
-        assert verified is not None
-        return verified
-
-    if not path.is_dir():
-        raise SiteDiscoveryError(f"Private companion path is not a directory: {path}")
-    return _safe_resolve(path, label="private companion")
+    return _ensure_private_dir(path, enforce_strict=enforce_strict)
 
 
 def is_reserved_private_name(name: str) -> bool:
@@ -744,6 +754,9 @@ def _pair_for_discovered_tendcf_overlay(
         return slug, _safe_resolve(sibling_priv, label="tendcf private companion")
     if not _paths_equal_or_samefile(selected_path.parent, root) and root_priv.is_dir():
         return slug, _safe_resolve(root_priv, label="tendcf private companion")
+    legacy_sibling_priv = selected_path.parent / f"{PRIVATE_PREFIX}{slug}"
+    if not (sibling_priv.exists() or sibling_priv.is_symlink()) and legacy_sibling_priv.is_dir():
+        return slug, _safe_resolve(legacy_sibling_priv, label="site private companion")
     return slug, ensure_private_companion(env, site_dir=selected_path, strict_tendcf=False)
 
 
@@ -779,7 +792,7 @@ def resolve_site_selection(
             raise SiteDiscoveryError(
                 f"Selected {selector_source} site overlay is missing ansible.cfg: {pub / 'ansible.cfg'}"
             )
-        ensured_priv = ensure_private_companion(env, site_dir=pub, strict_tendcf=strict_tendcf)
+        ensured_priv = _ensure_private_dir(priv, enforce_strict=strict_tendcf)
         return SiteSelection(
             path=pub,
             source=selector_source,
